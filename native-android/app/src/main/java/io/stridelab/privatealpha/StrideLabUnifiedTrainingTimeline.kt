@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -138,8 +139,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
     onOpenWorkout: (String, String) -> Unit,
     onOpenActivity: (String) -> Unit,
     onSignIn: () -> Unit,
-    onManage: (String, LocalDate) -> Unit,
-    onLoadCachedDetail: (suspend (String) -> Boolean)? = null
+    onManage: (String, LocalDate) -> Unit
 ) {
     val account = state.account
     val hasLocalGarmin = state.localGarminIds.isNotEmpty()
@@ -150,8 +150,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
     var selectedPlanId by rememberSaveable(planProfile) { mutableStateOf<String?>(null) }
     var showTools by rememberSaveable(planProfile) { mutableStateOf(false) }
     val active = approved.firstOrNull { it.id == selectedPlanId } ?: approved.firstOrNull()
-    val pendingReview = plans.any { it.status == "draft" || it.status == "paused" }
-    val pendingDrafts = plans.count { it.status == "draft" }
+    val pendingReview = plans.any { it.status == "paused" }
     var agendaView by rememberSaveable(planProfile) { mutableStateOf(false) }
     var weekOnlyFilter by rememberSaveable(planProfile) { mutableStateOf(true) }
     var selectedDayText by rememberSaveable(planProfile, active?.id) {
@@ -337,6 +336,11 @@ internal fun StrideLabUnifiedTrainingTimeline(
                 ),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                if (active != null) item(key = "training-create-plan") {
+                    OutlinedButton(onClick = onBuild, modifier = Modifier.fillMaxWidth().testTag("training-create-plan")) {
+                        Text("Create another plan")
+                    }
+                }
                 if (active == null) item(key = "training-no-plan-week-strip") {
                     TimelineNoPlanWeekStrip(
                         today = today,
@@ -372,7 +376,6 @@ internal fun StrideLabUnifiedTrainingTimeline(
                         TracksideTrainingHubHeader(
                             active = active,
                             approvedPlans = approved,
-                            pendingDrafts = pendingDrafts,
                             selectedDate = focusedDate,
                             agenda = agendaView,
                             busy = state.busy,
@@ -491,11 +494,6 @@ internal fun StrideLabUnifiedTrainingTimeline(
                                         ?: group.additionalSources.firstNotNullOfOrNull {
                                             state.details[it.id]
                                         }
-                                    if (cached == null && onLoadCachedDetail != null) {
-                                        LaunchedEffect(group.primary.id) {
-                                            onLoadCachedDetail(group.primary.id)
-                                        }
-                                    }
                                     TimelineRecordedCard(
                                         activity = group.primary,
                                         cachedDetail = cached,
@@ -919,11 +917,8 @@ private fun TimelineRecordedCard(
         else -> R.drawable.trackside_discipline_conditioning
     }
     val (primary, secondary) = timelineRecordedMetrics(activity)
-    val gps = remember(cachedDetail, activity.type) {
-        if (activityUsesStationaryDetail(activity)) null
-        else cachedDetail?.let { RecordedGpsRoute.from(it.samples) }
-            ?.takeIf { it.pointCount >= 2 }
-    }
+    val gps = if (activityUsesStationaryDetail(activity)) null
+        else rememberActivityThumbnail(activity.id, cachedDetail)
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -1037,7 +1032,7 @@ private fun TimelinePlannedCard(
     }
     val recorded = session.status == "completed"
     val details = buildList {
-        add(disciplineLabel(session.discipline))
+        add(plannedDisciplineLabel(session))
         val reviewedTimeOnly = session.suggestion?.let { it.accepted && it.minutes < session.minutes } == true
         val distance = if (recorded) session.log?.distanceKm
         else if (reviewedTimeOnly) null else session.distanceKm

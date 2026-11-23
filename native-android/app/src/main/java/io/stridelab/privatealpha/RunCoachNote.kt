@@ -43,12 +43,11 @@ internal fun runCoachNote(
         val change = if (abs(comparison.changePercent) < 1) "close to your usual pace"
             else "${ActivityRecord.duration(abs(delta))} per km " +
                 if (delta < 0) "quicker than usual" else "slower than usual"
-        "You averaged ${ActivityRecord.duration(pace)} per km, $change over " +
-            "${comparison.count} similar runs. Was the route or the effort different this time?"
+        "You averaged ${ActivityRecord.duration(pace)}/km, $change across ${comparison.count} similar runs."
     } else if (pace != null) {
-        "You averaged ${ActivityRecord.duration(pace)} per km. Use that as a reference when you run a similar distance at a similar effort."
+        "Your average of ${ActivityRecord.duration(pace)}/km gives you a reference for runs of similar distance and effort."
     } else {
-        "I don’t have enough pace data to judge how you paced this one. Did you finish feeling like you could keep going?"
+        "Use how the run felt as your guide when pace is missing."
     }
 
     val kind = correction?.kind ?: workout.intended?.kind ?: workout.detected.kind
@@ -88,12 +87,12 @@ internal fun runCoachNote(
         else -> "Let the purpose of your next run set the effort. On an easy day, use the talk test. If you can speak in full sentences, you’re in the right ballpark."
     }
     val headline = when {
-        quality -> "Think about how the harder running felt"
         character?.contains("Slower finish") == true -> "Your later splits were slower"
         character?.contains("Faster finish") == true -> "You picked up the pace late"
         character?.contains("Steady pacing") == true -> "You kept the pace steady"
         earlierToday.isNotEmpty() -> "This run adds to your day"
-        else -> "A look at your run"
+        pace != null -> "Average pace ${ActivityRecord.duration(pace)}/km"
+        else -> "Run effort notes"
     }
     return RunCoachNote(finding?.observation ?: headline, finding?.interpretation ?: observation,
         dayContext, finding?.recommendation ?: focus, finding)

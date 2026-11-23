@@ -3,19 +3,21 @@ package io.stridelab.privatealpha
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.graphics.Color
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
-import java.time.Instant
 
 /**
  * Current More visual shell / navigation regression, using synthetic source
@@ -23,46 +25,6 @@ import java.time.Instant
  */
 class MoreSubpageUiParityTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
-
-    @Test fun approvedMorePaletteAndSubpageHeaderRemainConsistent() {
-        assertEquals(Color(0xFF080B0A), MoreFeatureColors.background)
-        assertEquals(Color(0xFF151A18), MoreFeatureColors.surface)
-        assertEquals(Color(0xFFD8FB70), MoreFeatureColors.lime)
-        compose.activity.setContent {
-            StrideTheme {
-                ActivityAnalyticsScreen(emptyList(), onBack = {})
-            }
-        }
-        compose.onNodeWithTag("screen-title").assertExists()
-        compose.onNodeWithTag("analytics-back").assertExists()
-        compose.onNodeWithTag("analytics-run-count").assertExists()
-    }
-
-    @Test fun runningFiltersAndCompareActionRemainOperable() {
-        val opened = mutableStateOf(false)
-        val sample = ActivityRecord(
-            "ui-parity-run", "Recorded training run", "run", "garmin",
-            Instant.now().minusSeconds(7200L), 10000.0, 3600.0,
-            3540.0, 360.0, 144.0, 30.0
-        )
-        compose.activity.setContent {
-            StrideTheme {
-                ActivityAnalyticsScreen(
-                    listOf(sample), onBack = {},
-                    onCompare = { opened.value = true }
-                )
-            }
-        }
-        compose.onNodeWithTag("analytics-period-week").assertExists()
-        compose.onNodeWithTag("screen")
-            .performScrollToNode(hasTestTag("analytics-source-garmin"))
-        compose.onNodeWithTag("analytics-source-garmin").performClick()
-        compose.onNodeWithTag("analytics-clear-filters").assertExists()
-        compose.onNodeWithTag("screen")
-            .performScrollToNode(hasTestTag("analytics-compare-open"))
-        compose.onNodeWithTag("analytics-compare-open").performClick()
-        compose.runOnIdle { assertTrue(opened.value) }
-    }
 
     @Test fun backupSourceEligibilityAndSafetyCopyRemainVisible() {
         compose.activity.setContent {
@@ -85,29 +47,55 @@ class MoreSubpageUiParityTest {
         compose.onNodeWithTag("archive-cloud-account").assertIsNotEnabled()
     }
 
-    @Test fun manualEditorKeepsSignedOutDisciplineAndFormControls() {
+    @Test fun localAccountAndGarminConnectionRemainIndependent() {
+        val connected = mutableStateOf(false)
+        val account = mutableStateOf<String?>(null)
         compose.activity.setContent {
             StrideTheme {
-                StandaloneDisciplineLogScreen(
-                    owner = "qa-parity-manual-owner",
-                    onBack = {}
+                TracksideMoreScreen(
+                    TrainingState(initializing = false, account = account.value, localGarminOwner = "local-garmin-fixture"),
+                    {}, {}, {}, {}, {}, {},
+                    garminConnected = connected.value,
+                    onActivityBackup = {}
                 )
             }
         }
-        compose.onNodeWithTag("screen-title").assertExists()
-        compose.onNodeWithTag("screen")
-            .performScrollToNode(hasTestTag("manual-discipline-strength"))
-        compose.onNodeWithTag("manual-discipline-strength").assertIsEnabled()
-        compose.onNodeWithTag("manual-title").assertExists()
+        compose.onNodeWithText("Not connected").assertExists()
+        compose.runOnIdle { connected.value = true }
+        compose.onNodeWithText("Local Mode").assertExists()
+        compose.onNodeWithText("Not signed in · Saved on this device").assertExists()
+        compose.onNodeWithTag("more-sign-in").assertIsEnabled()
+        compose.onNodeWithText("Signed in").assertDoesNotExist()
+        compose.onNodeWithTag("more-garmin-status", useUnmergedTree = true)
+            .assert(hasText("Connected") and hasAnyAncestor(hasTestTag("more-row-garmin")))
+        compose.onNode(hasText("Connected") and hasAnyAncestor(hasTestTag("more-profile-card")),
+            useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("Running analytics").assertDoesNotExist()
+        compose.onNodeWithText("Log strength and conditioning").assertDoesNotExist()
+        compose.onNodeWithTag("more-settings-shortcut").assertDoesNotExist()
+
+        compose.runOnIdle { account.value = "runner@example.test" }
+        compose.onNode(hasText("runner@example.test") and hasAnyAncestor(hasTestTag("more-profile-card")))
+            .assertExists()
+        compose.onNodeWithText("Signed in").assertExists()
+        compose.onNodeWithTag("more-sign-in").assertDoesNotExist()
+        compose.onNodeWithTag("more-garmin-status", useUnmergedTree = true).assert(hasText("Connected"))
     }
 
-    @Test fun compareEmptyStateUsesCurrentMoreSubpageHeader() {
+    @Test fun legacyMoreDestinationsAreAbsentFromTheNavigationGraph() {
+        lateinit var nav: NavHostController
         compose.activity.setContent {
-            StrideTheme { ActivityRunComparisonScreen(emptyList(), onBack = {}) }
+            StrideTheme {
+                nav = rememberNavController()
+                NativeStrideContent(TrainingState(initializing = false), true, NativeActions({}, { _, _ -> }), nav)
+            }
         }
-        compose.onNodeWithTag("screen-title").assertExists()
-        compose.onNodeWithTag("compare-back").assertExists()
-        compose.onNodeWithText("No comparable running history yet", substring = true)
-            .assertExists()
+        compose.runOnIdle {
+            assertNotNull(nav.graph.findNode("settings"))
+            assertNotNull(nav.graph.findNode("more/activity-backup"))
+            assertNull(nav.graph.findNode("more/analytics"))
+            assertNull(nav.graph.findNode("more/analytics/compare"))
+            assertNull(nav.graph.findNode("more/manual-logs"))
+        }
     }
 }

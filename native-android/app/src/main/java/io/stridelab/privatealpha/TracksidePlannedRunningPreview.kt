@@ -164,7 +164,8 @@ internal fun TracksidePlannedRunningPreview(
     selectedStepIndex: Int? = null,
     onSelectStep: (Int?) -> Unit = {},
     planningPaceSecPerKm: Double = 360.0,
-    showInlineTopBar: Boolean = true
+    showInlineTopBar: Boolean = true,
+    onExportToWatch: (() -> Unit)? = null
 ) {
     val label = when {
         target.state == Engine15SessionPresentation.State.ACCEPTED_REST -> "Rest"
@@ -368,6 +369,8 @@ internal fun TracksidePlannedRunningPreview(
                 }
             }
         }
+
+        if (onExportToWatch != null) RunningWorkoutFitExportButton(onExportToWatch)
 
         // B. Combined Workout Profile & Difficulty Card
         if (profileBars.isNotEmpty() || (onAdjustDifficulty != null && target.state != Engine15SessionPresentation.State.ACCEPTED_REST)) {

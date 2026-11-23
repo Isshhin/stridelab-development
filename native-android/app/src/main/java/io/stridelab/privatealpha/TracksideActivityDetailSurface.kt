@@ -203,6 +203,15 @@ internal fun TracksideActivityDetailSurface(
         }
 
         if (stationaryDetail) {
+            val owner = activityCorrectionOwner(activity.id, state)
+            val ownedSourceIds = (matchedSourceIds + activity.id).filter {
+                activityCorrectionOwner(it, state) == owner
+            }.toSet()
+            val planOwner = state.account ?: state.localPlanOwner
+            val debrief = remember(ownedSourceIds, planOwner, state.plans, history) {
+                Engine15DebriefEngine.linkedWorkout(ownedSourceIds, planOwner, state.plans, history,
+                    java.time.ZoneId.systemDefault())
+            }
             val refreshSource: (() -> Unit)? = if (detailSource.source == "garmin") {
                 onLoadGarminGps
             } else {
@@ -211,7 +220,8 @@ internal fun TracksideActivityDetailSurface(
             TracksideStationaryActivityDetail(
                 activity = activity,
                 recorded = recorded,
-                owner = activityCorrectionOwner(activity.id, state),
+                owner = owner,
+                debrief = debrief,
                 onBack = onBack,
                 onShare = { shareOpen = true },
                 onEdit = onEdit,

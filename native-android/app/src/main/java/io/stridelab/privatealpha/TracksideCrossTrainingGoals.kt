@@ -38,7 +38,11 @@ private val strengthGoalChoices = listOf(
         "Muscle development", R.drawable.trackside_figma_activity),
     StrengthGoalChoice("Maintain Fitness", "Efficient strength endurance to stay resilient year-round.",
         "Strength endurance", R.drawable.trackside_figma_loop)
-)
+) + listOf(
+    "Strength for Runners" to "Develop single-leg stability, glutes, calves and core for running.",
+    "Upper Body & Posture" to "Train shoulders and upper body while leaving the legs fresh.",
+    "Full Body" to "Combine lower-body stability with upper-body pushing and pulling."
+).map { (goal, detail) -> StrengthGoalChoice(goal, detail, goal, R.drawable.trackside_figma_activity) }
 
 internal fun strengthChoicePolicy(title: String) =
     strengthGoalChoices.firstOrNull { it.title == title }?.policyGoal
@@ -117,8 +121,6 @@ internal fun TracksideStrengthGoalScreen(
                             color = if (chosen) crossCoral else PlanBuilderPalette.text,
                             fontSize = 15.5.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             choice.detail,

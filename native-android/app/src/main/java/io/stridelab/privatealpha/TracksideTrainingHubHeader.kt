@@ -39,7 +39,6 @@ private val hubBorder = StrideLabVisualPalette.border
 internal fun TracksideTrainingHubHeader(
     active: PlanSnapshot,
     approvedPlans: List<PlanSnapshot>,
-    pendingDrafts: Int,
     selectedDate: LocalDate,
     agenda: Boolean,
     busy: Boolean,
@@ -107,20 +106,6 @@ internal fun TracksideTrainingHubHeader(
                     modifier = Modifier.weight(1f),
                     fontWeight = FontWeight.Bold
                 )
-                if (pendingDrafts > 0) {
-                    TextButton(
-                        onClick = onPlanTools,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        modifier = Modifier.height(26.dp)
-                    ) {
-                        Text(
-                            "$pendingDrafts draft${if (pendingDrafts == 1) "" else "s"} ›",
-                            color = StrideLabVisualPalette.moderateAmber,
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))

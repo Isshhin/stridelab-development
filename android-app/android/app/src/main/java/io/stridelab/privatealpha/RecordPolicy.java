@@ -24,7 +24,10 @@ public final class RecordPolicy {
         if (!KINDS.contains(value)) throw new IllegalArgumentException("Unsupported record kind");
     }
     public static void payload(String value) {
-        if (value == null || value.getBytes(StandardCharsets.UTF_8).length > MAX_PAYLOAD_BYTES)
+        payload(value, MAX_PAYLOAD_BYTES);
+    }
+    static void payload(String value, int maxBytes) {
+        if (value == null || value.getBytes(StandardCharsets.UTF_8).length > maxBytes)
             throw new IllegalArgumentException("Record payload is missing or too large");
         try {
             JSONTokener tokens = new JSONTokener(value);

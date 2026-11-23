@@ -51,12 +51,12 @@ class BackupIntegrityTest {
         assertEquals(listOf(a,b),PlanBackup.additions(rows,emptyList()))
         assertEquals(listOf(b),PlanBackup.additions(listOf(b),listOf(a)))
     }
-    @Test fun sameDaySeparatePlansStillConflict() {
+    @Test fun restoringSeparatePlansStillValidatesEachPlansFixedDays() {
         val (a,b)=pairPlans()
         val sameDay=b.copy(sessions=b.sessions.map { it.copy(date=a.sessions.first().date) })
         assertThrows(PlanConstraint::class.java) { PlanBackup.additions(listOf(sameDay),listOf(a)) }
     }
-    @Test fun adjacentApprovedPlansValidateCrossPlanConflictWithoutCrash() {
+    @Test fun validSeparateTracksOnTheSameDateRestoreWithoutMergingTheirBudgets() {
         val (a,b)=pairPlans()
         val x=a.copy(request=a.request.copy(dailyMinutes=60),sessions=a.sessions.map { it.copy(minutes=40) })
         val y=b.copy(
@@ -64,7 +64,7 @@ class BackupIntegrityTest {
             sessions=b.sessions.map { it.copy(date=a.sessions.first().date,minutes=40) }
         )
         assertEquals(x,restored(x));assertEquals(y,restored(y))
-        assertThrows(PlanConstraint::class.java) { PlanBackup.additions(listOf(y),listOf(x)) }
+        assertEquals(listOf(y), PlanBackup.additions(listOf(y),listOf(x)))
     }
     @Test fun adjacentDayRecoveryConflictInsideImportedPlanIsRejected() {
         val p=plan();val a=p.sessions.first();val b=p.sessions[1].copy(date=a.date.plusDays(1),lower=true)

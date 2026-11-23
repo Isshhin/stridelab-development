@@ -109,7 +109,8 @@ internal fun TodayDisciplineTabs(
     available: List<TodayDiscipline>,
     selectedKey: String,
     reduceMotion: Boolean,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val haptics = LocalHapticFeedback.current
     val options = remember(available) {
@@ -138,7 +139,7 @@ internal fun TodayDisciplineTabs(
     }
 
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .animateContentSize(
                 animationSpec = if (reduceMotion) snap() else spring(

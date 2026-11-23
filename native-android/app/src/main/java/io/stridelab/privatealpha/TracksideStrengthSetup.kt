@@ -47,6 +47,8 @@ internal fun TracksideStrengthSetup(
     onEditGoal: () -> Unit,
     onContinue: () -> Unit
 ) {
+    val track = strengthTrack(request)
+    val title = if (track == "str") "Strength" else request.disciplineGoal("str")
     val manual = "str" in request.weeklySlots
     val count = request.strengthDays.coerceAtLeast(1)
     val explicit = WeeklyPlacement.days(request, "str")
@@ -65,9 +67,9 @@ internal fun TracksideStrengthSetup(
 
     TracksideBuilderFrame(
         progressStep = 3,
-        toolbarTitle = "Strength setup",
-        eyebrow = "STRENGTH / SCHEDULE",
-        headline = "Your strength\nweek",
+        toolbarTitle = "$title setup",
+        eyebrow = "${title.uppercase()} / SCHEDULE",
+        headline = "Your training week",
         description = "Set your weekly sessions, days, and available gear.",
         onBack = onBack,
         onContinue = onContinue,
@@ -123,13 +125,19 @@ internal fun TracksideStrengthSetup(
             subtitle = when (Engine1Engines.goal(request, "str")) {
                 "General strength" -> "Build strength"
                 "Muscle development" -> "Build muscle"
-                else -> "Maintain fitness"
+                "Strength endurance" -> "Maintain fitness"
+                else -> request.disciplineGoal("str")
             },
             iconRes = R.drawable.trackside_strength_goal_icon,
             onClick = onEditGoal,
             tag = "builder-strength-setup-goal"
         )
         Spacer(Modifier.height(8.dp))
+        if (track == "plyo") {
+            Text("Start with short sets of low jumps. Stop when your landings get loud or your legs feel tired.",
+                color = StrideLabVisualPalette.ink)
+            Spacer(Modifier.height(8.dp))
+        }
         val equipmentSummary = listOf(
             "db" to "Dumbbells", "bands" to "Bands",
             "bb" to "Barbell", "bench" to "Bench",

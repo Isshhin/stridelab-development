@@ -52,26 +52,22 @@ internal data class RecordedGpsRoute(
     /** Backward-compatible union for tests/legacy callers. */
     val gaps:List<Pair<RecordedGpsPoint,RecordedGpsPoint>> get()=segmentGaps
 
-    /**
-     * Map-only line groups: connect segment boundaries identified as timer
-     * pauses, but keep unexplained gaps and dateline cuts separate.
-     */
-    val displaySegments:List<List<RecordedGpsPoint>> get() {
+    /** Presentation trail through recorded moving fixes, with a cut only at the antimeridian. */
+    val displaySegments:List<List<RecordedGpsPoint>> by lazy {
         val output=ArrayList<MutableList<RecordedGpsPoint>>()
-        segments.forEach { segment ->
-            val previous=output.lastOrNull()
-            val start=previous?.lastOrNull()
-            val end=segment.firstOrNull()
-            if(start != null && end != null &&
-                abs(start.longitude-end.longitude)<180.0 &&
-                crossesPause(start.elapsedSeconds,end.elapsedSeconds)) {
-                previous.addAll(segment)
-            } else {
-                output.add(segment.toMutableList())
-            }
+        val movingPoints = allPoints.filterNot { point ->
+            pauseIntervals.any { point.elapsedSeconds > it.startSeconds && point.elapsedSeconds < it.endSeconds }
+        }.sortedBy { it.elapsedSeconds }
+        for (point in movingPoints) {
+            val line = output.lastOrNull()
+            if (line == null || abs(line.last().longitude - point.longitude) >= 180.0) {
+                output.add(mutableListOf(point))
+            } else line.add(point)
         }
-        return output.map { it.toList() }
+        output
     }
+
+    val displayIsolatedPoints: List<RecordedGpsPoint> get() = displaySegments.filter { it.size == 1 }.flatten()
 
     /** Map rendering is bounded; recorded samples and analysis stay full resolution. */
     val renderSegments:List<List<RecordedGpsPoint>> by lazy {
@@ -112,9 +108,9 @@ internal data class RecordedGpsRoute(
     }
 
     /** Source lone fixes use normal route color, including during a pause. */
-    fun isolatedGeoJson():String {
+    fun isolatedGeoJson(points: List<RecordedGpsPoint> = isolatedPoints):String {
         val coords=JSONArray()
-        isolatedPoints.forEach { point ->
+        points.forEach { point ->
             coords.put(JSONArray().put(point.longitude).put(point.latitude))
         }
         return JSONObject()
@@ -334,7 +330,7 @@ internal data class RecordedGpsRoute(
                 val lon=sample.longitude
                 // Web Mercator cannot display a track at the poles.
                 if(lat==null || lon==null || !lat.isFinite() || !lon.isFinite() ||
-                    lat !in -85.0..85.0 || lon !in -180.0..180.0 ||
+                    lat !in -85.0..85.0 || lon !in -180.0..180.0 || (lat == 0.0 && lon == 0.0) ||
                     !sample.seconds.isFinite()) {
                     flush()
                     continue

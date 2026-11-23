@@ -8,6 +8,13 @@ import kotlin.math.max
 
 /** Verified FIT records become an ActivityDetail for the existing Garmin summary ID. */
 internal object GarminGpsDetail {
+    /** Valid placeholders are cache misses. Malformed or foreign data must be preserved. */
+    fun cachedRecording(payload: String?, account: String, id: String): ActivityDetail? =
+        payload?.takeUnless { it.isBlank() }?.let {
+            ActivityDetail.parse(JSONObject(it), account, id)
+                .takeIf { detail -> detail.samples.isNotEmpty() || detail.laps.isNotEmpty() }
+        }
+
     fun payload(account:String,summary:ActivityRecord,fit:FitActivityDecoder.Activity,
                 fetchedAt:Long,
                 workoutReferences: List<GarminActivityWorkoutReference> = emptyList()):JSONObject {
@@ -51,7 +58,7 @@ internal object GarminGpsDetail {
                 // cadence_spm from other saved source formats.
                 .put("cadence_spm", optional(p.cadenceRpm?.let { it * 2.0 }))
                 .put("latitude",optional(p.latitude))
-                .put("longitude",optional(p.longitude)))
+                .put("longitude",optional(p.longitude)).apply { p.runningDynamics?.let { putDynamics(it) } })
         }
         val laps=JSONArray()
         fit.laps.forEachIndexed { i,lap ->
@@ -125,6 +132,8 @@ internal object GarminGpsDetail {
             .put("workout_steps",steps)
             .put("garmin_workouts",sourceWorkouts)
             .put("pause_intervals", pauseIntervals)
+            .put("running_dynamics_checked", true)
+        fit.runningDynamics?.let { raw.put("running_dynamics", JSONObject().apply { putDynamics(it) }) }
         if (sourceZones != null) raw.put("source_hr_zones", sourceZones)
         val validated=ActivityDetail.parse(raw,account,summary.id)
         // An indoor/treadmill FIT often has no GPS but can still contain
@@ -172,14 +181,32 @@ internal object GarminGpsDetail {
         val hasLapStepIndices=latest.laps.zip(old.laps).any { (new,previous) ->
             new.workoutStepIndex != null && previous.workoutStepIndex == null
         }
-        if (!hasCadence && !hasSteps && !hasLapStepIndices && !hasSourceWorkouts) return null
         val merged = JSONObject(existing.toString())
         val rows = merged.getJSONArray("samples")
+        var dynamicsChanged = latest.runningDynamicsChecked && !old.runningDynamicsChecked
+        if (latest.runningDynamicsChecked) merged.put("running_dynamics_checked", true)
+        fun addDynamics(to: JSONObject, from: JSONObject) {
+            for (key in listOf("stance_time_ms", "vertical_oscillation_cm", "step_length_m",
+                "vertical_ratio_pct", "average_cadence_spm")) {
+                if (to.isNull(key) && !from.isNull(key)) {
+                    to.put(key, from.get(key))
+                    dynamicsChanged = true
+                }
+            }
+        }
+        val latestRows = refreshed.getJSONArray("samples")
         latest.samples.forEachIndexed { i, sample ->
             val cadence = sample.cadenceSpm
             if (cadence != null && old.samples[i].cadenceSpm == null)
                 rows.getJSONObject(i).put("cadence_spm", cadence)
+            if (sample.runningDynamics != null) addDynamics(rows.getJSONObject(i), latestRows.getJSONObject(i))
         }
+        refreshed.optJSONObject("running_dynamics")?.let { from ->
+            val to = merged.optJSONObject("running_dynamics") ?: JSONObject()
+            addDynamics(to, from)
+            if (to.length() > 0) merged.put("running_dynamics", to)
+        }
+        if (!hasCadence && !hasSteps && !hasLapStepIndices && !hasSourceWorkouts && !dynamicsChanged) return null
         if (hasSteps) merged.put("workout_steps", refreshed.getJSONArray("workout_steps"))
         if (hasSourceWorkouts)
             merged.put("garmin_workouts", refreshed.getJSONArray("garmin_workouts"))
@@ -194,6 +221,14 @@ internal object GarminGpsDetail {
         // Validate the merged result before it is offered to persistence.
         ActivityDetail.parse(merged, account, id)
         return merged
+    }
+
+    private fun JSONObject.putDynamics(value: RunningDynamics) {
+        value.groundContactMs?.let { put("stance_time_ms", it) }
+        value.verticalOscillationCm?.let { put("vertical_oscillation_cm", it) }
+        value.stepLengthM?.let { put("step_length_m", it) }
+        value.verticalRatioPct?.let { put("vertical_ratio_pct", it) }
+        value.cadenceSpm?.let { put("average_cadence_spm", it) }
     }
 
 }

@@ -9,6 +9,22 @@ import org.junit.Test
 
 /** Presentation observations must never invent data or physiological conclusions. */
 class ActivityDetailSectionAnalysisTest {
+    @Test fun coachingStatsExcludeStopAndDropoutValues() {
+        assertEquals(listOf(390.0, 400.0), coachingChartValues("Pace", listOf(390.0, 1553.0, 400.0)))
+        assertEquals(listOf(177.0, 182.0), coachingChartValues("Cadence", listOf(177.0, 0.0, 182.0)))
+    }
+    @Test fun structureRequiresPlannedQualityOrMappedWorkEvidence() {
+        val steady = ActivityWorkoutAssessment(
+            ActivityWorkoutEvidence(ActivityWorkoutKind.EASY_RUN, evidence = emptyList()))
+        val lap = ActivityWorkoutStep(0, "Easy run", "active", null, null, null)
+        assertFalse(showsWorkoutStructure(steady, emptyList()))
+        assertFalse(showsWorkoutStructure(steady, List(4) { lap }))
+        assertTrue(showsWorkoutStructure(steady, listOf(lap.copy(name = "Pyramid"))))
+        assertTrue(showsWorkoutStructure(steady, listOf(lap, lap.copy(intensity = "recovery"), lap)))
+        assertTrue(showsWorkoutStructure(steady.copy(intended =
+            ActivityWorkoutEvidence(ActivityWorkoutKind.QUALITY_RUN, evidence = emptyList())), emptyList()))
+    }
+
     @Test fun splitsUsesRecordedKilometerLapsAndIdentifiesFasterLaterHalf() {
         val laps = listOf(
             ActivityLap(0, 1000.0, 390.0, 390.0, 145.0),
@@ -18,8 +34,9 @@ class ActivityDetailSectionAnalysisTest {
         )
         val analysis = ActivityDetailSectionAnalysis.splits(laps, supportsPace = true)
         assertNotNull(analysis)
-        assertTrue(analysis!!.summary.contains("Split 4"))
-        assertTrue(analysis.evidence.any { it.contains("Later splits were faster") })
+        assertEquals("Faster second half", analysis!!.headline)
+        assertTrue(analysis.summary.contains("28 sec/km faster"))
+        assertTrue(analysis.evidence.isEmpty())
         assertFalse(analysis.evidence.any { it.contains("readiness", ignoreCase = true) })
     }
 
@@ -31,7 +48,7 @@ class ActivityDetailSectionAnalysisTest {
             ), supportsPace = true
         )
         assertNotNull(analysis)
-        assertTrue(analysis!!.evidence.any { it.contains("distances may differ") })
+        assertFalse(analysis!!.evidence.any { it.contains("full-kilometer") })
         assertNull(ActivityDetailSectionAnalysis.splits(emptyList(), supportsPace = true))
         assertNull(ActivityDetailSectionAnalysis.splits(
             listOf(ActivityLap(0, 1000.0, 390.0, 390.0, null)),
@@ -50,9 +67,9 @@ class ActivityDetailSectionAnalysisTest {
             "Heart rate", samples.map { it to it.hr!! }
         )
         assertNotNull(result)
-        assertEquals("Heart rate was higher late in the run", result!!.headline)
+        assertEquals("Heart rate rose late", result!!.headline)
         assertTrue(result.summary.contains("131 bpm") && result.summary.contains("162 bpm"))
-        assertTrue(result.evidence.any { it.contains("establish cardiac drift") })
+        assertTrue(result.evidence.none { it.contains("cardiac drift") })
         assertEquals(false, result.hasComparison)
     }
 

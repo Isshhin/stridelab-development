@@ -22,6 +22,7 @@ internal data class PlanActions(
     val dismissPending:(String,Int,String)->Unit={_,_,_->},
     val pendingError:(String,String)->String?={_,_->null},
     val stageWorkoutDraft:(WorkoutEntryDraft)->Unit={},
+    val executeWorkout: (suspend (String, String, Long?, PlayerEvent?) -> WorkoutExecution?)? = null,
     val saveRunResponse:(String,Int,String,Int?,String?,String?)->Unit={_,_,_,_,_,_->},
     val confirmActivityMatch:(String,Int,String,String)->Unit={_,_,_,_->},
     val rejectActivityMatch:(String,String)->Unit={_,_->},
@@ -30,5 +31,6 @@ internal data class PlanActions(
     val revertLastAdaptation:(String)->Unit={},
     val previewWeek:(String,Engine15WeeklyReview.Input)->Engine15WeeklyReview.Review?={_,_->null},
     val acceptWeek:(Engine15WeeklyReview.Review)->Unit={},
+    val discardPlanPreview: () -> Unit = {},
     val saveResearchReview:(PlanRequest,IndependentAndroidPreviewConstraints)->Unit={_,_->}
 )

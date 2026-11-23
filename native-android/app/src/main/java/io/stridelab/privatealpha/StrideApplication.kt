@@ -12,6 +12,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
@@ -85,6 +86,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     fun loadDetail(id: String) { viewModelScope.launch { repo.loadDetail(id) } }
     internal suspend fun renameActivity(id:String,title:String):Boolean = repo.renameActivity(id,title)
     internal suspend fun loadCachedDetail(id:String):Boolean = repo.loadCachedDetail(id)
+    internal suspend fun loadActivityThumbnail(id: String) = repo.loadActivityThumbnail(id)
     /** Foreground, account-scoped FIT GPS import, never bulk or scheduled. */
     internal fun loadGarminGps(id:String,source:GarminPersonalSource) {
         viewModelScope.launch { repo.loadGarminGps(id,source) }
@@ -93,6 +95,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         generate={p->viewModelScope.launch { repo.generatePlan(p) }},
         saveResearchReview={p,limits->viewModelScope.launch { repo.saveResearchReview(p,limits) }},
         approve={id,r->viewModelScope.launch { repo.approvePlan(id,r) }},
+        discardPlanPreview={viewModelScope.launch { repo.discardPlanPreview() }},
         pause={id,r->viewModelScope.launch { repo.pausePlan(id,r) }},
         archive={id,r->viewModelScope.launch { repo.archivePlan(id,r) }},
         delete={id,r->viewModelScope.launch { repo.deletePlan(id,r) }},
@@ -135,7 +138,10 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
                 null
             } catch(e:PlanConstraint) { e.message }
         },
-        stageWorkoutDraft={draft->viewModelScope.launch { repo.stageWorkoutDraft(draft) }}
+        stageWorkoutDraft={draft->viewModelScope.launch { repo.stageWorkoutDraft(draft) }},
+        executeWorkout = { planId, sessionId, revision, event ->
+            viewModelScope.async { repo.executeWorkout(planId, sessionId, revision, event) }.await()
+        }
     )
     fun signOut() { viewModelScope.launch { repo.signOut() } }
 }

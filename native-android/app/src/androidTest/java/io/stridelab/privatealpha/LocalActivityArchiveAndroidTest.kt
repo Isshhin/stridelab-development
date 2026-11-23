@@ -181,6 +181,24 @@ class LocalActivityArchiveAndroidTest {
         }
     }
 
+    @Test fun largeGarminCacheWriteAndRefreshBypassSharedRecordLimitWithoutOutbox() {
+        val id = "garmin-fixture"
+        val payload = detailRow(source, id, padding = "x".repeat(3 * 1024 * 1024))
+        TrainingStore(context, nameA).use { db ->
+            assertNull(db.getActivityDetailPayloadChunked(source, id))
+            db.saveLocalGarminRecording(source, id, detailRow(source, id), 1L)
+            db.saveLocalGarminRecording(source, id, payload, 2L)
+            assertEquals(payload, db.getActivityDetailPayloadChunked(source, id))
+            val refreshed = JSONObject(payload).put("fetched_at", 3L).toString()
+            db.saveLocalGarminRecording(source, id, refreshed, 3L)
+            assertEquals(refreshed, db.getActivityDetailPayloadChunked(source, id))
+            db.readableDatabase.rawQuery("SELECT count(*) FROM outbox", null).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals(0, cursor.getInt(0))
+            }
+        }
+    }
+
     @Test fun originalFitBytesAreIncludedOnlyWhenPreviouslyCached() {
         seed(source)
         val encoder=BufferEncoder(Fit.ProtocolVersion.V2_0)

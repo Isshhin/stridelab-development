@@ -153,81 +153,88 @@ internal fun TracksideDisciplineScreen(
     onContinue: () -> Unit
 ) {
     val entries = listOf(
-        Triple("run", "Running", "Endurance, speed & race preparation"),
-        Triple("str", "Strength", "Muscle, power & injury resilience"),
-        Triple("cal", "Calisthenics", "Bodyweight mastery & core control"),
-        Triple("cond", "Conditioning", "Work capacity & metabolic fitness")
+        Triple("run", "Running", "Endurance and speed"),
+        Triple("str", "Strength", "Power & runner durability"),
+        Triple("cal", "Calisthenics", "Bodyweight and control"),
+        Triple("cond", "Conditioning", "Work and recovery"),
+        Triple("plyo", "Plyometrics", "Ground contacts"),
+        Triple("iso", "Isometrics", "Timed holds")
     )
     TracksideBuilderFrame(
         eyebrow = "BUILD YOUR PLAN",
         headline = "Choose your focus",
-        description = "Select one or combine multiple disciplines — we adapt the schedule for you.",
+        description = "Build a separate plan for each focus, or select multiple disciplines to coordinate them in one plan.",
         onBack = onBack,
         onContinue = onContinue,
         continueEnabled = request.runDays + request.strengthDays +
             request.calDays + request.conditioningDays > 0,
         progressStep = 1
     ) {
-        entries.forEachIndexed { i, (discipline, name, desc) ->
-            val selected = when (discipline) {
-                "run" -> request.runDays > 0
-                "str" -> request.strengthDays > 0
-                "cal" -> request.calDays > 0
-                else -> request.conditioningDays > 0
-            }
-            val discColor = StrideLabVisualPalette.disciplineColor(discipline)
-            val cardBg by animateColorAsState(
-                if (selected) discColor.copy(alpha = 0.16f) else surfaceCard,
-                animationSpec = tween(180),
-                label = "disc-$discipline"
-            )
-            Surface(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 74.dp)
-                    .testTag("discipline-$discipline"),
-                onClick = { onToggle(discipline) },
-                shape = RoundedCornerShape(16.dp),
-                color = cardBg,
-                border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) discColor else outline)
-            ) {
-                Row(
-                    Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Box(
-                        Modifier.size(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (selected) discColor else discColor.copy(alpha = 0.16f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painterResource(when (discipline) {
-                                "run" -> R.drawable.trackside_discipline_running
-                                "str" -> R.drawable.trackside_discipline_strength
-                                "cal" -> R.drawable.trackside_discipline_calisthenics
-                                else -> R.drawable.trackside_discipline_conditioning
-                            }),
-                            tint = if (selected) PlanBuilderPalette.accentOn else discColor,
-                            contentDescription = null,
-                            modifier = Modifier.size(22.dp).testTag("discipline-icon-$discipline")
-                        )
+        entries.chunked(2).forEach { pair ->
+            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).height(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            pair.forEach { (discipline, name, desc) ->
+                    val selected = when (discipline) {
+                        "run" -> request.runDays > 0
+                        "str", "plyo", "iso" -> request.strengthDays > 0 && strengthTrack(request) == discipline
+                        "cal" -> request.calDays > 0
+                        else -> request.conditioningDays > 0
                     }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(
-                            name,
-                            color = if (selected) discColor else white,
-                            fontSize = 15.5.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                        Text(
-                            desc,
-                            color = if (selected) white.copy(alpha = 0.85f) else muted,
-                            fontSize = 12.sp
-                        )
+                    val discColor = StrideLabVisualPalette.disciplineColor(if (discipline in setOf("plyo", "iso")) "str" else discipline)
+                    val cardBg by animateColorAsState(
+                        if (selected) discColor.copy(alpha = 0.16f) else surfaceCard,
+                        animationSpec = tween(180),
+                        label = "disc-$discipline"
+                    )
+                    Surface(
+                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 96.dp)
+                            .testTag("discipline-$discipline"),
+                        onClick = { onToggle(discipline) },
+                        shape = RoundedCornerShape(16.dp),
+                        color = cardBg,
+                        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) discColor else outline)
+                    ) {
+                        Column(
+                            Modifier.padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Box(
+                                Modifier.size(28.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (selected) discColor else discColor.copy(alpha = 0.16f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painterResource(when (discipline) {
+                                        "run" -> R.drawable.trackside_discipline_running
+                                        "str", "plyo", "iso" -> R.drawable.trackside_discipline_strength
+                                        "cal" -> R.drawable.trackside_discipline_calisthenics
+                                        else -> R.drawable.trackside_discipline_conditioning
+                                    }),
+                                    tint = if (selected) PlanBuilderPalette.accentOn else discColor,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(22.dp).testTag("discipline-icon-$discipline")
+                                )
+                            }
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    name, textAlign = TextAlign.Center,
+                                    color = if (selected) discColor else white,
+                                    fontSize = 15.5.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Text(
+                                    desc, textAlign = TextAlign.Center,
+                                    color = if (selected) white.copy(alpha = 0.85f) else muted,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
                     }
                 }
             }
-            if (i < entries.lastIndex) Spacer(Modifier.height(10.dp))
         }
         val chosen = listOf(request.runDays, request.strengthDays,
             request.calDays, request.conditioningDays).count { it > 0 }
@@ -651,9 +658,10 @@ private fun BenchmarkTimeDialog(
 @Composable
 private fun TracksideAbilityRange(
     header: String, title: String, note: String,
-    value: Double, maxValue: Float, unit: String, tag: String,
+    value: Double?, maxValue: Float, unit: String, tag: String,
     onValue: (Double) -> Unit
 ) {
+    val sliderValue = (value ?: 0.0).toFloat().coerceIn(0f, maxValue)
     Surface(
         Modifier.fillMaxWidth().testTag("builder-ability-$tag-card"),
         color = surfaceCard,
@@ -670,14 +678,14 @@ private fun TracksideAbilityRange(
                 )
                 .padding(horizontal = 16.dp, vertical = 14.dp)
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(header, fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(header, Modifier.weight(1f), fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
                 Text(note, color = muted, fontSize = 10.5.sp)
             }
             Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    String.format(Locale.getDefault(), "%.0f", value),
+                    if (value == null) "—" else String.format(Locale.getDefault(), if (value % 1.0 == 0.0) "%.0f" else "%.1f", value),
                     fontSize = 38.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = white,
@@ -694,7 +702,7 @@ private fun TracksideAbilityRange(
             }
             Spacer(Modifier.height(4.dp))
             Slider(
-                value = value.toFloat().coerceIn(0f, maxValue),
+                value = sliderValue,
                 onValueChange = { onValue(it.toDouble()) },
                 valueRange = 0f..maxValue,
                 modifier = Modifier.fillMaxWidth().height(30.dp).testTag("builder-ability-$tag-slider"),
@@ -716,7 +724,7 @@ private fun TracksideAbilityRange(
                     ) {
                         Box(
                             Modifier
-                                .fillMaxWidth((value.toFloat() / maxValue).coerceIn(0f, 1f))
+                                .fillMaxWidth(sliderValue / maxValue)
                                 .height(6.dp)
                                 .clip(RoundedCornerShape(4.dp))
                                 .background(
@@ -746,7 +754,7 @@ private fun TracksideAbilityRange(
  */
 @Composable
 internal fun TracksideRunningAbilityScreen(
-    experience: Int, weeklyKm: Double, longestKm: Double,
+    experience: Int, weeklyKm: Double?, longestKm: Double?,
     onExperience: (Int) -> Unit,
     onWeeklyKm: (Double) -> Unit,
     onLongestKm: (Double) -> Unit,
@@ -758,7 +766,10 @@ internal fun TracksideRunningAbilityScreen(
     benchmarkSeconds: Int? = null,
     onSaveBenchmark: ((String, Int?) -> Unit)? = null,
     paceZones: Engine15ProvisionalPaceZones? = null,
-    autoDetectedExperience: Boolean = false
+    autoDetectedExperience: Boolean = false,
+    weeklySource: String = "Recent training",
+    longestSource: String = "Recent training",
+    onConfirmNoRecentRunning: (() -> Unit)? = null
 ) {
     var benchmarkDialogOpen by remember { mutableStateOf(false) }
     var chosenDistance by remember(benchmarkDistance) { mutableStateOf(benchmarkDistance) }
@@ -766,7 +777,7 @@ internal fun TracksideRunningAbilityScreen(
     TracksideBuilderFrame(
         eyebrow = "RUNNING / BASELINE",
         headline = "Where are you\nstarting?",
-        description = "Auto-calibrated from your training history — adjust any value anytime.",
+        description = "We fill in what we can from your recent runs. You can adjust either distance.",
         onBack = onBack,
         onContinue = onContinue,
         descriptionBottomGap = 16,
@@ -815,15 +826,18 @@ internal fun TracksideRunningAbilityScreen(
         Spacer(Modifier.height(14.dp))
         TracksideAbilityRange(
             header = "TYPICAL WEEKLY VOLUME", title = "Typical weekly volume",
-            note = "Automatic · 4–6 wks", value = weeklyKm, maxValue = 120f, unit = "km / wk",
+            note = weeklySource, value = weeklyKm, maxValue = maxOf(120f, weeklyKm?.toFloat() ?: 0f), unit = "km / wk",
             tag = "weekly", onValue = onWeeklyKm
         )
         Spacer(Modifier.height(12.dp))
         TracksideAbilityRange(
             header = "LONGEST RECENT RUN", title = "Longest run completed",
-            note = "Recent training", value = longestKm, maxValue = 42f, unit = "km",
+            note = longestSource, value = longestKm, maxValue = maxOf(42f, longestKm?.toFloat() ?: 0f), unit = "km",
             tag = "longest", onValue = onLongestKm
         )
+        if (onConfirmNoRecentRunning != null) {
+            TextButton(onClick = onConfirmNoRecentRunning) { Text("I haven’t run recently") }
+        }
         Spacer(Modifier.height(16.dp))
         Text("RECENT PERFORMANCE  (OPTIONAL)", fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))

@@ -9,7 +9,8 @@ import java.time.Instant
 internal object FitActivityDecoder {
     data class Point(val at: Instant, val distanceM: Double?, val speedMps: Double?,
         val heartRate: Double?, val altitudeM: Double?, val latitude: Double?,
-        val longitude: Double?, val cadenceRpm: Double?, val powerW: Double?)
+        val longitude: Double?, val cadenceRpm: Double?, val powerW: Double?,
+        val runningDynamics: RunningDynamics? = null)
     data class Lap(val startedAt: Instant?, val elapsedS: Double?, val timerS: Double?,
         val distanceM: Double?, val averageHr: Double?,
         val workoutStepIndex: Int? = null)
@@ -35,7 +36,8 @@ internal object FitActivityDecoder {
         val points: List<Point>, val laps: List<Lap>,
         val timerPauses: List<TimerPause> = emptyList(),
         val sourceHeartRateZones: SourceHeartRateZones? = null,
-        val workoutSteps: List<WorkoutStep> = emptyList()) {
+        val workoutSteps: List<WorkoutStep> = emptyList(),
+        val runningDynamics: RunningDynamics? = null) {
         fun candidate() = ImportedActivityCandidate(identity,sport,startedAt,elapsedS,distanceM)
         /** Factual observations only; no invented recovery or coaching conclusion. */
         fun evidence(): List<String> = buildList {
@@ -101,11 +103,15 @@ internal object FitActivityDecoder {
         val start = time(s.startTime) ?: throw IllegalArgumentException("Missing FIT session start")
         val sport = s.sport?.name?.lowercase(java.util.Locale.ROOT)
             ?: throw IllegalArgumentException("Missing FIT sport")
+        val running = sport == "running" || sport == "trail_running"
         val points = records.map { r ->
             Point(time(r.timestamp) ?: throw IllegalArgumentException("Missing record timestamp"),
                 metric(r.distance),metric(r.enhancedSpeed ?: r.speed),metric(r.heartRate,1.0),
                 metric(r.enhancedAltitude ?: r.altitude,-12000.0),coordinate(r.positionLat,90.0),
-                coordinate(r.positionLong,180.0),metric(r.cadence),metric(r.power))
+                coordinate(r.positionLong,180.0),
+                metric(r.cadence)?.plus(if (running) metric(r.fractionalCadence) ?: 0.0 else 0.0),
+                metric(r.power), if (running) fitRunningDynamics(r.stanceTime, r.verticalOscillation,
+                    r.stepLength, r.verticalRatio) else null)
         }
         require(points.all { it.at >= start } && points.zipWithNext().all { (a,b) -> b.at >= a.at })
         val elapsed = metric(s.totalElapsedTime)
@@ -161,6 +167,10 @@ internal object FitActivityDecoder {
                     step.intensity?.name, step.durationType?.name,
                     step.durationValue?.toLong()?.takeIf { it in 0..100_000_000L },
                     step.targetType?.name)
-            }.distinctBy { it.index })
+            }.distinctBy { it.index },
+            runningDynamics = if (running) fitRunningDynamics(s.avgStanceTime, s.avgVerticalOscillation,
+                s.avgStepLength, s.avgVerticalRatio, metric(s.avgCadence)?.let {
+                    (it + (metric(s.avgFractionalCadence) ?: 0.0)) * 2.0
+                }) else null)
     }
 }

@@ -22,8 +22,8 @@ internal fun historyWeeklyKm(history:List<ActivityRecord>,now:Instant=Instant.no
 /**
  * Suggested baseline from recent *completed calendar weeks* with recorded running.
  *
- * No evidence of a run on a day is not evidence of rest. A week with fewer
- * than three distinct runs is not used; the result is still an estimate and
+ * No evidence of a run on a day is not evidence of rest. A week must meet
+ * the caller's minimum run count; the result is still an estimate and
  * can be overridden by the athlete. These are imported/saved actual distances,
  * never planned targets. Current incomplete week is excluded.
  */
@@ -36,13 +36,14 @@ internal fun automaticRunningBaseline(
     history: List<ActivityRecord>,
     now: Instant = Instant.now(),
     plans: List<PlanSnapshot> = emptyList(),
-    zone: ZoneId = ZoneId.systemDefault()
+    zone: ZoneId = ZoneId.systemDefault(),
+    minRunsPerWeek: Int = 3
 ): AutomaticRunningBaseline? {
     val today=now.atZone(zone).toLocalDate()
     val eligible=observedRunningWeeks(history,now,plans,zone)
         .filter { week ->
             week.start.plusDays(6)<today &&
-                week.runs>=3 &&
+                week.runs>=minRunsPerWeek &&
                 week.distanceKm?.let { it.isFinite() && it>0.0 }==true
         }
         .sortedByDescending { it.start }
@@ -51,7 +52,35 @@ internal fun automaticRunningBaseline(
     val weekly=eligible.sumOf { requireNotNull(it.distanceKm) }/eligible.size
     if(!weekly.isFinite() || weekly<=0.0)return null
     val rounded=kotlin.math.round(weekly*10.0)/10.0
-    return AutomaticRunningBaseline(rounded,eligible)
+    return rounded.takeIf { it > 0.0 }?.let { AutomaticRunningBaseline(it,eligible) }
+}
+
+internal data class RunningPlanHistory(val weeklyKm: Double?, val longestKm: Double?) {
+    fun applyTo(request: PlanRequest): PlanRequest {
+        if (request.runDays == 0 || request.recentMileageBasis == "CONFIRMED_ZERO") return request
+        val estimate = weeklyKm.takeIf { request.recentMileageBasis == "UNKNOWN" && request.weeklyKm == 0.0 }
+        return request.copy(
+            weeklyKm = estimate ?: request.weeklyKm,
+            recentMileageBasis = if (estimate != null) "RECORDED_PARTIAL" else request.recentMileageBasis,
+            longestKm = request.longestKm.takeIf { it > 0.0 } ?: longestKm ?: 0.0
+        )
+    }
+}
+
+internal fun runningPlanHistory(
+    history: List<ActivityRecord>, plans: List<PlanSnapshot>,
+    now: Instant = Instant.now(), zone: ZoneId = ZoneId.systemDefault()
+): RunningPlanHistory {
+    val first = now.atZone(zone).toLocalDate().minusDays(29)
+    val last = now.atZone(zone).toLocalDate()
+    val recorded = ActivityDisplayConsolidation.visible(history).asSequence()
+        .filter { DashboardSummary.isRun(it) && it.startedAt <= now && it.startedAt.atZone(zone).toLocalDate() in first..last }
+        .mapNotNull { it.distanceM }
+    val logged = DashboardSummary.confirmedWorkouts(plans, history, now).asSequence()
+        .filter { it.discipline == "run" && it.date in first..last }.mapNotNull { it.distanceM }
+    val longest = (recorded + logged).filter { it.isFinite() && it > 0.0 }.maxOrNull()?.div(1000.0)
+    val weekly = automaticRunningBaseline(history, now, plans, zone, minRunsPerWeek = 1)?.weeklyKm
+    return RunningPlanHistory(weekly, longest)
 }
 
 /**

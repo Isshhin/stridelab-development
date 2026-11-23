@@ -1,6 +1,7 @@
 package io.stridelab.privatealpha
 
 import android.graphics.PointF
+import android.view.MotionEvent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -26,7 +27,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import kotlinx.coroutines.delay
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
@@ -72,7 +72,17 @@ private fun OfflineBoxMap(selectionScale: Float, onSelection: (LatLngBounds?) ->
     }
     val mapView = remember(context) {
         MapLibre.getInstance(context.applicationContext)
-        MapView(context, MapLibreMapOptions().textureMode(true)).apply { onCreate(null) }
+        MapView(context, MapLibreMapOptions().textureMode(true)).apply {
+            onCreate(null)
+            setOnTouchListener { view, event ->
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> view.parent?.requestDisallowInterceptTouchEvent(true)
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                        view.parent?.requestDisallowInterceptTouchEvent(false)
+                }
+                false // MapLibre still handles pan, pinch and tap.
+            }
+        }
     }
     var map by remember(mapView) { mutableStateOf<MapLibreMap?>(null) }
     var measured by remember { mutableStateOf(IntSize.Zero) }
@@ -202,13 +212,6 @@ internal fun TracksideOfflineMapsScreen(onBack: () -> Unit) {
     val canDownload = selected?.let(StrideOfflineMapStore::isSelectionAllowed) == true
 
     LaunchedEffect(store) { store.refresh() }
-    LaunchedEffect(store.activeId) {
-        while (store.activeId != null) {
-            delay(1500L)
-            store.refresh()
-        }
-    }
-
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(offlineBlack)
             .testTag("offline-maps-screen"),
@@ -275,7 +278,7 @@ internal fun TracksideOfflineMapsScreen(onBack: () -> Unit) {
                     )
                     Button(
                         onClick = { store.save(name.trim(), selected) },
-                        enabled = name.isNotBlank() && canDownload && store.activeId == null,
+                        enabled = name.isNotBlank() && canDownload && store.activeId == null && !store.preparing,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = offlineGreen, contentColor = offlineBlack
                         ),
@@ -302,7 +305,7 @@ internal fun TracksideOfflineMapsScreen(onBack: () -> Unit) {
                 style = MaterialTheme.typography.titleMedium)
             Text(
                 store.maps.size.toString() + " areas · " +
-                    (total / 1024 / 1024).toString() + " MB downloaded",
+                    offlineMapSize(total) + " downloaded",
                 color = offlineSecondary, style = MaterialTheme.typography.bodySmall
             )
         }
@@ -322,26 +325,31 @@ internal fun TracksideOfflineMapsScreen(onBack: () -> Unit) {
                     Text(area.name, color = Color.White,
                         style = MaterialTheme.typography.titleMedium)
                     Text(
-                        (area.downloadedBytes / 1024 / 1024).toString() + " MB · " +
+                        offlineMapSize(area.downloadedBytes) + " · " +
                             if (area.completed) "Ready offline"
-                            else area.progress.toString() + "% downloaded",
+                            else area.progress?.let { "$it% downloaded" }
+                                ?: if (store.activeId == area.id) "Preparing resources…" else "Download incomplete",
                         color = offlineSecondary, style = MaterialTheme.typography.bodySmall
                     )
-                    if (!area.completed) {
+                    val percent = area.progress
+                    if (!area.completed && percent != null) {
                         LinearProgressIndicator(
-                            progress = { area.progress / 100f },
+                            progress = { percent / 100f },
                             modifier = Modifier.fillMaxWidth(),
                             color = offlineGreen
                         )
                     }
+                    val error = store.failures[area.id]
+                    error?.let { Text(it, color = Color(0xFFFFB4A8),
+                        modifier = Modifier.testTag("offline-download-error")) }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (!area.completed) {
-                            TextButton(onClick = {
-                                if (store.activeId == area.id) store.pause()
-                                else store.resume(area.id)
-                            }) {
+                            TextButton(
+                                enabled = !store.preparing && (store.activeId == null || store.activeId == area.id),
+                                onClick = { if (store.activeId == area.id) store.pause() else store.resume(area.id) }
+                            ) {
                                 Text(
-                                    if (store.activeId == area.id) "Pause" else "Resume",
+                                    if (store.activeId == area.id) "Pause" else if (error != null) "Retry" else "Resume",
                                     color = offlineGreen
                                 )
                             }
@@ -382,4 +390,10 @@ internal fun TracksideOfflineMapsScreen(onBack: () -> Unit) {
             }
         )
     }
+}
+
+private fun offlineMapSize(bytes: Long): String = when {
+    bytes <= 0 -> "0 MB"
+    bytes < 1024 * 1024 -> "${(bytes / 1024).coerceAtLeast(1)} KB"
+    else -> String.format(Locale.getDefault(), "%.1f MB", bytes / (1024.0 * 1024))
 }

@@ -99,9 +99,9 @@ class TracksideEngineBuilderIntegrationTest {
             compose.onNodeWithTag("builder-availability-research-toggle")
                 .performScrollTo().performClick()
             compose.onNodeWithText("Generate My Plan").assertExists()
-            next() // generate the saved draft; approval is still separate
-            compose.waitUntil(15_000) { repo.state.value.plans.isNotEmpty() }
-            val draft = repo.state.value.plans.single()
+            next() // preview before activation
+            compose.waitUntil(15_000) { repo.state.value.planPreview != null }
+            val draft = requireNotNull(repo.state.value.planPreview)
             assertEquals("draft", draft.status)
             assertEquals(ENGINE15_INDEPENDENT_RUNNING_POLICY, draft.policyId)
             assertEquals(ENGINE15_VERSION, draft.engineVersion)

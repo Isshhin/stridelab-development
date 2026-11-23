@@ -1,7 +1,7 @@
 ---
 scope: project-index
 tags: [stridelab, wiki, index]
-last_updated: 2026-11-22
+last_updated: 2026-11-23
 ---
 
 # StrideLab Engineering Wiki
@@ -16,16 +16,20 @@ Offline-first native Android running and multi-discipline training coach built a
 
 ## Repository Map (`F:\StrideLab\Current-App\stridelab-engine15-dev`, branch `dev`)
 - `native-android/app/src/main/java/io/stridelab/privatealpha/` — Active Kotlin/Compose app, Engine 1.5, Garmin/FIT pipeline, and UI
-- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`148` suites / `1,157` tests, including Step 01–06 `Engine15CoachingAcceptanceTest`, `Engine15ActivityAutoMatcherTest`, `Engine15ExecutionAnalyzerTest`, `Engine15AthleteDiagnosticsEngineTest`, and `Engine15PlanAdaptationEngineTest`)
-- `native-android/app/src/androidTest/java/io/stridelab/privatealpha/` — Compose & instrumentation UI tests (includes 7 Engine 1.5 Steps 04–06 coaching UI cases; compiled, not device-run)
+- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`157` suites / `1,230` tests, including independent plan generation, running history estimates, workout checkpoint recovery, FIT and debriefs)
+- `native-android/app/src/androidTest/java/io/stridelab/privatealpha/` — Compose and instrumentation coverage for Activity Detail and guided execution. The five AMOLED player tests passed on the API 35 emulator at 360 dp and approximately 412 dp with font scales 1.0 and 1.3.
 - `docs/wiki/` — Persistent Obsidian-compatible LLM memory hub (this wiki)
 - `research/engine15/` — Generated Engine 1.5 coaching audit reports (e.g., `M28A_COACHING_AUDIT_20261121.md`)
 
 ## Topic Pages
-- [[architecture]] — Local storage, offline Garmin FIT ingestion, Engine 1.5 pipeline, `TrainingRepository`/`TrainingViewModel`, and Compose state flow.
-- [[engine-rules]] — Core Engine 1.5 invariants, mileage/taper caps, warm-up/cool-down clamping, intensity zones, difficulty scaling, and weekly review guardrails.
+- [[architecture]] — Local storage, durable guided workout execution, offline Garmin FIT ingestion and workout export, Engine 1.5 pipeline, and Compose state flow.
+- [[engine-rules]] — Core Engine 1.5 invariants, training load and intensity rules, verified-HR Training Effect, and debrief evidence thresholds.
 - [[ui-system]] — Dark AMOLED theme tokens (`#0A0C0E`, `#14181C`, `#232A31`, lime/intensity accents), typography guards, and shared Compose components.
-- [[screens]] — Navigation routes, primary screens, `TrainingState` contracts, and removed/deprecated UI sections not to reintroduce.
+- [[screens]] — Navigation routes, discipline-specific AMOLED Workout Player and timer cues, and the grouped More layout with separate StrideLab and Garmin statuses. The legacy running analytics, run comparison, and standalone strength and conditioning logging routes were retired.
+
+## Workout Player Milestone
+- **Phases 0–3 complete:** Integration audit, durable local checkpoints, AMOLED player, and debrief evidence verification. The Phase 3 JVM suite restores serialized checkpoints with a fixed clock and checks that all five non-running debriefs use confirmed work only.
+- Two Phase 3 acceptance tests passed on the API 35 emulator: SQLite recovery after the plan save but before the completion receipt, and exactly one Coach's Debrief card for each completed discipline.
 
 ## Verification Commands (`native-android/`, JDK 21, run sequentially)
 ```powershell

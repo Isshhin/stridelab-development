@@ -61,11 +61,27 @@ class Engine1UiTest {
         field.assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText,AnnotatedString(value)))
     }
 
+    @Test fun plyometricsAndIsometricsAreVisibleInDisciplineSelector() {
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TracksideDisciplineScreen(PlanRequest(), {}, {}, {})
+                }
+            }
+        }
+        compose.onNodeWithTag("discipline-plyo").assertExists()
+        compose.onNodeWithTag("discipline-iso").assertExists()
+        compose.onNodeWithText("Power & runner durability").assertExists()
+    }
+
     @Test fun multiSessionPlanBuilderKeepsSameDayLogsIndependent() {
         val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-multi-builder-ui"))
         val actions=PlanActions(
-            generate={p->Engine1Engines.validate(p);state.value=state.value.copy(plans=state.value.plans+generateUiPlan(p,"synthetic-multi-builder-ui"))},
-            approve={id,_->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.approve(it,state.value.plans).copy(revision=it.revision+1)else it })},
+            generate={p->Engine1Engines.validate(p);state.value=state.value.copy(planPreview=generateUiPlan(p,"synthetic-multi-builder-ui"))},
+            approve={id,_->state.value.planPreview?.takeIf { it.id == id }?.let { preview ->
+                state.value=state.value.copy(planPreview=null, plans=state.value.plans +
+                    PlanOperations.approve(preview,state.value.plans).copy(revision=preview.revision+1))
+            }},
             move={id,_,sid,date->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.move(it,sid,date,state.value.plans).copy(revision=it.revision+1)else it })},
             record={id,_,sid,log,done->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.record(it,sid,log,done).copy(revision=it.revision+1)else it })}
         )
@@ -90,16 +106,16 @@ class Engine1UiTest {
         compose.onNodeWithTag("builder-advanced-scheduling").performScrollTo().performClick()
         compose.onNodeWithTag("builder-enable-multi-session").performScrollTo().performClick()
         next() // availability
-        compose.waitUntil(15000) { state.value.plans.isNotEmpty() || compose.onAllNodesWithTag("plan-form-error").fetchSemanticsNodes().isNotEmpty() }
-        assertTrue("Plan builder failed: "+compose.onRoot().printToString(),state.value.plans.isNotEmpty())
-        val draft=state.value.plans.single()
+        compose.waitUntil(15000) { state.value.planPreview != null || compose.onAllNodesWithTag("plan-form-error").fetchSemanticsNodes().isNotEmpty() }
+        assertTrue("Plan builder failed: "+compose.onRoot().printToString(),state.value.planPreview != null)
+        val draft=requireNotNull(state.value.planPreview)
         assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY,draft.policyId)
         assertEquals(7*draft.request.weeks,draft.sessions.size)
         val firstWeek=draft.sessions.filter { it.date in draft.request.start..draft.request.start.plusDays(6) }
         assertEquals(7,firstWeek.size)
         assertEquals(5,firstWeek.map { it.date }.distinct().size)
         compose.onNodeWithText("Review your training plan").assertExists()
-        compose.onNodeWithText("Finalize Plan").assertExists()
+        compose.onNodeWithText("Activate Plan").assertExists()
         next()
         compose.onNodeWithTag("training-unified-timeline").assertExists()
         val approved=state.value.plans.single()
@@ -175,8 +191,10 @@ class Engine1UiTest {
     @Test fun beginnerGeneratesReviewsApprovesOpensCalendarAndLogsWithoutWatch() {
         val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-engine1-ui"))
         val planning=PlanActions(
-            generate={p->state.value=state.value.copy(plans=listOf(generateUiPlan(p,"synthetic-engine1-ui")))},
-            approve={id,_->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.approve(it,emptyList()).copy(revision=it.revision+1)else it })},
+            generate={p->state.value=state.value.copy(planPreview=generateUiPlan(p,"synthetic-engine1-ui"))},
+            approve={id,_->state.value.planPreview?.takeIf { it.id == id }?.let { preview ->
+                state.value=state.value.copy(planPreview=null, plans=listOf(PlanOperations.approve(preview,emptyList()).copy(revision=preview.revision+1)))
+            } },
             record={id,_,sid,log,done->state.value=state.value.copy(plans=state.value.plans.map { if(it.id==id)PlanOperations.record(it,sid,log,done).copy(revision=it.revision+1)else it })}
         )
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,false,NativeActions({},{_,_->},planning=planning)) } } }
@@ -187,13 +205,14 @@ class Engine1UiTest {
         repeat(5) { next() } // disciplines, running goal, race goal, ability, running schedule
         compose.onNodeWithText("Set your plan dates").assertExists()
         compose.onNodeWithText("Generate My Plan").performClick()
-        compose.waitUntil(10000) { state.value.plans.isNotEmpty() }
+        compose.waitUntil(10000) { state.value.planPreview != null }
         compose.onNodeWithText("Review your training plan").assertExists()
-        compose.onNodeWithText("Finalize Plan").assertExists()
+        compose.onNodeWithText("Activate Plan").assertExists()
         capture("phase1-builder-review")
-        assertTrue("The builder should save a draft before the final review",state.value.plans.singleOrNull()?.status=="draft")
+        assertTrue(state.value.plans.isEmpty())
+        assertNotNull(state.value.planPreview)
         capture("phase1-generated-preview")
-        compose.onNodeWithText("Finalize Plan").performClick()
+        compose.onNodeWithText("Activate Plan").performClick()
         compose.waitUntil(10000) { state.value.plans.singleOrNull()?.status=="approved" }
         compose.onNodeWithTag("training-unified-timeline").assertExists()
         assertEquals("approved",state.value.plans.single().status)
@@ -323,7 +342,7 @@ class Engine1UiTest {
     }
     @Test fun runningPrimaryAndStrengthSecondaryGoalProduceActualDifferentPrescriptions() {
         val state=mutableStateOf(TrainingState(initializing=false,account="synthetic-goals-ui"))
-        val actions=PlanActions(generate={p->state.value=state.value.copy(plans=listOf(generateUiPlan(p,"synthetic-goals-ui")))})
+        val actions=PlanActions(generate={p->state.value=state.value.copy(planPreview=generateUiPlan(p,"synthetic-goals-ui"))})
         compose.runOnUiThread { compose.activity.setContent { StrideTheme { NativeStrideContent(state.value,true,NativeActions({},{_,_->},planning=actions)) } } }
         openPlanBuilder()
         // The frozen Trackside wizard collects one discipline at a time. The old
@@ -335,10 +354,10 @@ class Engine1UiTest {
         repeat(3) { next() } // strength goal, strength setup, cross-training
         compose.onNodeWithText("Set your plan dates").assertExists()
         compose.onNodeWithText("Generate My Plan").performClick()
-        compose.waitUntil(10000) { state.value.plans.isNotEmpty() }
-        val plan=state.value.plans.single()
+        compose.waitUntil(10000) { state.value.planPreview != null }
+        val plan=requireNotNull(state.value.planPreview)
         compose.onNodeWithText("Review your training plan").assertExists()
-        compose.onNodeWithText("Finalize Plan").assertExists()
+        compose.onNodeWithText("Activate Plan").assertExists()
         assertEquals("draft",plan.status)
         assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
         assertEquals("Muscle development", plan.request.disciplineGoals["str"])

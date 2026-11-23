@@ -67,6 +67,9 @@ internal object Engine15PlanAdaptationEngine {
         if (plan.status !in setOf("approved", "draft", "paused")) return null
         if (plan.id != diagnostic.planId) return null
 
+        evaluateDisciplineRecovery(plan, cooldowns, existingProposals, asOfDate)?.let { return it }
+        if (plan.sessions.none { it.discipline == "run" }) return null
+
         val effectiveFromDate = asOfDate.plusDays(1)
         val linkedSessionIds = resolveLinkedSessionIds(plan, matchesByActivityId)
         val trailing30dLongestKm = computeTrailingLongestKm(activities, asOfDate, zoneId)
@@ -157,6 +160,80 @@ internal object Engine15PlanAdaptationEngine {
         return null
     }
 
+    private fun evaluateDisciplineRecovery(
+        plan: PlanSnapshot,
+        cooldowns: List<AdaptationCooldownRecord>,
+        proposals: List<PlanAdaptationProposal>,
+        today: LocalDate
+    ): PlanAdaptationProposal? {
+        if (plan.status != "approved") return null
+        val history = plan.sessions.filter {
+            it.discipline != "run" && it.date in today.minusDays(13)..today
+        }
+        val interrupted = history.filter { it.status == "missed" }.groupBy { it.discipline }
+            .filterValues { it.size >= 2 }
+        val fatigue = history.filter {
+            it.status == "missed" && it.missedReason in setOf("Fatigue", "Soreness") ||
+                it.status == "completed" && (it.log?.effort ?: 0) >= 8 &&
+                (it.discipline == "cond" || it.log?.let { log -> WorkoutLogValidation.hasPerformedSet(it, log) } == true)
+        }.groupBy { it.discipline }.filterValues { entries ->
+            entries.size >= 2 || entries.any { it.kind == "structured-plyometrics" }
+        }
+        val missed = interrupted.isNotEmpty()
+        val sources = if (missed) interrupted else fatigue
+        if (sources.isEmpty()) return null
+        val type = if (missed) AdaptationType.MISSED_WEEK_RECOVERY else AdaptationType.PROACTIVE_DELOAD_SWAP
+        val fingerprint = sources.values.flatten().map { it.id }.sorted().joinToString("|")
+        if (isDisruptionSuppressed(fingerprint, cooldowns, proposals, today) ||
+            hasActiveTypeCooldown(plan.id, type, cooldowns, today)) return null
+        val start = today.plusDays(1)
+        val changed = mutableListOf<Pair<PlannedSession, PlannedSession>>()
+        val sessions = plan.sessions.map { session ->
+            if (session.discipline !in sources || session.date !in start..today.plusDays(7) ||
+                session.status != "planned" || session.date.toString() == plan.request.lockedSessionDays[session.id] ||
+                session.log != null || session.linkedActivityId != null || session.suggestion != null ||
+                session.swaps.isNotEmpty() || session.difficultyStep < 0
+            ) return@map session
+            val reduced = Engine15WorkoutDifficultyAdjuster.adjust(session, plan.request, -1)
+            if (reduced.minutes > session.minutes || reduced.exercises == session.exercises) return@map session
+            changed += session to reduced
+            reduced
+        }
+        if (changed.isEmpty()) return null
+        val candidate = plan.copy(sessions = sessions)
+        val raw = candidate.encode().toString()
+        if (runCatching {
+            val restored = PlanSnapshot.decode(JSONObject(raw), plan.owner)
+            require(restored.encode().toString() == raw)
+            Engine15IndependentPlanGenerator.validateSaved(restored)
+        }.isFailure) return null
+        fun dose(session: PlannedSession): String = when {
+            session.kind == "structured-plyometrics" ->
+                "${session.exercises.filter { it.id in setOf("pogo-hop", "line-bound") }.sumOf { it.sets * (it.reps ?: 0) }} ground contacts"
+            session.discipline == "cond" -> "${session.exercises.sumOf { it.sets * (it.seconds ?: 0) }} seconds of work"
+            else -> "${session.exercises.sumOf { it.sets }} sets, ${session.exercises.sumOf { it.sets * (it.reps ?: 0) }} reps, " +
+                "${session.exercises.sumOf { it.sets * (it.seconds ?: 0) }} hold seconds"
+        }
+        val weeks = changed.groupBy { weekIndexOf(plan.request.start, it.first.date) }.map { (week, changes) ->
+            AdaptationWeekDiff(week, "Scheduled", "Reduced exposure", 0.0, 0.0,
+                changes.count { it.first.quality }, changes.count { it.second.quality },
+                changes.joinToString("\n") { (before, after) -> "${before.date} · ${before.title}: ${dose(before)} → ${dose(after)}" })
+        }
+        val title = if (missed) "Resume training with less volume" else "Reduce upcoming training volume"
+        val evidence = if (missed) "missed sessions" else "sessions marked as fatiguing or logged at high effort"
+        return PlanAdaptationProposal(
+            proposalId = java.util.UUID.nameUUIDFromBytes("${plan.id}:$type:$fingerprint:${plan.revision}".toByteArray()).toString(),
+            planId = plan.id, type = type, status = AdaptationProposalStatus.PENDING,
+            createdAtDate = today, effectiveFromDate = start, expiresAtDate = today.plusDays(PROPOSAL_EXPIRY_DAYS),
+            disruptionTier = DisruptionTier.NONE, disruptionFingerprint = fingerprint,
+            sourceDiagnosticDate = today, sourceConfidence = DiagnosticConfidence.MODERATE,
+            title = title,
+            coachingRationale = "${sources.values.sumOf { it.size }} $evidence. Reduce ${changed.size} upcoming sessions in place. No missed work is added.",
+            diff = PlanAdaptationDiff(start, changed.size, 0.0, 0.0, weeks, emptyList(), true, emptyList()),
+            candidatePlanJson = raw, reasonCodes = listOf("NON_RUNNING_RECOVERY")
+        )
+    }
+
     fun applyProposal(
         currentPlan: PlanSnapshot,
         proposal: PlanAdaptationProposal,
@@ -173,6 +250,22 @@ internal object Engine15PlanAdaptationEngine {
             ?: throw PlanConstraint("${proposal.type} is an advisory notice and cannot modify the plan.")
 
         val decodedCandidate = PlanSnapshot.decode(JSONObject(candidateRaw), currentPlan.owner)
+        val disciplineRecovery = "NON_RUNNING_RECOVERY" in proposal.reasonCodes
+        if (disciplineRecovery) {
+            require(decodedCandidate.revision == currentPlan.revision && currentPlan.status == "approved") {
+                "The saved plan or review date changed. Reopen the adjustment."
+            }
+            Engine15IndependentPlanGenerator.validateSaved(decodedCandidate)
+            require(decodedCandidate.copy(sessions = currentPlan.sessions) == currentPlan &&
+                decodedCandidate.sessions.map { it.id } == currentPlan.sessions.map { it.id } &&
+                currentPlan.sessions.zip(decodedCandidate.sessions).all { (before, after) ->
+                    before == after || before.discipline != "run" && before.status == "planned" &&
+                        before.date >= proposal.effectiveFromDate && before.date > asOfDate && before.linkedActivityId == null &&
+                        before.log == null && before.suggestion == null && before.id !in currentPlan.request.lockedSessionDays &&
+                        before.swaps.isEmpty() && before.difficultyStep >= 0 && after.minutes <= before.minutes &&
+                        after == Engine15WorkoutDifficultyAdjuster.adjust(before, currentPlan.request, -1)
+                }) { "The reviewed change no longer matches the current workout prescriptions." }
+        }
         val mergedSessions = decodedCandidate.sessions.map { candidateSession ->
             val live = currentPlan.sessions.find { it.id == candidateSession.id }
             if (live != null && (live.status == "completed" || live.linkedActivityId != null || live.date.isBefore(proposal.effectiveFromDate))) {
@@ -187,7 +280,7 @@ internal object Engine15PlanAdaptationEngine {
         )
         val linkedIds = currentPlan.sessions.mapNotNull { if (it.linkedActivityId != null) it.id else null }.toSet()
         val trailingLongest = currentPlan.request.longestKm ?: 10.0
-        val gate = validateCandidatePlan(
+        val gate = if (disciplineRecovery) ValidationOutcome(true, emptyList()) else validateCandidatePlan(
             originalPlan = currentPlan,
             candidatePlan = candidatePlan,
             effectiveFromDate = proposal.effectiveFromDate,
@@ -241,6 +334,20 @@ internal object Engine15PlanAdaptationEngine {
         require(revision.revertedAtDate == null) { "Revision was already reverted." }
 
         val restoredBase = PlanSnapshot.decode(JSONObject(revision.previousPlanJson), currentPlan.owner)
+        val appliedBase = PlanSnapshot.decode(JSONObject(revision.appliedPlanJson), currentPlan.owner)
+        val previousById = restoredBase.sessions.associateBy { it.id }
+        val adjusted = appliedBase.sessions.filter { previousById[it.id] != it }.associateBy { it.id }
+        if (adjusted.isNotEmpty() && adjusted.values.all { it.discipline != "run" }) {
+            val sessions = currentPlan.sessions.map { live ->
+                val applied = adjusted[live.id] ?: return@map live
+                // An intervening log or edit owns the live prescription and its history.
+                if (live != applied || live.date.isBefore(asOfDate)) live
+                else previousById.getValue(live.id)
+            }
+            val restored = currentPlan.copy(sessions = sessions, revision = currentPlan.revision + 1)
+            Engine15IndependentPlanGenerator.validateSaved(restored)
+            return RevertResult(restored, revision.copy(revertedAtDate = asOfDate.toString()))
+        }
         val liveById = currentPlan.sessions.associateBy { it.id }
         val restoredSessions = restoredBase.sessions.map { origSession ->
             val live = liveById[origSession.id]

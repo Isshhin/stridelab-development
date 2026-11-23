@@ -72,7 +72,7 @@ class RecordedGpsRouteTest {
         assertEquals(1,pauseJson.length())
     }
 
-    @Test fun displayRouteJoinsOnlyKnownPauseGapsAndKeepsRawSegments() {
+    @Test fun displayRouteJoinsPauseAndTimestampGapsWhileKeepingRawSegments() {
         val route=RecordedGpsRoute.from(
             listOf(
                 sample(0,0.0,14.60,121.00),
@@ -92,12 +92,25 @@ class RecordedGpsRouteTest {
 
         assertEquals(3,route.segments.size)
         assertEquals(3,raw.length())
-        assertEquals(2,display.length())
-        assertEquals(4,display.getJSONArray(0).length())
-        assertEquals(2,display.getJSONArray(1).length())
+        assertEquals(1,display.length())
+        assertEquals(6,display.getJSONArray(0).length())
+        assertTrue(route.displayIsolatedPoints.isEmpty())
         assertEquals(6,route.pointCount)
         assertEquals(1,route.pauseGaps.size)
         assertEquals(1,route.unknownGaps.size)
+    }
+
+    @Test fun movingTrailSkipsZeroCoordinatesAndPausedFixesAndOrdersByTime() {
+        val route = RecordedGpsRoute.from(listOf(
+            sample(0, 310.0, 14.65, 121.05),
+            sample(1, 160.0, 14.63, 121.03),
+            sample(2, 0.0, 14.60, 121.00),
+            sample(3, 10.0, 0.0, 0.0),
+            sample(4, 300.0, 14.64, 121.04)
+        ), listOf(ActivityPauseInterval(20.0, 290.0)))
+        assertEquals(listOf(0.0, 300.0, 310.0), route.displaySegments.single().map { it.elapsedSeconds })
+        assertTrue(route.allPoints.any { it.elapsedSeconds == 160.0 })
+        assertFalse(route.allPoints.any { it.latitude == 0.0 && it.longitude == 0.0 })
     }
 
     @Test fun longRouteRenderingIsBoundedWithoutChangingRecordedGps() {

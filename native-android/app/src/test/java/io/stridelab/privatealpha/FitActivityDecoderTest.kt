@@ -10,7 +10,8 @@ class FitActivityDecoderTest {
         missing: Boolean = false,
         withTimerPause: Boolean = false,
         withZones: Boolean = false,
-        withWorkoutSteps: Boolean = false
+        withWorkoutSteps: Boolean = false,
+        withDynamics: Boolean = false
     ): ByteArray {
         val encoder = BufferEncoder(Fit.ProtocolVersion.V2_0)
         encoder.write(FileIdMesg().apply { type = com.garmin.fit.File.ACTIVITY })
@@ -61,11 +62,18 @@ class FitActivityDecoderTest {
         encoder.write(RecordMesg().apply {
             timestamp = DateTime(1_000_000_000L)
             if(!missing) { positionLat=536870912; positionLong=1073741824; heartRate=150; distance=1234.5f; speed=3.5f; altitude=42f; cadence=80; power=200 }
+            if (withDynamics) {
+                stanceTime = 253f; verticalOscillation = 90f; stepLength = 1120f; verticalRatio = 8.04f
+            }
         })
         repeat(sessions) { encoder.write(SessionMesg().apply {
             startTime=DateTime(1_000_000_000L); sport=Sport.RUNNING
             totalDistance=1234.5f; totalElapsedTime=400f; totalTimerTime=350f
             if(!missing) { avgHeartRate=150; maxHeartRate=170 }
+            if (withDynamics) {
+                avgStanceTime = 250f; avgVerticalOscillation = 84f; avgStepLength = 1200f
+                avgVerticalRatio = 7f; avgCadence = 85
+            }
         }) }
         encoder.write(LapMesg().apply {
             startTime=DateTime(1_000_000_000L)
@@ -74,6 +82,31 @@ class FitActivityDecoderTest {
             if (withWorkoutSteps) wktStepIndex=1
         })
         return encoder.close()
+    }
+
+    @Test fun runningDynamicsDecodeSessionAndRecordUnitsAndUpgradeLocalCache() {
+        val missing = FitActivityDecoder.decode(fixture(), "owner")
+        assertNull(missing.runningDynamics)
+        assertNull(missing.points.single().runningDynamics)
+        val decoded = FitActivityDecoder.decode(fixture(withDynamics = true), "owner")
+        val summary = ActivityRecord("run", "Run", "run", "garmin", decoded.startedAt,
+            decoded.distanceM, decoded.timerS, null, null, null, null)
+        val old = GarminGpsDetail.payload("owner", summary, missing, 1).apply { remove("running_dynamics_checked") }
+        val newer = GarminGpsDetail.payload("owner", summary, decoded, 2)
+        val merged = requireNotNull(GarminGpsDetail.mergeRecordedCadence(old, newer, "owner", "run"))
+        val detail = ActivityDetail.parse(merged, "owner", "run")
+        assertTrue(detail.runningDynamicsChecked)
+        val point = requireNotNull(detail.samples.single().runningDynamics)
+        assertEquals(253.0, point.groundContactMs!!, .01)
+        assertEquals(9.0, point.verticalOscillationCm!!, .01)
+        assertEquals(1.12, point.stepLengthM!!, .01)
+        assertEquals(8.04, point.verticalRatioPct!!, .01)
+        val session = requireNotNull(detail.runningDynamics)
+        assertEquals(250.0, session.groundContactMs!!, .01)
+        assertEquals(8.4, session.verticalOscillationCm!!, .01)
+        assertEquals(1.2, session.stepLengthM!!, .01)
+        assertEquals(7.0, session.verticalRatioPct!!, .01)
+        assertEquals(170.0, session.cadenceSpm!!, .01)
     }
     @Test fun officialEncodedFixtureDecodesProfileUnitsAndProvenance() {
         val a=FitActivityDecoder.decode(fixture(),"owner")

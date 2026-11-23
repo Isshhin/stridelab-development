@@ -49,7 +49,7 @@ class ActivityIntelligenceTest {
         )!!
         assertTrue(matched.hasComparison)
         assertTrue(matched.headline.contains("10.0% faster pace"))
-        assertTrue(matched.summary.contains("across 3 earlier matched runs"))
+        assertTrue(matched.summary.contains("across 3 similar runs"))
         assertFalse(matched.headline.contains("PR"))
         assertFalse(matched.summary.contains("recovery score"))
 
@@ -60,14 +60,10 @@ class ActivityIntelligenceTest {
         assertTrue(slower.headline.contains("10.0% slower pace"))
     }
 
-    @Test fun athleteStyleSummaryFallsBackToSourceWithoutClaimingFitness() {
-        val message=ActivityIntelligence.presentation(run,null,emptyList())!!
-        assertFalse(message.hasComparison)
-        assertTrue(message.headline.contains("5.00 km run"))
-        assertTrue(message.summary.contains("not yet enough comparable past runs"))
-        assertNull(ActivityIntelligence.presentation(
-            run.copy(type="strength"),null,emptyList()
-        ))
+    @Test fun comparisonCardIsOmittedBelowThreeSimilarRuns() {
+        assertNull(ActivityIntelligence.presentation(run, null, emptyList()))
+        assertNull(ActivityIntelligence.presentation(run, null, listOf(prior("1", 380.0), prior("2", 400.0))))
+        assertNull(ActivityIntelligence.presentation(run.copy(type = "strength"), null, emptyList()))
     }
 
     @Test fun workoutCharacterUsesOnlyRecordedPatterns() {

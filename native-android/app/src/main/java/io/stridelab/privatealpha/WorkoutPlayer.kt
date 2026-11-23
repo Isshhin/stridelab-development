@@ -81,7 +81,8 @@ import org.json.JSONObject
     val input=JSONObject(entries)
     val actualText=input.optString(prefix+if(ex.seconds!=null)"seconds" else "reps")
     val confirmation=actualText.ifBlank { (ex.seconds ?: ex.reps).toString() }
-    val unit=if(ex.seconds!=null)"seconds" else "reps"
+    val timedAction = if (session.discipline == "cond") "work" else "hold"
+    val unit=if(ex.seconds!=null)"seconds" else if (session.kind == "structured-plyometrics") "contacts" else "reps"
     Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background,contentColor=MaterialTheme.colorScheme.onBackground) {
     Column(Modifier.fillMaxSize().testTag("workout-player").semantics { paneTitle="Guided workout" }) {
         Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {
@@ -110,14 +111,14 @@ import org.json.JSONObject
             } else {
                 item { SignalCard {
                     Text("${ex.seconds ?: ex.reps}",style=MaterialTheme.typography.displayLarge,color=MaterialTheme.colorScheme.primary)
-                    Text(if(ex.seconds!=null)"SECOND HOLD · PLANNED TARGET" else "REPETITIONS · PLANNED TARGET",style=MaterialTheme.typography.labelLarge)
+                    Text(if(ex.seconds!=null) "SECONDS OF ${timedAction.uppercase()} · PLANNED TARGET" else "${unit.uppercase()} · PLANNED TARGET",style=MaterialTheme.typography.labelLarge)
                     Text(ex.cue,style=MaterialTheme.typography.bodyLarge)
                     if(exactImage && guide!=null)LibraryImage(guide,compact=true)
                     else Text("Follow the written cues. An exact movement demonstration is not available offline.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
                     if(ex.seconds!=null) {
-                        Text("Hold timer · $holdSeconds sec",style=MaterialTheme.typography.titleLarge)
+                        Text("${timedAction.replaceFirstChar(Char::uppercase)} timer · $holdSeconds sec",style=MaterialTheme.typography.titleLarge)
                         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick={if(holdSeconds==0)holdSeconds=ex.seconds;holdRunning=!holdRunning}) { Text(if(holdRunning)"Pause hold" else "Start hold") }
+                            OutlinedButton(onClick={if(holdSeconds==0)holdSeconds=ex.seconds;holdRunning=!holdRunning}) { Text(if(holdRunning) "Pause $timedAction" else "Start $timedAction") }
                             TextButton(onClick={holdRunning=false;holdSeconds=ex.seconds}) { Text("Reset") }
                         }
                         Text("Timer completion does not log a set. Confirm only what you performed.",style=MaterialTheme.typography.bodySmall)

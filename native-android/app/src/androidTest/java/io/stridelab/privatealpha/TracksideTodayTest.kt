@@ -19,56 +19,72 @@ import java.time.LocalDate
 class TracksideTodayTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
 
-    @Test fun signedOutTodayHeroKeepsSameDesignAcrossPastAndFutureWeeks() {
-        var signInCount = 0
-        var trainingOpenCount = 0
+    @Test fun companionCopyAndActionCoverAllTrainingDisciplines() {
+        var opened = 0
+        val today = LocalDate.of(2026, 11, 23)
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TodayDailyTrainingCard(today, today, TodayDailyTrainingState.NoPlanCompanion,
+                        emptyMap(), onOpenWorkout = { _, _ -> }, onOpenActivityDetail = {},
+                        onOpenTraining = { opened++ })
+                }
+            }
+        }
+        compose.onNodeWithText("Track multisport sessions freely or generate a weekly training plan tailored to your goals.").assertExists()
+        compose.onNodeWithText("Build a Training Plan").performClick()
+        assertEquals(1, opened)
+    }
+
+    @Test fun coldStartAndGuestModeUseTheSameTodayShell() {
+        val state = androidx.compose.runtime.mutableStateOf(TrainingState())
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
                     StrideLabTodayScreen(
-                        state = TrainingState(initializing = false, account = null),
-                        visibleActivities = emptyList(),
-                        online = false,
-                        onOpenTraining = { trainingOpenCount++ },
-                        onOpenActivity = {},
-                        onOpenWorkout = { _, _ -> },
-                        onOpenActivityDetail = {},
-                        onOpenMore = {},
-                        onSignIn = { signInCount++ }
+                        state.value, emptyList(), false,
+                        onOpenTraining = {}, onOpenActivity = {}, onOpenWorkout = { _, _ -> },
+                        onOpenActivityDetail = {}, onOpenMore = {}, onSignIn = {}
                     )
                 }
             }
         }
-        compose.onNodeWithTag("today-hero").assertExists()
-        compose.onNodeWithText("Train with StrideLab").assertExists()
-        val originalHeight =
-            compose.onNodeWithTag("today-hero").getUnclippedBoundsInRoot().let { (it.bottom - it.top).value }
+        compose.onNodeWithTag("today-discipline-pages").assertExists()
+        compose.onNodeWithTag("today-week-swipe").assertExists()
+        compose.onNodeWithTag("today-date-header").assertExists()
+        compose.onNodeWithText("Loading training day...").assertExists()
+        compose.onNodeWithText("Train with StrideLab").assertDoesNotExist()
+        compose.onNodeWithText("Your schedule awaits").assertDoesNotExist()
+        val calendar = compose.onNodeWithTag("today-week-swipe").getUnclippedBoundsInRoot()
+        compose.runOnIdle { state.value = TrainingState(initializing = false) }
+        compose.onNodeWithText("Companion training mode").assertExists()
+        assertEquals(calendar, compose.onNodeWithTag("today-week-swipe").getUnclippedBoundsInRoot())
+        compose.onNodeWithText("Train with StrideLab").assertDoesNotExist()
+        compose.onNodeWithText("Your schedule awaits").assertDoesNotExist()
+    }
 
-        // A previous week used to switch to a dark TRAINING HISTORY card.
-        compose.onNodeWithTag("today-week-swipe").performTouchInput { swipeRight() }
-        compose.waitForIdle()
-        compose.onNodeWithTag("today-hero").assertExists()
-        compose.onNodeWithText("Train with StrideLab").assertExists()
-        compose.onNodeWithText("TRAINING HISTORY").assertDoesNotExist()
-        assertEquals(
-            originalHeight,
-            compose.onNodeWithTag("today-hero").getUnclippedBoundsInRoot().let { (it.bottom - it.top).value },
-            0.5f
-        )
-
-        // Switching forward again must preserve the exact same card.
-        compose.onNodeWithTag("today-week-swipe").performTouchInput { swipeLeft() }
-        compose.onNodeWithTag("today-week-swipe").performTouchInput { swipeLeft() }
-        compose.waitForIdle()
-        compose.onNodeWithText("Train with StrideLab").assertExists()
-        compose.onNodeWithText("TRAINING HISTORY").assertDoesNotExist()
-        assertEquals(
-            originalHeight,
-            compose.onNodeWithTag("today-hero").getUnclippedBoundsInRoot().let { (it.bottom - it.top).value },
-            0.5f
-        )
+    @Test fun completedActivityRowOpensDetailWithoutRedundantLabels() {
+        val monday = LocalDate.of(2026, 11, 23)
+        val activity = ActivityRecord("recorded-run", "Morning run", "running", "garmin",
+            java.time.Instant.parse("2026-11-23T07:00:00Z"), 16_690.0, 6695.0, 6695.0,
+            402.0, 144.0, null)
+        var opened: String? = null
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    TodayDailyTrainingCard(monday, monday.plusDays(1),
+                        TodayDailyTrainingState.Sessions(
+                            listOf(TodayDailySessionItem.Recorded(activity, TodayDiscipline.RUNNING)), false),
+                        emptyMap(), onOpenWorkout = { _, _ -> }, onOpenActivityDetail = { opened = it },
+                        onOpenTraining = {})
+                }
+            }
+        }
+        compose.onNodeWithText("Monday's Training").assertDoesNotExist()
+        compose.onNodeWithText("View Analysis").assertDoesNotExist()
+        compose.onNodeWithText("Running • 16.69 km", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("today-workout-action").performClick()
-        compose.runOnIdle { assertEquals(1, trainingOpenCount); assertEquals(0, signInCount) }
+        compose.runOnIdle { assertEquals(activity.id, opened) }
     }
 
     @Test fun signedInEmptyPastDayUsesCompactStatusInsteadOfTallHero() {
@@ -131,14 +147,14 @@ class TracksideTodayTest {
         compose.onNodeWithTag("today-hero").assertDoesNotExist()
 
         compose.onNodeWithTag("nav-settings").performClick()
-        compose.onNodeWithText("Not signed in").assertExists()
+        compose.onNodeWithText("Not signed in · Saved on this device").assertExists()
         compose.onNodeWithTag("today-hero").assertDoesNotExist()
         compose.onNodeWithTag("training-unified-timeline").assertDoesNotExist()
 
         compose.onNodeWithTag("nav-home").performClick()
         compose.onNodeWithTag("today-hero").assertExists()
         compose.onNodeWithTag("today-day-0").assertIsSelected()
-        compose.onNodeWithText("Not signed in").assertDoesNotExist()
+        compose.onNodeWithText("Not signed in · Saved on this device").assertDoesNotExist()
     }
 
     @Test fun signedInTabsRetainTodayDateAndDoNotExposeInactiveControls() {

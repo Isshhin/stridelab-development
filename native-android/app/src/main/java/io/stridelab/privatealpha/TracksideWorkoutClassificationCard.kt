@@ -32,75 +32,43 @@ internal fun ActivityWorkoutClassificationCard(
 ) {
     var correctionOpen by rememberSaveable { mutableStateOf(false) }
     var evidenceOpen by rememberSaveable { mutableStateOf(false) }
-    Surface(color = Color(0xFF151917), shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.fillMaxWidth().testTag("activity-workout-label").padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            val detectedLabel = assessment.detected.qualitySubtype?.let {
-                if (it == ActivityQualitySubtype.TEMPO || it == ActivityQualitySubtype.THRESHOLD)
-                    "${it.label} Run" else it.label
-            } ?: assessment.detected.kind.label
-            Text(if (userLabel == null) "DETECTED WORKOUT" else "YOUR CORRECTION",
-                color = activityLime, style = MaterialTheme.typography.labelMedium)
-            Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Surface(color = Color(0xFF303C24), shape = RoundedCornerShape(10.dp)) {
-                    Icon(androidx.compose.ui.res.painterResource(R.drawable.trackside_discipline_running),
-                        contentDescription = null, tint = activityLime,
-                        modifier = Modifier.padding(10.dp).size(20.dp))
-                }
-                Text(userLabel?.let { "Your label: ${it.label}" } ?:
-                    if (assessment.detected.kind == ActivityWorkoutKind.UNKNOWN) "Workout type unclear" else detectedLabel,
-                color = activityText, style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.testTag(if (userLabel == null) "activity-workout-detected"
-                    else "activity-workout-user-label"))
+    val detectedLabel = assessment.detected.qualitySubtype?.label ?: assessment.detected.kind.label
+    val label = userLabel?.let { "Your label: ${it.label}" }
+        ?: if (assessment.detected.kind == ActivityWorkoutKind.UNKNOWN) "Workout type unclear" else detectedLabel
+    Surface(onClick = { correctionOpen = true }, color = Color(0xFF14181C),
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.fillMaxWidth().testTag("activity-workout-label-edit")) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(androidx.compose.ui.res.painterResource(R.drawable.trackside_discipline_running),
+                contentDescription = null, tint = activityLime, modifier = Modifier.size(20.dp))
+            Column(Modifier.weight(1f)) {
+                Text(if (userLabel == null) "DETECTED WORKOUT" else "YOUR CORRECTION",
+                    color = activityMuted, style = MaterialTheme.typography.labelSmall)
+                Text(label, color = activityText, style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.testTag(if (userLabel == null) "activity-workout-detected"
+                        else "activity-workout-user-label"))
             }
-            if (userLabel == null) {
-                Text(when (assessment.detected.confidence) {
-                    ActivityWorkoutConfidence.HIGH -> "Clear workout pattern"
-                    ActivityWorkoutConfidence.MODERATE -> "Best match from the recording"
-                    else -> "Too little detail to call it"
-                },
-                    color = activityMuted, modifier = Modifier.testTag("activity-workout-confidence"))
-            } else {
-                Text("Saved on this device. The imported activity is unchanged.", color = activityMuted)
-            }
-            TextButton(onClick = { evidenceOpen = !evidenceOpen }) {
-                Text(if (evidenceOpen) "Hide detection details" else
-                    if (userLabel == null) "Why this classification?" else "View original detection",
-                    color = activityLime)
-            }
-            if (evidenceOpen) {
-                if (userLabel != null) Text("Detected: $detectedLabel", color = activityText,
-                    modifier = Modifier.testTag("activity-workout-detected"))
-                assessment.detected.evidence.forEach { Text(it, color = activityMuted) }
-            }
-            OutlinedButton(onClick = { correctionOpen = true }, enabled = canSave,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("activity-workout-label-edit")) {
-                Text("Correct workout type", color = if (canSave) activityLime else activityMuted)
-            }
-            assessment.intended?.let { intended ->
-                Spacer(Modifier.height(4.dp))
-                Text("Planned intent: ${intended.qualitySubtype?.label ?: intended.kind.label}",
-                    color = activityText, fontSize = 12.sp,
-                    modifier = Modifier.testTag("activity-workout-intended"))
-                Text(intended.evidence.first(), color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
-            }
-            assessment.intentWarning?.let {
-                Text(it, color = activityMuted, fontSize = 11.sp, lineHeight = 16.sp)
-            }
-            if (!canSave) Text("A local activity owner is needed to save a label offline.",
-                color = activityMuted, fontSize = 11.sp)
-            if (saveFailed) Text("Couldn't save the label on this device. Your previous label is unchanged.",
-                color = Color(0xFFFF8C87), fontSize = 11.sp, modifier = Modifier.testTag("activity-workout-label-error"))
+            Text("›", color = activityMuted, fontSize = 22.sp)
         }
     }
-    if (correctionOpen && canSave) {
+    if (saveFailed) Text("Couldn’t save your label.", color = Color(0xFFFF8C87),
+        modifier = Modifier.testTag("activity-workout-label-error"))
+    if (correctionOpen) {
         ModalBottomSheet(onDismissRequest = { correctionOpen = false },
             containerColor = Color(0xFF151917)) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
-                Text("Correct workout type", style = MaterialTheme.typography.titleLarge)
-                Text("Your selection is saved on this device.", color = activityMuted)
+                Text("Correct workout type", color = activityText, style = MaterialTheme.typography.titleLarge)
+                TextButton(onClick = { evidenceOpen = !evidenceOpen }) {
+                    Text(if (evidenceOpen) "Hide classification details" else "Why this classification?", color = activityLime)
+                }
+                if (evidenceOpen) {
+                    if (userLabel != null) Text("Detected: $detectedLabel", color = activityText,
+                        modifier = Modifier.testTag("activity-workout-detected"))
+                    assessment.detected.evidence.forEach { Text(it, color = activityMuted) }
+                }
+                if (!canSave) return@Column
                 fun select(label: UserActivityWorkoutLabel) {
                     correctionOpen = false
                     onSelect(label)

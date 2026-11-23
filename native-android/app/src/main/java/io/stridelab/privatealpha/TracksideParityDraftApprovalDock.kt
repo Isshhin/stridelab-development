@@ -42,11 +42,11 @@ internal fun TracksideParityDraftApprovalDock(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text(if (plan.status == "draft") "Draft plan" else "Paused plan",
+                Text("Paused plan",
                     color = StrideLabVisualPalette.ink,
                     fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 Text(plan.sessions.size.toString() + " sessions · " +
-                    (if (plan.status == "draft") "not active yet" else "currently paused"),
+                    "currently paused",
                     color = StrideLabVisualPalette.secondary, fontSize = 10.5.sp)
             }
             Button(
@@ -61,7 +61,7 @@ internal fun TracksideParityDraftApprovalDock(
                     disabledContentColor = StrideLabVisualPalette.muted
                 )
             ) {
-                Text(if (plan.status == "draft") "Approve plan" else "Resume plan",
+                Text("Resume plan",
                     fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             }
         }

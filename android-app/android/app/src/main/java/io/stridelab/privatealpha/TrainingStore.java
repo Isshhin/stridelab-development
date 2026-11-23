@@ -6,6 +6,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteDatabaseCorruptException;
 import android.database.sqlite.SQLiteOpenHelper;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.Set;
 /** Durable native records/outbox. Does not read, replace or migrate WebView afterglow2. */
 public final class TrainingStore extends SQLiteOpenHelper {
     public static final String DATABASE = "stridelab-athlete-v1.db";
+    private static final int MAX_LOCAL_RECORDING_BYTES = 16 * 1024 * 1024;
     private static final String[] RECORD_COLUMNS = {"record_id","payload","server_version","synced_at"};
 
     public static final class RemoteRecord {
@@ -80,28 +82,51 @@ public final class TrainingStore extends SQLiteOpenHelper {
     public String getActivityDetailPayloadChunked(String account, String id) {
         keyCheck(account,"activity_detail",id);
         SQLiteDatabase db=getReadableDatabase();
-        final int chunkChars=32768;
-        final long maxChars=16L*1024*1024;
-        long chars;
+        final int chunkBytes=256*1024;
+        long bytes;
+        long syncedAt;
         try(Cursor c=db.rawQuery(
-                "SELECT length(payload) FROM records WHERE account=? AND kind='activity_detail' AND record_id=?",
+                "SELECT length(CAST(payload AS BLOB)),synced_at FROM records WHERE account=? AND kind='activity_detail' AND record_id=?",
                 new String[]{account,id})) {
             if(!c.moveToFirst())return null;
-            chars=c.getLong(0);
+            bytes=c.getLong(0);
+            syncedAt=c.getLong(1);
         }
-        if(chars<=0||chars>maxChars)
+        if(bytes==0)return "";
+        if(bytes<0||bytes>MAX_LOCAL_RECORDING_BYTES)
             throw new IllegalStateException("Stored recording is outside the safe read limit; original data retained");
-        StringBuilder result=new StringBuilder((int)chars);
-        for(long start=1;start<=chars;start+=chunkChars) {
+        byte[] result=new byte[(int)bytes];
+        // Byte offsets avoid rescanning preceding UTF-8 characters for each window.
+        for(long start=1;start<=bytes;start+=chunkBytes) {
             try(Cursor c=db.rawQuery(
-                    "SELECT substr(payload,?,?) FROM records WHERE account=? AND kind='activity_detail' AND record_id=?",
-                    new String[]{Long.toString(start),Integer.toString(chunkChars),account,id})) {
+                    "SELECT substr(CAST(payload AS BLOB),?,?) FROM records WHERE account=? AND kind='activity_detail' AND record_id=? AND synced_at=?",
+                    new String[]{Long.toString(start),Integer.toString(chunkBytes),account,id,Long.toString(syncedAt)})) {
                 if(!c.moveToFirst()||c.isNull(0))
                     throw new IllegalStateException("Stored recording changed during read; original data retained");
-                result.append(c.getString(0));
+                byte[] chunk=c.getBlob(0);
+                if(chunk.length!=Math.min(chunkBytes,bytes-start+1))
+                    throw new IllegalStateException("Stored recording changed during read; original data retained");
+                System.arraycopy(chunk,0,result,(int)(start-1),chunk.length);
             }
         }
-        return result.toString();
+        return new String(result,StandardCharsets.UTF_8);
+    }
+
+    /** Local FIT cache write. An existing long record never enters a CursorWindow. */
+    void saveLocalGarminRecording(String account, String id, String payload, long now) {
+        final String kind = "activity_detail";
+        keyCheck(account, kind, id);
+        RecordPolicy.payload(payload, MAX_LOCAL_RECORDING_BYTES);
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            if (hasPending(db, account, kind, id))
+                throw new IllegalStateException("A pending change protects this recording");
+            replace(db, "records", recordValues(account, kind, id, payload, null, now));
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
     }
 
     public CachedRecord get(String account,String kind,String id) {keyCheck(account,kind,id);return find(getReadableDatabase(),account,kind,id);}

@@ -50,7 +50,7 @@ class HeartRateZoneAnalysisTest {
         )
         val zones = HeartRateZoneAnalysis.distribute(samples, 200)!!
         val insight = HeartRateZoneAnalysis.presentation(zones)
-        assertTrue(insight.headline.contains("multiple heart-rate zones"))
+        assertTrue(insight.headline.contains("several zones"))
     }
 
     @Test fun invalidMaxOrGappyDataNeverInventsZones() {
@@ -159,9 +159,7 @@ class HeartRateZoneAnalysisTest {
         assertEquals(168, result.buckets[3].lowerBpm)
         assertEquals(182, result.buckets[4].lowerBpm)
         assertEquals(10.0, result.buckets[0].seconds, 0.001)
-        assertTrue(HeartRateZoneAnalysis.presentation(result).evidence.any {
-            it.contains("Actual imported boundaries")
-        })
+        assertTrue(HeartRateZoneAnalysis.presentation(result).evidence.isEmpty())
     }
 
     @Test fun importedGarminZoneExcludesReadingsBelowZone1AndAboveSourceMaximum() {
@@ -192,8 +190,8 @@ class HeartRateZoneAnalysisTest {
         val zones = HeartRateZoneAnalysis.distribute(samples, 197)!!
         val insight = HeartRateZoneAnalysis.presentation(zones)
         assertTrue(insight.headline.contains("Zone"))
-        assertTrue(insight.summary.contains("MAX BPM"))
-        assertTrue(insight.evidence.any { it.contains("not imported Garmin") })
+        assertTrue(insight.summary.contains("usable heart rate"))
+        assertTrue(insight.evidence.isEmpty())
         assertFalse(insight.hasComparison)
     }
 }

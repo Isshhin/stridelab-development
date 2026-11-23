@@ -36,6 +36,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -50,7 +52,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -199,7 +200,6 @@ internal fun StrideLabTodayScreen(
     onOpenActivityDetail: (String) -> Unit,
     onOpenMore: () -> Unit,
     onSignIn: () -> Unit,
-    onLoadCachedDetail: (suspend (String) -> Boolean)? = null,
     actions: PlanActions = PlanActions()
 ) {
     var reviewedProposal by rememberSaveable { mutableStateOf(false) }
@@ -268,18 +268,6 @@ internal fun StrideLabTodayScreen(
     // Preserve persisted session order rather than sorting arbitrary IDs.
     val schedule = plan?.sessions?.filter { it.date == date && it.status != "unassigned" }
         ?: emptyList()
-    val featured = schedule.firstOrNull { it.status != "completed" } ?: schedule.firstOrNull()
-    // The Next Session card always tracks real today, not the browsed date.
-    val todaySchedule = plan?.sessions?.filter {
-        it.date == todayDate && it.status != "unassigned"
-    } ?: emptyList()
-    val nextToday = todaySchedule.firstOrNull {
-        it.status in setOf("planned", "in_progress")
-    }
-    val future = nextToday ?: plan?.sessions?.filter {
-        it.date > todayDate && it.status in setOf("planned", "in_progress")
-    }?.minWithOrNull(compareBy<PlannedSession>({ it.date }, { it.id }))
-    val todayCompleted = todaySchedule.count { it.status == "completed" }
     // A completed day uses recorded styling only when the evidence is saved.
     // If a second session is still planned today, keep its actionable hero.
     val hasUnfinishedWorkout = schedule.any { it.status in setOf("planned", "in_progress") }
@@ -319,9 +307,6 @@ internal fun StrideLabTodayScreen(
         ),
         label = "today-notch"
     )
-    val metrics = remember(weekStart, safeActivities, safeHistory, safePlans) {
-        savedWeekMetrics(date, safeActivities, safeHistory, safePlans)
-    }
     val weeklyOverview = remember(weekStart, safeActivities, safeHistory, safePlans) {
         TodayOverviewCalculator.computeWeeklyOverview(weekStart, safeActivities, safeHistory, safePlans)
     }
@@ -335,26 +320,14 @@ internal fun StrideLabTodayScreen(
             plans = safePlans
         )
     }
-    val recentActivities = remember(safeActivities, safeHistory, safePlans) {
+    val recentActivities = remember(state.activitySummariesReady, safeActivities, safeHistory, safePlans) {
+        if (!state.activitySummariesReady) return@remember emptyList()
         TodayOverviewCalculator.buildRecentActivities(
             visibleActivities = safeActivities,
             rawHistory = safeHistory,
             plans = safePlans,
             limit = 5
         )
-    }
-    LaunchedEffect(recordedOnDate, recentActivities, onLoadCachedDetail) {
-        if (onLoadCachedDetail != null) {
-            val runIds = buildSet {
-                recordedOnDate.filter(DashboardSummary::isRun).forEach { add(it.id) }
-                recentActivities.filter { it.isRun }.mapNotNull { it.activityId }.forEach { add(it) }
-            }
-            runIds.forEach { actId ->
-                if (actId !in state.details) {
-                    onLoadCachedDetail.invoke(actId)
-                }
-            }
-        }
     }
     // The signed-out dashboard is a compact static view on ordinary phones.
     // The former measured-overflow toggle fed its own bottom padding back
@@ -367,19 +340,6 @@ internal fun StrideLabTodayScreen(
         if (listState.firstVisibleItemIndex != 0 ||
             listState.firstVisibleItemScrollOffset != 0
         ) listState.scrollToItem(0)
-    }
-    val signedOutFitsScreen = !hasHistory &&
-        LocalConfiguration.current.screenHeightDp >= 730 &&
-        androidx.compose.ui.platform.LocalDensity.current.fontScale <= 1.15f
-    // A sign-out can reuse the previous account's list position; start the
-    // signed-out dashboard from its date strip instead.
-    LaunchedEffect(state.account,hasHistory) {
-        if (!hasHistory &&
-            (listState.firstVisibleItemIndex != 0 ||
-                listState.firstVisibleItemScrollOffset != 0)
-        ) {
-            listState.scrollToItem(0)
-        }
     }
     LaunchedEffect(selectedDay) {
         // Date changes happen via the visible calendar. Re-anchor it fully,
@@ -395,20 +355,46 @@ internal fun StrideLabTodayScreen(
         listOf("all") + eligiblePages.map { it.key }
     }
 
-    Box(Modifier.fillMaxSize().background(TodayAdaptivePalette.bg)) {
+    Column(Modifier.fillMaxSize().background(TodayAdaptivePalette.bg)) {
+        TodayDisciplineTabs(
+            available = eligiblePages,
+            selectedKey = selectedPage,
+            reduceMotion = reduceMotion,
+            onSelect = { chosenPage = it },
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
+        )
         LazyColumn(
             state = listState,
-            userScrollEnabled = !signedOutFitsScreen,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxWidth().weight(1f)
                 .testTag("screen").semantics { paneTitle = "Today" },
             contentPadding = PaddingValues(
                 start = 16.dp, end = 16.dp,
-                top = if (hasHistory) 72.dp else 12.dp,
-                bottom = if (signedOutFitsScreen) 12.dp else 112.dp
+                top = 4.dp, bottom = 112.dp
             ),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            if (selectedPage == "all" || selectedPage == TodayDiscipline.RUNNING.key) {
+            if (selectedPage == "all") {
+                item(key = "today-calendar") {
+                    TodayWeekCalendar(
+                        date = date,
+                        accent = animatedTone.value,
+                        selectionFractionState = notchPosition,
+                        visibleActivities = calendarActivities,
+                        rawHistory = calendarHistory,
+                        plans = calendarPlans,
+                        reduceMotion = reduceMotion,
+                        onSelect = { selectedDay = it.toEpochDay() },
+                        onPrevious = { selectedDay = date.minusWeeks(1).toEpochDay() },
+                        onNext = { selectedDay = date.plusWeeks(1).toEpochDay() }
+                    )
+                }
+                item(key = "today-date-context") {
+                    TodayDateContextHeader(date, todayDate, { selectedDay = todayDate.toEpochDay() },
+                        modifier = Modifier.testTag("today-date-header"))
+                }
+            }
+            if ((selectedPage == "all" || selectedPage == TodayDiscipline.RUNNING.key) &&
+                state.activityMatches.values.any { it.matchStatus == ActivityMatchStatus.NEEDS_CONFIRMATION }) {
                 item(key = "pending-activity-matches") { PendingActivityMatchCards(state, actions) }
             }
             if (selectedPage == TodayDiscipline.RUNNING.key) {
@@ -418,26 +404,9 @@ internal fun StrideLabTodayScreen(
                     item(key = "running-easy-pacing-lock") { EasyPacingLockBanner() }
                 }
             }
-            if (selectedPage == "all") {
+            if (selectedPage == "all" && adaptationProposal?.status == AdaptationProposalStatus.PENDING) {
                 item(key = "today-adaptation-proposal") {
                     AdaptationProposalBanner(adaptationProposal, onReview = { reviewedProposal = true })
-                }
-            }
-            if (selectedPage == "all") {
-                item(key = "today-calendar") {
-                    TodayWeekCalendar(
-                        date = date,
-                        accent = animatedTone.value,
-                        selectionFractionState = notchPosition,
-                        signedOut = !hasHistory,
-                        visibleActivities = calendarActivities,
-                        rawHistory = calendarHistory,
-                        plans = calendarPlans,
-                        reduceMotion = reduceMotion,
-                        onSelect = { selectedDay = it.toEpochDay() },
-                        onPrevious = { selectedDay = date.minusWeeks(1).toEpochDay() },
-                        onNext = { selectedDay = date.plusWeeks(1).toEpochDay() }
-                    )
                 }
             }
             state.message?.takeIf(String::isNotBlank)?.let { message ->
@@ -449,23 +418,12 @@ internal fun StrideLabTodayScreen(
                 }
             }
             if (selectedPage == "all") {
-                if (hasHistory) {
-                    item(key = "today-date-context") {
-                        TodayDateContextHeader(
-                            selectedDate = date,
-                            todayDate = todayDate,
-                            onReturnToToday = { selectedDay = todayDate.toEpochDay() }
-                        )
-                    }
-                }
                 item(key = "today-hero") {
-                    if (!hasHistory) {
-                        TodaySignedOutHero(notchPosition, onOpenTraining)
-                    } else if (isPastDate && plan == null && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion && !state.initializing) {
+                    if (isPastDate && plan == null && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion && state.todayPlanReady) {
                         TodayCompactEmptyDay(online = online)
-                    } else if (state.initializing && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion) {
+                    } else if (!state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion) {
                         Surface(
-                            modifier = Modifier.fillMaxWidth().testTag("today-rest-day"),
+                            modifier = Modifier.fillMaxWidth().testTag("today-hero"),
                             shape = RoundedCornerShape(18.dp),
                             color = TodayAdaptivePalette.card,
                             border = androidx.compose.foundation.BorderStroke(1.dp, TodayAdaptivePalette.border)
@@ -510,24 +468,13 @@ internal fun StrideLabTodayScreen(
                             weekLabel = weekLabel
                         )
                     }
-                    item(key = "today-recent-activities") {
+                    if (state.activitySummariesReady) item(key = "today-recent-activities") {
                         TodayRecentActivitiesSection(
                             rows = recentActivities,
                             cachedDetails = state.details,
                             onSeeAll = onOpenActivity,
                             onOpenActivityDetail = onOpenActivityDetail,
                             onOpenWorkout = onOpenWorkout
-                        )
-                    }
-                } else {
-                    item(key = "today-next") {
-                        TodayNextSession(
-                            next = future,
-                            plan = plan,
-                            signedOut = true,
-                            completed = todayCompleted,
-                            total = todaySchedule.size,
-                            onOpen = { onOpenTraining() }
                         )
                     }
                 }
@@ -575,7 +522,9 @@ internal fun StrideLabTodayScreen(
                                 weekStart, discipline
                             )
                         }
-                        val runningReview = remember(
+                        val runningReview by produceState<List<RunningWeekCoach>>(
+                            emptyList(),
+                            discipline,
                             recentWeeks,
                             safeHistory,
                             safePlans,
@@ -585,8 +534,8 @@ internal fun StrideLabTodayScreen(
                             state.localPlanOwner,
                             state.localGarminIds
                         ) {
-                            if (discipline != TodayDiscipline.RUNNING) emptyList()
-                            else {
+                            value = if (discipline != TodayDiscipline.RUNNING) emptyList()
+                            else withContext(Dispatchers.IO) {
                                 val corrections = UserActivityWorkoutLabelStore(context)
                                 val ownerIds = listOfNotNull(
                                     state.account,
@@ -666,21 +615,6 @@ internal fun StrideLabTodayScreen(
             }
         }
         }
-        if (hasHistory) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = 19.dp, vertical = 10.dp)
-            ) {
-                TodayDisciplineTabs(
-                    available = eligiblePages,
-                    selectedKey = selectedPage,
-                    reduceMotion = reduceMotion,
-                    onSelect = { chosenPage = it }
-                )
-            }
-        }
         if (reviewedProposal && adaptationProposal != null) {
             AdaptationProposalSheet(
                 proposal = adaptationProposal,
@@ -733,7 +667,6 @@ private fun TodayWeekCalendar(
     date: LocalDate,
     accent: Color,
     selectionFractionState: State<Float>,
-    signedOut: Boolean,
     visibleActivities: List<ActivityRecord>,
     rawHistory: List<ActivityRecord>,
     plans: List<PlanSnapshot>,
@@ -803,11 +736,6 @@ private fun TodayWeekCalendar(
                 when {
                     reduceMotion ->
                         EnterTransition.None togetherWith ExitTransition.None
-                    signedOut ->
-                        // The anonymous week has no workout markers to
-                        // track between weeks. A composited alpha transition
-                        // avoids simultaneously sliding two full calendar rows.
-                        fadeIn(tween(170)) togetherWith fadeOut(tween(170))
                     else -> {
                         val forward = targetState.isAfter(initialState)
                         slideInHorizontally(
@@ -1261,11 +1189,9 @@ internal fun TodayCompactGpsThumbnail(
     route: RecordedGpsRoute,
     modifier: Modifier = Modifier
 ) {
-    val all = route.allPoints
     val segments = remember(route) {
-        if (all.maxOf { it.longitude } - all.minOf { it.longitude } > 180.0)
-            listOf(route.segments.maxByOrNull { it.size }.orEmpty())
-        else route.segments
+        val lines = route.displaySegments
+        if (lines.size > 1) listOf(lines.maxByOrNull { it.size }.orEmpty()) else lines
     }
     val points = remember(segments) { segments.flatten() }
     if (points.size < 2) return
@@ -2266,18 +2192,6 @@ private fun TodayRecordedRow(
     }
 }
 
-private data class TodayHeroSnapshot(
-    val date: LocalDate,
-    val scheduled: List<PlannedSession>,
-    val planAvailable: Boolean,
-    val signedOut: Boolean
-)
-
-/**
- * Content transitions are keyed by *workout discipline*, not date or session ID.
- * Easy Run -> Tempo Run updates directly; Run -> Strength/Recovery fades.
- * For multiple workouts, fade only if the discipline mix changes.
- */
 private fun todayHeroDiscipline(discipline: String): String =
     when (discipline.lowercase(Locale.ROOT)) {
         "run", "running" -> "running"
@@ -2286,568 +2200,6 @@ private fun todayHeroDiscipline(discipline: String): String =
         "cond", "conditioning" -> "conditioning"
         else -> discipline.lowercase(Locale.ROOT)
     }
-
-private fun todayHeroContentKey(snapshot: TodayHeroSnapshot): String = when {
-    snapshot.signedOut -> "signed-out"
-    !snapshot.planAvailable -> "no-plan"
-    snapshot.scheduled.isEmpty() -> "recovery"
-    snapshot.scheduled.size > 1 -> "multi:" +
-        snapshot.scheduled.map { todayHeroDiscipline(it.discipline) }.sorted().joinToString(",")
-    else -> todayHeroDiscipline(snapshot.scheduled.first().discipline)
-}
-
-/**
- * Multiple planned sessions stay compact. The first two are quick previews;
- * the full persisted plan appears in a scrollable on-demand sheet.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TodayMultiPlannedCard(
-    date: LocalDate,
-    accent: Color,
-    notchFraction: Float,
-    sessions: List<PlannedSession>,
-    onOpen: (PlannedSession) -> Unit
-) {
-    val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
-    val pending = sessions.filter { it.status in setOf("planned", "in_progress") }
-    val completed = sessions.count { it.status == "completed" }
-    val next = pending.firstOrNull()
-    val mixed = sessions.map { todayHeroDiscipline(it.discipline) }.distinct().size > 1
-    val dayIsToday = date == LocalDate.now()
-    var showAll by remember(date, sessions) { mutableStateOf(false) }
-    Box(
-        Modifier.fillMaxWidth().height(TodayHeroHeight)
-            .clip(shape)
-            .background(
-                Brush.linearGradient(
-                    listOf(accent, accent.copy(alpha = .97f), accent.copy(alpha = .79f))
-                )
-            )
-            .border(1.dp, Color(0x55000000), shape)
-            .testTag("today-planned-multiple")
-    ) {
-        TodayDecorativeArt(
-            accent = accent,
-            kind = if (mixed) "mixed" else sessions.firstOrNull()?.discipline ?: "general",
-            modifier = Modifier.matchParentSize().alpha(.36f)
-        )
-        Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(
-                start = 19.dp, end = 17.dp, top = 23.dp, bottom = 16.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TodayDisciplineGlyph(
-                    kind = if (mixed) "mixed" else sessions.first().discipline,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(7.dp))
-                Text(
-                    if (dayIsToday) "TODAY'S SESSIONS" else "UPCOMING SESSIONS",
-                    color = TodayLook.black, fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
-                )
-            }
-            Text(
-                sessions.size.toString() + " workouts",
-                color = TodayLook.black, fontWeight = FontWeight.ExtraBold,
-                fontSize = 26.sp, lineHeight = 30.sp
-            )
-            Text(
-                completed.toString() + " done · " +
-                    pending.size.toString() + " remaining",
-                color = TodayLook.black.copy(alpha = .77f), fontSize = 12.sp
-            )
-            sessions.take(1).forEach { session ->
-                Surface(
-                    onClick = { onOpen(session) },
-                    shape = RoundedCornerShape(13.dp),
-                    color = Color(0xE7222526),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 43.dp)
-                        .testTag("today-session-" + session.id)
-                ) {
-                    Row(
-                        Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("●", color = todayDisciplineColor(session.discipline),
-                            fontSize = 14.sp)
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                session.effectiveTitle, color = TodayLook.text,
-                                fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                todaySessionDetails(session), color = TodayLook.muted,
-                                fontSize = 10.sp, maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        Text(
-                            when (session.status) {
-                                "completed" -> "✓ Done"
-                                "in_progress" -> "Active"
-                                else -> "Planned"
-                            },
-                            color = if (session.status == "completed")
-                                TodayLook.lime else TodayLook.muted,
-                            fontSize = 10.sp, maxLines = 1
-                        )
-                    }
-                }
-            }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (next != null) {
-                    Surface(
-                        onClick = { onOpen(next) },
-                        shape = RoundedCornerShape(25.dp),
-                        color = Color(0xFF252627),
-                        modifier = Modifier.height(41.dp)
-                    ) {
-                        Row(
-                            Modifier.padding(horizontal = 15.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("›", color = TodayLook.text, fontSize = 18.sp)
-                            Spacer(Modifier.width(5.dp))
-                            Text(
-                                if (dayIsToday) "Open next" else "View next",
-                                color = TodayLook.text, fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-                Surface(
-                    onClick = { showAll = true },
-                    shape = RoundedCornerShape(25.dp),
-                    color = Color(0xFF252627),
-                    modifier = Modifier.height(41.dp).testTag("today-planned-view-all")
-                ) {
-                    Row(
-                        Modifier.padding(horizontal = 15.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("View sessions", color = TodayLook.text,
-                            fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-    if (showAll) {
-        ModalBottomSheet(
-            onDismissRequest = { showAll = false },
-            containerColor = TodayLook.card
-        ) {
-            Column(
-                Modifier.fillMaxWidth().padding(
-                    start = 19.dp, end = 19.dp, bottom = 24.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    date.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())),
-                    color = TodayLook.muted, fontSize = 12.sp
-                )
-                Text(
-                    sessions.size.toString() + " planned workouts",
-                    color = TodayLook.text, fontSize = 21.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Column(
-                    Modifier.fillMaxWidth().heightIn(max = 490.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    sessions.forEach { session ->
-                        TodayRecordedRow(
-                            title = session.effectiveTitle,
-                            subtitle = todaySessionDetails(session) + " · " +
-                                session.status.replace('_', ' '),
-                            tint = todayDisciplineColor(session.discipline),
-                            onClick = {
-                                showAll = false
-                                onOpen(session)
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * The signed-out hero has no date-specific content. Keep one stable layout
- * for every weekday (past/present/future) and animate only its notch in the
- * graphics/draw phases; the artwork and text never recompose per frame.
- */
-@Composable
-private fun TodaySignedOutHero(
-    notchPosition: State<Float>,
-    onCreatePlan: () -> Unit
-) {
-    val accent = TodayLook.lime
-    val cardShape = remember { RoundedCornerShape(19.dp) }
-    Box(
-        Modifier.fillMaxWidth()
-            .heightIn(min = 256.dp)
-            // Keep the artwork in a stable rounded layer. A minimum height,
-            // rather than a hard cap, protects large accessibility fonts. Animating a clip
-            // path over the entire card can require costly GPU work.
-            .clip(cardShape)
-            .background(
-                Brush.linearGradient(
-                    listOf(accent, accent.copy(alpha = .98f), accent.copy(alpha = .81f))
-                )
-            )
-            .border(1.dp, Color(0x55000000), cardShape)
-            .testTag("today-hero")
-    ) {
-        TodayDecorativeArt(
-            accent = accent,
-            kind = "general",
-            modifier = Modifier.matchParentSize()
-        )
-        Column(
-            Modifier.fillMaxWidth().padding(
-                start = 19.dp, end = 16.dp, top = 23.dp, bottom = 15.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
-            ) {
-                TodayDisciplineGlyph(kind = "recovery", modifier = Modifier.size(17.dp))
-                Text(
-                    "YOUR TRAINING", fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold, color = TodayLook.black,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
-                )
-            }
-            Text(
-                "Train with StrideLab",
-                fontSize = 29.sp, lineHeight = 33.sp,
-                fontWeight = FontWeight.ExtraBold, color = TodayLook.black,
-                maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(.83f)
-            )
-            Text(
-                "Create your training schedule offline. Cloud backup is optional.",
-                color = TodayLook.black.copy(alpha = .82f),
-                fontSize = 12.sp, lineHeight = 17.sp,
-                modifier = Modifier.fillMaxWidth(.75f),
-                maxLines = 3, overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                "Your activities stay private.",
-                color = TodayLook.black.copy(alpha = .72f),
-                fontSize = 11.sp, lineHeight = 16.sp,
-                modifier = Modifier.fillMaxWidth(.83f)
-            )
-            Spacer(Modifier.height(6.dp))
-            Surface(
-                onClick = onCreatePlan,
-                shape = RoundedCornerShape(28.dp),
-                color = Color(0xFFEAFB77),
-                modifier = Modifier.height(42.dp).testTag("today-workout-action")
-            ) {
-                Row(
-                    Modifier.padding(horizontal = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("▶", color = TodayLook.black, fontSize = 12.sp)
-                    Text(
-                        "Create plan", color = TodayLook.black,
-                        fontSize = 13.sp, fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-        // Recreate only the tiny animated scoop at the card's top edge.
-        // Reads the spring in Draw, leaving the 256dp artwork and text static.
-        Canvas(
-            Modifier.align(Alignment.TopStart).fillMaxWidth().height(16.dp)
-        ) {
-            val w = size.width
-            val h = 256.dp.toPx()
-            val fraction = notchPosition.value.coerceIn(.06f, .94f)
-            val center = w * fraction
-            val radius = w * .052f
-            val leftRadius = minOf(radius, center * .35f)
-            val rightRadius = minOf(radius, (w - center) * .35f)
-            val wake = TracksideLiquidMotion.notchWake(fraction)
-            val maxHalf = minOf(
-                center - leftRadius - 2f,
-                w - rightRadius - center - 2f
-            ).coerceAtLeast(w * .012f)
-            val half = minOf(w * .065f * (1f + wake * .20f), maxHalf)
-            val depth = minOf(h * .035f * (1f + wake * .30f), w * .034f)
-            val scoop = Path().apply {
-                moveTo(center - half, 0f)
-                cubicTo(center - half * .42f, 0f, center - half * .55f, depth, center, depth)
-                cubicTo(center + half * .55f, depth, center + half * .42f, 0f, center + half, 0f)
-                close()
-            }
-            drawPath(scoop, TodayLook.black)
-        }
-    }
-}
-
-@Composable
-private fun TodayWaveWorkout(
-    accent: Color,
-    notchFraction: Float,
-    reduceMotion: Boolean,
-    date: LocalDate,
-    scheduled: List<PlannedSession>,
-    planAvailable: Boolean,
-    signedOut: Boolean,
-    onOpen: (PlannedSession) -> Unit,
-    onPlan: () -> Unit,
-    onSignIn: () -> Unit
-) {
-    if (scheduled.size > 1 && !signedOut) {
-        TodayMultiPlannedCard(
-            date = date, accent = accent, notchFraction = notchFraction,
-            sessions = scheduled, onOpen = onOpen
-        )
-        return
-    }
-    val shape = remember(notchFraction) { todayNotchedShape(notchFraction) }
-    val multi = scheduled.size > 1
-    val primary = scheduled.firstOrNull { it.status != "completed" } ?: scheduled.firstOrNull()
-    val content = TodayHeroSnapshot(date, scheduled, planAvailable, signedOut)
-    // Signed-out copy has two title lines, explanatory text and a CTA.
-    // The former 232dp hero made its own inner Column scroll by a few pixels.
-    Box(
-        Modifier.fillMaxWidth()
-            .height(if (signedOut) 256.dp else TodayHeroHeight)
-            .clip(shape)
-            .background(
-                Brush.linearGradient(
-                    listOf(accent, accent.copy(alpha = .98f), accent.copy(alpha = .81f))
-                )
-            )
-            .border(1.dp, Color(0x55000000), shape)
-            .testTag("today-hero")
-    ) {
-        Crossfade(
-            targetState = when {
-                signedOut || !planAvailable -> "general"
-                scheduled.isEmpty() -> "recovery"
-                multi -> "multi"
-                else -> primary?.discipline?.let(::todayHeroDiscipline) ?: "general"
-            },
-            animationSpec = tween(if (reduceMotion) 0 else 240),
-            modifier = Modifier.matchParentSize(),
-            label = "today-workout-art"
-        ) { artKind ->
-            TodayDecorativeArt(
-                accent = accent,
-                kind = artKind,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-        AnimatedContent(
-            targetState = content,
-            // Different dates in the same discipline update immediately,
-            // avoiding the full-card blink on Run -> Run or empty -> empty.
-            contentKey = ::todayHeroContentKey,
-            modifier = Modifier.fillMaxWidth(),
-            transitionSpec = {
-                (fadeIn(tween(if (reduceMotion) 0 else 210)) +
-                    slideInVertically(
-                        animationSpec = tween(if (reduceMotion) 0 else 210),
-                        initialOffsetY = { it / 13 }
-                    )) togetherWith (
-                    fadeOut(tween(if (reduceMotion) 0 else 150)) +
-                    slideOutVertically(
-                        animationSpec = tween(if (reduceMotion) 0 else 150),
-                        targetOffsetY = { -it / 13 }
-                    )
-                )
-            },
-            label = "today-workout-details"
-        ) { displayed ->
-            val date = displayed.date
-            val scheduled = displayed.scheduled
-            val planAvailable = displayed.planAvailable
-            val signedOut = displayed.signedOut
-            val multi = scheduled.size > 1
-            val primary = scheduled.firstOrNull { it.status != "completed" }
-                ?: scheduled.firstOrNull()
-            val isToday = date == LocalDate.now()
-        val title = when {
-            signedOut -> "Train with StrideLab"
-            !planAvailable -> "Your next chapter"
-            scheduled.isEmpty() -> if (isToday) "Recovery day" else "Open day"
-            multi -> scheduled.size.toString() + " sessions"
-            else -> primary?.effectiveTitle ?: "Workout"
-        }
-        val intro = when {
-            signedOut -> "Sign in to see your own training schedule."
-            !planAvailable -> "Build a plan that works around your week."
-            scheduled.isEmpty() -> "No workout scheduled for this day."
-            multi -> scheduled.count { it.status == "completed" }.toString() +
-                " completed · " + (scheduled.size - scheduled.count { it.status == "completed" }) +
-                " remaining"
-            else -> todaySessionDetails(primary!!)
-        }
-        val onPrimary = when {
-            signedOut -> onSignIn
-            !planAvailable || scheduled.isEmpty() -> onPlan
-            primary != null -> ({ onOpen(primary) })
-            else -> onPlan
-        }
-        val button = when {
-            signedOut -> "Sign in"
-            !planAvailable -> "Create training plan"
-            scheduled.isEmpty() -> "View training"
-            !isToday -> "View workout"
-            multi -> if (scheduled.all { it.status == "completed" }) "View workouts" else "Open next workout"
-            primary?.status == "completed" -> "View workout"
-            else -> "Start workout"
-        }
-        val limeButton = !multi && (signedOut || !planAvailable ||
-            primary?.discipline?.let(::todayHeroDiscipline) == "running")
-        val buttonInk = if (limeButton) TodayLook.black else TodayLook.text
-
-        val allowHeroScroll = !signedOut ||
-            androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.15f
-        Column(
-            Modifier.fillMaxWidth()
-                .then(if (allowHeroScroll) Modifier.verticalScroll(rememberScrollState())
-                    else Modifier)
-                .padding(start = 19.dp, end = 16.dp, top = 23.dp, bottom = 15.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                TodayDisciplineGlyph(
-                    kind = when {
-                        scheduled.isEmpty() -> "recovery"
-                        multi -> "mixed"
-                        else -> primary?.discipline ?: "running"
-                    },
-                    modifier = Modifier.size(17.dp)
-                )
-                Text(
-                    when {
-                        signedOut -> "YOUR TRAINING"
-                        !planAvailable -> "GET STARTED"
-                        scheduled.isEmpty() && isToday -> "RECOVERY DAY"
-                        scheduled.isEmpty() -> "NO WORKOUT SCHEDULED"
-                        isToday -> "TODAY'S WORKOUT"
-                        else -> "UPCOMING WORKOUT"
-                    },
-                    fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TodayLook.black,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
-                )
-                if (primary != null && !multi) {
-                    Spacer(Modifier.weight(1f))
-                    Text(
-                        when (primary.status) {
-                            "completed" -> "✓ Done"
-                            "in_progress" -> "● Active"
-                            else -> "Planned"
-                        },
-                        color = TodayLook.black.copy(alpha = .76f),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                }
-            }
-            Text(title, fontSize = if (multi) 27.sp else 29.sp,
-                lineHeight = 33.sp,
-                fontWeight = FontWeight.ExtraBold, color = TodayLook.black,
-                maxLines = 2, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(if (multi) 1f else .83f))
-            Text(intro, color = TodayLook.black.copy(alpha = .82f),
-                fontSize = 12.sp, lineHeight = 17.sp,
-                modifier = Modifier.fillMaxWidth(if (multi) 1f else .75f),
-                maxLines = 3, overflow = TextOverflow.Ellipsis)
-            if (multi) {
-                Spacer(Modifier.height(1.dp))
-                scheduled.forEach { session ->
-                    Surface(
-                        onClick = { onOpen(session) },
-                        shape = RoundedCornerShape(14.dp),
-                        color = Color(0xD91B1D20),
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 53.dp)
-                            .testTag("today-session-" + session.id)
-                    ) {
-                        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                            Text("●", color = todayDisciplineColor(session.discipline), fontSize = 16.sp)
-                            Column(Modifier.weight(1f)) {
-                                Text(session.effectiveTitle, color = TodayLook.text,
-                                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(todaySessionDetails(session),
-                                    color = TodayLook.muted, fontSize = 11.sp,
-                                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                            Text(
-                                when (session.status) {
-                                    "completed" -> "✓ Done"
-                                    "in_progress" -> "● Active"
-                                    else -> "Planned"
-                                },
-                                color = if (session.status == "completed")
-                                    TodayLook.lime else TodayLook.muted,
-                                fontSize = 10.sp,
-                                maxLines = 1
-                            )
-                            Text("›", color = TodayLook.text, fontSize = 19.sp)
-                        }
-                    }
-                }
-            } else if (scheduled.isEmpty()) {
-                Text(
-                    if (signedOut) "Your activities stay private."
-                    else if (!planAvailable) "Personalized sessions will appear here once approved."
-                    else if (isToday) "Make time to recover and come back stronger."
-                    else "See your training calendar for another scheduled day.",
-                    color = TodayLook.black.copy(alpha = .72f), fontSize = 11.sp, lineHeight = 16.sp,
-                    modifier = Modifier.fillMaxWidth(.83f)
-                )
-            }
-            Spacer(Modifier.height(if (multi) 3.dp else 6.dp))
-            Surface(
-                onClick = onPrimary,
-                shape = RoundedCornerShape(28.dp),
-                color = if (limeButton) Color(0xFFEAFB77) else Color(0xFF28252B),
-                modifier = Modifier.height(42.dp)
-                    .testTag("today-workout-action")
-            ) {
-                Row(
-                    Modifier.padding(horizontal = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("▶", color = buttonInk, fontSize = 12.sp)
-                    Text(button, color = buttonInk,
-                        fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-        }
-
-    }
-}
 
 private fun todaySessionDetails(session: PlannedSession): String {
     val parts = mutableListOf<String>()
@@ -2917,330 +2269,6 @@ internal fun TodayRecordedRunningGlyph(modifier: Modifier = Modifier) {
 }
 
 /** Tiny discipline-specific vector mark, not a stock athlete image. */
-@Composable
-private fun TodayDisciplineGlyph(kind: String, modifier: Modifier = Modifier) {
-    Canvas(modifier) {
-        val w = size.width
-        val h = size.height
-        val ink = Color(0xFF1A2615)
-        val stroke = 1.9.dp.toPx()
-        when (todayHeroDiscipline(kind)) {
-            "running" -> {
-                drawCircle(ink, radius = w * .105f, center = Offset(w * .63f, h * .16f))
-                drawLine(ink, Offset(w * .56f, h * .30f), Offset(w * .42f, h * .58f),
-                    strokeWidth = stroke, cap = StrokeCap.Round)
-                drawLine(ink, Offset(w * .42f, h * .58f), Offset(w * .76f, h * .72f),
-                    strokeWidth = stroke, cap = StrokeCap.Round)
-                drawLine(ink, Offset(w * .42f, h * .58f), Offset(w * .18f, h * .82f),
-                    strokeWidth = stroke, cap = StrokeCap.Round)
-                drawLine(ink, Offset(w * .53f, h * .37f), Offset(w * .78f, h * .42f),
-                    strokeWidth = stroke, cap = StrokeCap.Round)
-                drawLine(ink, Offset(w * .45f, h * .39f), Offset(w * .22f, h * .49f),
-                    strokeWidth = stroke, cap = StrokeCap.Round)
-            }
-            "strength" -> {
-                drawLine(ink, Offset(w * .13f, h * .50f), Offset(w * .87f, h * .50f),
-                    strokeWidth = stroke, cap = StrokeCap.Round)
-                listOf(.27f, .73f).forEach { x ->
-                    drawLine(ink, Offset(w * x, h * .24f), Offset(w * x, h * .76f),
-                        strokeWidth = 3.1.dp.toPx(), cap = StrokeCap.Round)
-                }
-            }
-            "calisthenics", "conditioning", "mixed" -> {
-                drawCircle(ink, radius = w * .10f, center = Offset(w * .5f, h * .2f))
-                drawLine(ink, Offset(w * .17f, h * .42f), Offset(w * .83f, h * .42f),
-                    strokeWidth = stroke, cap = StrokeCap.Round)
-                drawLine(ink, Offset(w * .5f, h * .40f), Offset(w * .5f, h * .73f),
-                    strokeWidth = stroke, cap = StrokeCap.Round)
-                drawLine(ink, Offset(w * .5f, h * .73f), Offset(w * .24f, h * .93f),
-                    strokeWidth = stroke, cap = StrokeCap.Round)
-                drawLine(ink, Offset(w * .5f, h * .73f), Offset(w * .76f, h * .93f),
-                    strokeWidth = stroke, cap = StrokeCap.Round)
-            }
-            else -> {
-                drawArc(
-                    color = ink, startAngle = 40f, sweepAngle = 260f,
-                    useCenter = false,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(
-                        width = stroke, cap = StrokeCap.Round
-                    )
-                )
-            }
-        }
-    }
-}
-
-/** Decorative athletic artwork only, never a GPS route or invented athlete metric. */
-@Composable
-private fun TodayDecorativeArt(accent: Color, kind: String, modifier: Modifier) {
-    Canvas(modifier) {
-        val w = size.width
-        val h = size.height
-        val running = kind in setOf("run", "running", "general")
-        val strength = kind in setOf("str", "strength")
-        val recovery = kind == "recovery"
-        // Soft sunlit field keeps the foreground text legible on a pastel card.
-        drawCircle(
-            brush = Brush.radialGradient(
-                listOf(Color.White.copy(alpha = .32f), Color.White.copy(alpha = 0f)),
-                center = Offset(w * .70f, h * .26f), radius = w * .55f
-            ),
-            radius = w * .55f,
-            center = Offset(w * .70f, h * .26f)
-        )
-        if (running) {
-            // Layered evergreen ridges, confined primarily to the card's right half.
-            val distant = Path().apply {
-                moveTo(w * .43f, h)
-                lineTo(w * .58f, h * .68f)
-                lineTo(w * .68f, h * .81f)
-                lineTo(w * .89f, h * .26f)
-                lineTo(w, h * .55f)
-                lineTo(w, h)
-                close()
-            }
-            drawPath(
-                distant,
-                Brush.verticalGradient(
-                    listOf(Color(0xFF607E19).copy(alpha = .84f), Color(0xFF273E10)),
-                    startY = h * .22f, endY = h
-                )
-            )
-            val ridge = Path().apply {
-                moveTo(w * .51f, h)
-                lineTo(w * .69f, h * .54f)
-                lineTo(w * .77f, h * .75f)
-                lineTo(w * .94f, h * .43f)
-                lineTo(w, h * .54f)
-                lineTo(w, h)
-                close()
-            }
-            drawPath(ridge, Color(0xFF47651B).copy(alpha = .95f))
-            val foreground = Path().apply {
-                moveTo(w * .48f, h)
-                cubicTo(w * .64f, h * .83f, w * .70f, h * .92f, w * .79f, h * .70f)
-                cubicTo(w * .91f, h * .54f, w * .96f, h * .65f, w, h * .57f)
-                lineTo(w, h)
-                close()
-            }
-            drawPath(
-                foreground,
-                Brush.verticalGradient(
-                    listOf(Color(0xFF344D16), Color(0xFF15260F)),
-                    startY = h * .55f, endY = h
-                )
-            )
-            val softHorizon = Path().apply {
-                moveTo(w * .32f, h)
-                cubicTo(w * .51f, h * .92f, w * .58f, h * .85f, w * .76f, h * .93f)
-                cubicTo(w * .86f, h * .98f, w * .93f, h * .89f, w, h * .84f)
-                lineTo(w, h)
-                close()
-            }
-            drawPath(softHorizon, Color(0xFF172A0E).copy(alpha = .28f))
-        } else if (strength) {
-            val shadow = Path().apply {
-                moveTo(w * .53f, h)
-                cubicTo(w * .63f, h * .69f, w * .88f, h * .37f, w, h * .47f)
-                lineTo(w, h)
-                close()
-            }
-            drawPath(shadow, Color(0xFF9D443C).copy(alpha = .22f))
-            rotate(
-                degrees = -35f,
-                pivot = Offset(w * .82f, h * .67f)
-            ) {
-                val dark = Color(0xFF77372F)
-                val shine = Color(0xFFB75549)
-                drawRoundRect(
-                    color = dark,
-                    topLeft = Offset(w * .58f, h * .64f),
-                    size = androidx.compose.ui.geometry.Size(w * .49f, h * .060f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(h * .023f)
-                )
-                listOf(.64f, .73f, .93f, 1.01f).forEachIndexed { index, x ->
-                    drawRoundRect(
-                        brush = Brush.horizontalGradient(listOf(dark, shine, dark)),
-                        topLeft = Offset(w * x, h * (if (index % 3 == 0) .52f else .55f)),
-                        size = androidx.compose.ui.geometry.Size(w * .065f, h * (if (index % 3 == 0) .30f else .24f)),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(h * .018f)
-                    )
-                }
-            }
-        } else if (recovery) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    listOf(Color(0xFFF4E6FF).copy(alpha = .85f),
-                        Color(0xFFD5BEF9).copy(alpha = .04f)),
-                    center = Offset(w * .84f, h * .40f), radius = w * .25f
-                ),
-                radius = w * .25f, center = Offset(w * .84f, h * .40f)
-            )
-            val rear = Path().apply {
-                moveTo(w * .35f, h)
-                cubicTo(w * .56f, h * .68f, w * .67f, h * .80f, w * .81f, h * .57f)
-                cubicTo(w * .92f, h * .45f, w * .96f, h * .54f, w, h * .47f)
-                lineTo(w, h)
-                close()
-            }
-            drawPath(rear, Color(0xFF9B80D5).copy(alpha = .38f))
-            val front = Path().apply {
-                moveTo(w * .30f, h)
-                cubicTo(w * .53f, h * .81f, w * .67f, h * .94f, w * .80f, h * .76f)
-                cubicTo(w * .91f, h * .64f, w * .98f, h * .73f, w, h * .66f)
-                lineTo(w, h)
-                close()
-            }
-            drawPath(front, Color(0xFF8165B7).copy(alpha = .34f))
-        } else {
-            // Mixed-discipline session: flowing tonal arcs rather than fake routes.
-            repeat(3) { index ->
-                drawCircle(
-                    color = Color(0xFF3B2B35).copy(alpha = .12f + index * .04f),
-                    radius = w * (.22f + index * .085f),
-                    center = Offset(w * .94f, h * .82f)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TodayNextSession(
-    next: PlannedSession?,
-    plan: PlanSnapshot?,
-    signedOut: Boolean,
-    completed: Int,
-    total: Int,
-    onOpen: () -> Unit
-) {
-    val nextAccent = next?.let {
-        when {
-            it.discipline == "run" && it.kind == "long" -> TodayLook.lime
-            it.discipline == "run" && it.kind == "quality" -> StrideLabVisualPalette.moderateAmber
-            it.discipline == "run" -> TodayLook.lime
-            else -> StrideLabVisualPalette.disciplineColor(it.discipline)
-        }
-    } ?: TodayLook.lime
-    val iconRes = when (next?.discipline) {
-        "str" -> R.drawable.trackside_discipline_strength
-        "cal" -> R.drawable.trackside_discipline_calisthenics
-        "cond" -> R.drawable.trackside_discipline_conditioning
-        else -> R.drawable.trackside_discipline_running
-    }
-    Surface(
-        onClick = onOpen,
-        shape = RoundedCornerShape(19.dp),
-        color = StrideLabVisualPalette.surface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, StrideLabVisualPalette.border),
-        modifier = Modifier.fillMaxWidth().testTag("today-next-session")
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(nextAccent)
-            )
-            Column(
-                Modifier
-                    .weight(1f)
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(nextAccent.copy(alpha = 0.07f), Color.Transparent)
-                        )
-                    )
-                    .padding(horizontal = 14.dp, vertical = 13.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        Text(
-                            "NEXT SESSION",
-                            fontSize = 10.sp,
-                            letterSpacing = 1.2.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TodayLook.muted
-                        )
-                        Text(
-                            next?.effectiveTitle ?: if (signedOut) "Your schedule awaits"
-                            else if (plan != null) "No upcoming sessions" else "Build your plan",
-                            fontSize = 17.sp, lineHeight = 21.sp,
-                            fontWeight = FontWeight.ExtraBold, color = TodayLook.text,
-                            maxLines = 2, overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Box(
-                        Modifier.size(28.dp)
-                            .background(StrideLabVisualPalette.surfaceRaised, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("›", color = nextAccent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                if (next != null) {
-                    Text(
-                        next.date.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())) +
-                            " · " + todaySessionDetails(next),
-                        color = TodayLook.muted, fontSize = 11.5.sp,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis
-                    )
-                    if (next.discipline == "run") {
-                        val blocks = remember(next.id, next.title, next.distanceKm) {
-                            WorkoutVisualBlocks.fromSession(next)
-                        }
-                        if (blocks.isNotEmpty()) {
-                            WorkoutStructureBarChart(
-                                blocks = blocks,
-                                height = 14.dp,
-                                interactive = false,
-                                tag = "today-next-mini-bars"
-                            )
-                        }
-                    }
-                } else {
-                    Text(
-                        if (signedOut) "Create a plan on this device without signing in."
-                        else if (plan == null) "Create an approved schedule to get started."
-                        else "Check your training schedule for future workouts.",
-                        color = TodayLook.muted, fontSize = 11.5.sp
-                    )
-                }
-                if (total > 0) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier.weight(1f).height(5.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(StrideLabVisualPalette.surfaceRaised)
-                        ) {
-                            Box(
-                                Modifier.fillMaxWidth(completed.toFloat() / total.toFloat())
-                                    .fillMaxHeight()
-                                    .background(nextAccent, RoundedCornerShape(4.dp))
-                            )
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            "$completed of $total today",
-                            color = TodayLook.muted, fontSize = 10.sp
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * One multi-discipline overview for the selected week.
- * The entire card is one accessible tap target; no chevron or nested click
- * action. Bars use recorded time only, never planned training targets.
- */
 @Composable
 private fun TodayWeeklyActivity(
     start: LocalDate,

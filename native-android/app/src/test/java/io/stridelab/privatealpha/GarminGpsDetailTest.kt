@@ -31,6 +31,47 @@ class GarminGpsDetailTest {
         assertEquals(12345L,parsed.fetchedAt)
         assertEquals("garmin",summary.source)
     }
+    @Test fun longRecordingExceedsSharedRecordCapAndRetainsMeasuredStreams() {
+        val seconds = 11_733
+        val distance = 30_390.0
+        val longSummary = summary.copy(durationS = seconds.toDouble(), distanceM = distance)
+        val recording = fit(offset = distance, elapsed = seconds.toDouble(), timer = seconds.toDouble())
+        val longFit = recording.copy(
+            points = List(seconds + 1) { index ->
+                recording.points.first().copy(
+                    at = whenRun.plusSeconds(index.toLong()),
+                    distanceM = distance * index / seconds,
+                    latitude = 14.6 + index * 0.00000123,
+                    cadenceRpm = 86.0
+                )
+            },
+            laps = listOf(FitActivityDecoder.Lap(whenRun, 390.0, 390.0, 1000.0, 145.0))
+        )
+        val payload = GarminGpsDetail.payload("owner", longSummary, longFit, 123L).toString()
+        assertTrue(payload.toByteArray(Charsets.UTF_8).size > RecordPolicy.MAX_PAYLOAD_BYTES)
+        val cached = requireNotNull(GarminGpsDetail.cachedRecording(payload, "owner", summary.id))
+        assertEquals(seconds + 1, cached.samples.size)
+        assertEquals(seconds.toDouble(), cached.samples.last().seconds, 0.001)
+        assertEquals(145.0, cached.samples.last().hr!!, 0.001)
+        assertEquals(longFit.points.last().latitude!!, cached.samples.last().latitude!!, 0.000001)
+        assertEquals(1, cached.laps.size)
+        assertEquals(3, GarminGpsDetail.cachedRecording(
+            GarminGpsDetail.payload("owner", summary, fit(), 124L).toString(), "owner", summary.id
+        )?.samples?.size)
+    }
+
+    @Test fun missingAndEmptyCacheCanHydrateLaterButForeignCacheIsRejected() {
+        val complete = GarminGpsDetail.payload("owner", summary, fit(), 123L)
+        val empty = org.json.JSONObject(complete.toString())
+            .put("samples", org.json.JSONArray()).put("laps", org.json.JSONArray())
+        assertNull(GarminGpsDetail.cachedRecording(null, "owner", summary.id))
+        assertNull(GarminGpsDetail.cachedRecording("", "owner", summary.id))
+        assertNull(GarminGpsDetail.cachedRecording(empty.toString(), "owner", summary.id))
+        assertEquals(3, GarminGpsDetail.cachedRecording(complete.toString(), "owner", summary.id)?.samples?.size)
+        assertThrows(IllegalArgumentException::class.java) {
+            GarminGpsDetail.cachedRecording(complete.toString(), "other", summary.id)
+        }
+    }
     @Test fun unrelatedFitOrAccountMustNeverBecomeGarminRoute() {
         try { GarminGpsDetail.payload("other",summary,fit(),123L);fail("Other owner") }
         catch(_:IllegalArgumentException) {}

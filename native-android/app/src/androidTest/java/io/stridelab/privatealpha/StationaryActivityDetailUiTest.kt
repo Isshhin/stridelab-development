@@ -25,11 +25,12 @@ class StationaryActivityDetailUiTest {
     private fun mount(
         activity: ActivityRecord,
         detail: ActivityDetail? = null,
-        onBack: () -> Unit = {}
+        onBack: () -> Unit = {},
+        plans: List<PlanSnapshot> = emptyList()
     ) {
         val state = TrainingState(
             initializing = false, account = "synthetic-stationary-qa",
-            activities = listOf(activity)
+            activities = listOf(activity), plans = plans
         )
         compose.activity.setContent {
             StrideTheme {
@@ -56,6 +57,7 @@ class StationaryActivityDetailUiTest {
         compose.onNodeWithTag("activity-metric-distance").assertDoesNotExist()
         compose.onNodeWithTag("activity-metric-avg-pace").assertDoesNotExist()
         compose.onNodeWithText("0.00 km").assertDoesNotExist()
+        compose.onNodeWithTag("coach-debrief").assertDoesNotExist()
         compose.onNodeWithTag("activity-edit").assertExists().assertHasClickAction()
         compose.onNodeWithTag("activity-share").assertExists().assertHasClickAction()
     }
@@ -75,6 +77,22 @@ class StationaryActivityDetailUiTest {
         compose.onNodeWithTag("activity-map-hero").assertDoesNotExist()
         compose.onNodeWithTag("activity-map-attribution").assertDoesNotExist()
         compose.onNodeWithTag("activity-metric-duration").assertExists()
+    }
+
+    @Test fun linkedStationaryLogDisplaysTheSharedDebrief() {
+        val activity = activity("isometrics")
+        val date = java.time.LocalDate.of(2026, 11, 19)
+        val session = PlannedSession("iso", date, "str", "Isometrics", 20, null, "structured-str",
+            exercises = listOf(ExercisePrescription("hold", "Wall sit", 2, seconds = 30)),
+            status = "completed", linkedActivityId = activity.id,
+            log = WorkoutLog(activity.startedAt, sets = listOf(
+                SetRecord("hold", 1, seconds = 30), SetRecord("hold", 2, seconds = 30)
+            ), performedOn = date))
+        val plan = PlanSnapshot("isometrics", "synthetic-stationary-qa", ENGINE15_VERSION, ENGINE15_POLICY,
+            activity.startedAt, PlanRequest(goal = "Isometrics"), listOf(session), emptyList(), "approved")
+        mount(activity, plans = listOf(plan))
+        compose.onNodeWithTag("coach-debrief-summary").assertTextContains("1:00", substring = true)
+        compose.onNodeWithTag("coach-debrief-insight-0").assertDoesNotExist()
     }
 
     @Test fun ordinaryRunningRecordingRetainsMapFirstDetail() {

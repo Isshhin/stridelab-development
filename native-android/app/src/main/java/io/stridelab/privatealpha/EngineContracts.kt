@@ -21,7 +21,9 @@ internal object PlanDisciplineContract {
         "run" to listOf("Aerobic foundation","Improve 5K","Improve 10K","Half marathon","Marathon"),
         "str" to listOf("General strength","Muscle development","Strength endurance"),
         "cal" to listOf("Calisthenics foundation","Pull-up progression","Push-up progression","Core strength and control","Handstand foundations"),
-        "cond" to listOf("Conditioning"))
+        "cond" to listOf("Conditioning")).mapValues { (discipline, legacy) ->
+            legacy + Engine15DisciplineProgression.goals[discipline].orEmpty()
+        }
 }
 internal val ALL_SUPPORTED_GOALS=listOf("General fitness")+PlanDisciplineContract.goals.values.flatten()
 internal interface PlanGenerationEngine {

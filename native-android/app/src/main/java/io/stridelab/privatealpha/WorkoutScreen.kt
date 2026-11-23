@@ -17,6 +17,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.drop
 
@@ -34,6 +35,17 @@ import kotlinx.coroutines.flow.drop
     var swapId by rememberSaveable(plan.owner,session.id) { mutableStateOf<String?>(null) }
     var swapDirection by rememberSaveable(plan.owner,session.id) { mutableStateOf("EASIER") }
     val done=session.status=="completed";val active=Engine1Engines.canManage(plan) && plan.status in setOf("approved","paused") && session.status in setOf("planned","in_progress")
+    val exportToWatch = if (session.discipline == "run" && !rest && current.currentMinutes > 0 &&
+        session.status in setOf("planned", "in_progress", "completed")
+    ) {
+        rememberRunningWorkoutFitExport(plan.owner, listOfNotNull(state.account, state.localGarminOwner).distinct(),
+            shown.effectiveTitle, session, current)
+    } else null
+    val crossDebrief = remember(plan, session, state.plans, state.activities) {
+        if (done && session.discipline != "run") Engine15DebriefEngine.workout(
+            plan, session.id, state.plans, state.activities, java.time.ZoneId.systemDefault()
+        ) else null
+    }
     val plannedRun=session.discipline=="run" && session.status in setOf("planned","in_progress")
     var recordingOpen by rememberSaveable(plan.owner,session.id) { mutableStateOf(!plannedRun) }
     var recommendationsOpen by rememberSaveable(plan.owner,session.id) { mutableStateOf(false) }
@@ -164,7 +176,60 @@ import kotlinx.coroutines.flow.drop
         }
     }
 
-    if (active && exercises.isNotEmpty() && guided) {
+    val executeWorkout = actions.executeWorkout
+    val supportsExecution = session.discipline != "run" && exercises.isNotEmpty() && !rest &&
+        !(session.suggestion?.accepted == true && session.suggestion.minutes == 0)
+    val durableExecution = executeWorkout != null && supportsExecution
+    var showPrescription by rememberSaveable(plan.owner, plan.id, session.id) { mutableStateOf(false) }
+    if (executeWorkout != null && supportsExecution && !showPrescription && (active || done)) {
+        var execution by remember(plan.owner, plan.id, session.id) { mutableStateOf<WorkoutExecution?>(null) }
+        var executionError by remember(plan.owner, plan.id, session.id) { mutableStateOf<String?>(null) }
+        var saving by remember { mutableStateOf(true) }
+        val scope = rememberCoroutineScope()
+        suspend fun applyEvent(event: PlayerEvent?) {
+            try {
+                executionError = null
+                execution = executeWorkout(plan.id, session.id, execution?.revision, event)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (invalid: PlanConstraint) {
+                executionError = invalid.message
+            } catch (_: IllegalArgumentException) {
+                executionError = "Check the actual values you entered. If this persists, reopen the workout and retry."
+            } catch (_: Exception) {
+                executionError = "The workout could not be saved. Reopen it or retry."
+            } finally {
+                saving = false
+            }
+        }
+        LaunchedEffect(plan.owner, plan.id, session.id) { applyEvent(null) }
+        if (active) {
+            val currentExecution = execution
+            if (currentExecution == null) {
+                Screen(shown.effectiveTitle, "WORKOUT") {
+                    item {
+                        Text(executionError ?: "Opening guided workout…")
+                        if (!saving) TextButton(onClick = { saving = true; scope.launch { applyEvent(null) } }) { Text("Retry") }
+                        TextButton(onClick = onBack) { Text("Back to Training") }
+                    }
+                }
+            } else {
+                WorkoutPlayer(currentExecution, entries, { entries = it }, effort, { effort = it },
+                    notes, { notes = it }, performedOn, { performedOn = it }, minutes, { minutes = it },
+                    distance.takeIf { session.discipline == "cond" }, { distance = it },
+                    saving || state.busy, executionError, onBack, { showPrescription = true },
+                    session.playerMode(), session.title in setOf("Strength for Runners", "Lower / Runner Durability")) { event ->
+                    if (!saving && !state.busy) {
+                        saving = true
+                        scope.launch { applyEvent(event) }
+                    }
+                }
+            }
+            return
+        }
+    }
+
+    if (active && exercises.isNotEmpty() && guided && !durableExecution) {
         WorkoutPlayer(plan.owner,session,state.busy,entries,{entries=it},restSeconds,restRunning,
             onStartRest={restSeconds=it;restRunning=it>0},onRestRunning={restRunning=it},
             onRestSeconds={restSeconds=it},onBack=onBack,onReview={restRunning=false;guided=false},
@@ -188,7 +253,7 @@ import kotlinx.coroutines.flow.drop
         val weekNumber = (ChronoUnit.DAYS.between(plan.request.start, session.date) / 7L + 1L)
             .coerceAtLeast(1L)
         val difficultyEditable = Engine1Engines.canManage(plan) &&
-            plan.status in setOf("draft", "approved", "paused") &&
+            plan.status in setOf("approved", "paused") &&
             session.status in setOf("planned", "in_progress")
         val listState = rememberLazyListState()
         LaunchedEffect(recordingOpen) {
@@ -253,7 +318,8 @@ import kotlinx.coroutines.flow.drop
                         selectedStepIndex = selectedStepIndex,
                         onSelectStep = { selectedStepIndex = it },
                         planningPaceSecPerKm = plan.request.planningPace,
-                        showInlineTopBar = false
+                        showInlineTopBar = false,
+                        onExportToWatch = exportToWatch
                     )
                 }
                 if (executionAnalysis != null) item { ExecutionStepBreakdownCards(executionAnalysis) }
@@ -290,12 +356,23 @@ import kotlinx.coroutines.flow.drop
     } else {
     Screen(
         shown.effectiveTitle,
-        "${disciplineLabel(session.discipline).uppercase()} · ${session.status.uppercase()}",
+        "${plannedDisciplineLabel(session).uppercase()} · ${session.status.uppercase()}",
         compactTitle=true,dense=false,
         bottomOverlayPadding=106.dp,
         hideHeader=false
     ) {
-        if(active && exercises.isNotEmpty()) item { SignalButton("Return to guided workout",{guided=true}) }
+        if (crossDebrief != null) item { CoachDebriefCard(crossDebrief) }
+        if (exportToWatch != null) item { RunningWorkoutFitExportButton(exportToWatch) }
+        if(active && exercises.isNotEmpty()) item {
+            SignalButton("Return to guided workout", { showPrescription = false; guided = true }, !state.busy)
+        }
+        if (active && showPrescription) item {
+            Row {
+                TextButton(onClick = { if (onMissed != null) onMissed() else missed = true }, enabled = !state.busy) { Text("Missed / skipped") }
+                TextButton(onClick = { if (onMove != null) onMove() else move = true },
+                    enabled = !state.busy && session.id !in plan.request.lockedSessionDays) { Text("Move workout") }
+            }
+        }
         item {
             TextButton(onClick=onBack) { Text("Back to Training") }
             Text("${session.date} · ${current.currentMinutes} planned min",
@@ -310,7 +387,7 @@ import kotlinx.coroutines.flow.drop
         }
         session.suggestion?.takeUnless { current.disclosure != null }?.let { suggestion -> item { PendingSuggestionCard(suggestion) } }
         if(!rest && Engine1Engines.canManage(plan) &&
-            plan.status in setOf("draft","approved","paused") &&
+            plan.status in setOf("approved","paused") &&
             session.status in setOf("planned","in_progress")) item {
             TracksideWorkoutDifficultyCard(
                 session=session,
@@ -334,7 +411,9 @@ import kotlinx.coroutines.flow.drop
             val setCount=if(session.suggestion?.accepted==true) maxOf(1,(ex.sets*.7).toInt()) else ex.sets
             item { SignalCard {
                 Text("${exerciseIndex+1} OF ${exercises.size} · ${ex.equipment.uppercase()}",style=MaterialTheme.typography.labelMedium,color=disciplineColor(session.discipline))
-                Text(ex.name,style=MaterialTheme.typography.headlineSmall);Text("$setCount sets · ${ex.reps?.let { "$it reps" } ?: "${ex.seconds} sec hold"} · rest ${ex.rest} sec")
+                Text(ex.name, style = MaterialTheme.typography.headlineSmall)
+                Text(workoutDoseLabel(session, ex, setCount),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"))
                 Text(ex.cue)
                 session.swaps.find { it.replacement.id==ex.id }?.let { swap ->
                     val prefix = if(swap.replacement.id.endsWith("-progression")) "Harder progression of " else "Easier alternative to "
@@ -345,7 +424,7 @@ import kotlinx.coroutines.flow.drop
                 if(active && session.log?.sets?.none { it.exerciseId==ex.id }!=false && ExerciseAlternatives.harder(ex)!=null)OutlinedButton(onClick={swapDirection="HARDER";swapId=ex.id},enabled=!state.busy,modifier=Modifier.fillMaxWidth()) { Text("Choose a harder progression") }
                 if(!active) Text(if(done) "Actual values below are your saved records. Blank values were not recorded." else if(!Engine1Engines.canManage(plan))"This saved engine/policy is read-only here. Its original prescription is retained for viewing and export." else "Approve the plan before recording. Targets are not completed sets.",style=MaterialTheme.typography.bodySmall)
             } }
-            (1..setCount).forEach { i -> item {
+            if (!showPrescription) (1..setCount).forEach { i -> item {
                 val data=JSONObject(entries);val prefix="${ex.id}|$i|"
                 fun set(key:String,value:String) { entries=JSONObject(entries).put(prefix+key,value.take(64)).toString() }
                 SignalCard { Text("Set $i",style=MaterialTheme.typography.titleMedium)
@@ -358,14 +437,14 @@ import kotlinx.coroutines.flow.drop
                 OutlinedButton(onClick={exerciseIndex--},enabled=exerciseIndex>0,modifier=Modifier.weight(1f)) { Text("Previous") }
                 OutlinedButton(onClick={exerciseIndex++},enabled=exerciseIndex<exercises.lastIndex,modifier=Modifier.weight(1f)) { Text("Next exercise") }
             } }
-            if(active) item { SignalCard { Text("Rest timer · ${restSeconds/60}:${(restSeconds%60).toString().padStart(2,'0')}",style=MaterialTheme.typography.titleLarge)
+            if(active && !showPrescription) item { SignalCard { Text("Rest timer · ${restSeconds/60}:${(restSeconds%60).toString().padStart(2,'0')}",style=MaterialTheme.typography.titleLarge)
                 Text("Pauses when you leave the app. Resume it here when ready.",style=MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick={restSeconds=ex.rest;restRunning=true}) { Text("Start rest") };TextButton(onClick={restRunning=!restRunning},enabled=restSeconds>0) { Text(if(restRunning) "Pause" else "Resume") } }
             } }
         }
-        if (!rest && session.status!="unassigned") item { ActualWorkoutRecordFormCard() }
+        if (!showPrescription && !rest && session.status!="unassigned") item { ActualWorkoutRecordFormCard() }
         formError?.let { item { Text(it,color=MaterialTheme.colorScheme.error) } }
-        if(active) item { SaveWorkoutButtonsCard() }
+        if(active && !showPrescription) item { SaveWorkoutButtonsCard() }
         if(responseEditable) item {
             Text("Feedback is saved separately. Original workout measurements and prescriptions stay unchanged.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             SignalButton("Save run feedback",{try {formError=null;actions.saveRunResponse(plan.id,plan.revision,session.id,whole(effort,"effort from 1 to 10"),difficulty,discomfort)}catch(e:PlanConstraint){formError=e.message}},!state.busy)
@@ -388,4 +467,15 @@ import kotlinx.coroutines.flow.drop
     } }
     if(missed && onMissed==null) AlertDialog(onDismissRequest={missed=false},title={Text("Why was this session missed?")},text={ Column { ChoiceChips(listOf("Time","Fatigue","Soreness","Illness","Other"),listOf("Time","Fatigue","Soreness","Illness","Other").indexOf(reason)) { reason=listOf("Time","Fatigue","Soreness","Illness","Other")[it] };Text("No catch-up volume is added. Any recovery suggestion requires your explicit choice.") } },confirmButton={TextButton(onClick={actions.missed(plan.id,plan.revision,session.id,reason,false);missed=false}) { Text("Mark missed") }},dismissButton={Row { TextButton(onClick={actions.missed(plan.id,plan.revision,session.id,reason,true);missed=false}) { Text("Skip") };TextButton(onClick={missed=false}) { Text("Cancel") } }})
     if(move && onMove==null) AlertDialog(onDismissRequest={move=false},title={Text("Move workout")},text={Column { NativeDateField("Scheduled date",moveDate,{moveDate=it});Text("Available-day, long-run-day and recovery conflicts are checked before saving.");formError?.let { Text(it) } }},confirmButton={TextButton(onClick={try {actions.move(plan.id,plan.revision,session.id,LocalDate.parse(moveDate));move=false}catch(e:PlanConstraint){formError=e.message}catch(_:java.time.format.DateTimeParseException){formError="Enter a valid YYYY-MM-DD date."}}) { Text("Save move") }},dismissButton={TextButton(onClick={move=false}) { Text("Cancel") }})
+}
+
+internal fun workoutDoseLabel(session: PlannedSession, exercise: ExercisePrescription, sets: Int): String {
+    val contacts = session.kind == "structured-plyometrics"
+    val timed = session.discipline == "cond"
+    val unit = when {
+        contacts -> "${exercise.reps} contacts"
+        exercise.seconds != null -> "${exercise.seconds} s ${if (timed) "work" else "hold"}"
+        else -> "${exercise.reps} reps"
+    }
+    return "$sets ${if (timed) "rounds" else "sets"} · $unit · ${exercise.rest} s rest"
 }

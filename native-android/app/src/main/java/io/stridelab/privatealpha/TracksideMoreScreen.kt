@@ -8,16 +8,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -56,11 +52,10 @@ internal fun TracksideMoreScreen(
     onPreferences: () -> Unit,
     onAbout: () -> Unit,
     onSignOut: () -> Unit,
-    onAnalytics: (() -> Unit)? = null,
-    onManualLogging: (() -> Unit)? = null,
+    garminConnected: Boolean = false,
     onActivityBackup: (() -> Unit)? = null
 ) {
-    val signedIn = state.account != null
+    val signedIn = state.account != null && !state.needsSignIn
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(moreBlack)
             .testTag("screen").semantics { paneTitle = "More" },
@@ -78,12 +73,6 @@ internal fun TracksideMoreScreen(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.testTag("screen-title").semantics { heading() }
                 )
-                IconButton(
-                    onClick = onPreferences,
-                    modifier = Modifier.size(48.dp).testTag("more-settings-shortcut")
-                ) {
-                    MoreIcon(MoreSymbol.Sliders, color = moreMuted, modifier = Modifier.size(23.dp))
-                }
             }
         }
         item(key = "more-account") {
@@ -106,25 +95,19 @@ internal fun TracksideMoreScreen(
                         }
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text("Your StrideLab", color = moreWhite, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        Text(if (signedIn) state.account.orEmpty() else "Local Mode", color = moreWhite,
+                            fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 2,
+                            overflow = TextOverflow.Ellipsis)
                         Text(
-                            if (signedIn) "Signed in" else "Not signed in",
+                            if (signedIn) "Signed in" else "Not signed in · Saved on this device",
                             color = moreMuted, fontSize = 12.sp
                         )
                     }
                     if (!signedIn) {
-                        Surface(
-                            onClick = onSignIn, shape = RoundedCornerShape(24.dp),
-                            color = moreLime, modifier = Modifier.testTag("more-sign-in")
-                        ) {
-                            Text(
-                                "Sign in", color = moreBlack, fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp)
-                            )
+                        TextButton(onClick = onSignIn, modifier = Modifier.testTag("more-sign-in")) {
+                            Text("Sign in", color = moreMuted)
+                            MoreIcon(MoreSymbol.Chevron, moreSecondary, Modifier.size(18.dp))
                         }
-                    } else {
-                        Text("Connected", color = moreLime, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
@@ -134,45 +117,32 @@ internal fun TracksideMoreScreen(
             MoreGroup {
                 MoreActionRow(
                     "Garmin Connect", MoreSymbol.Watch, "garmin",
-                    onClick = onGarmin
+                    onClick = onGarmin,
+                    status = if (garminConnected) "Connected" else "Not connected",
+                    statusColor = if (garminConnected) moreLime else moreMuted
                 )
             }
         }
-        if (onAnalytics != null) {
-            item(key = "more-analytics-title") { MoreSection("ACTIVITIES") }
-            item(key = "more-analytics") {
-                MoreGroup {
-                    MoreActionRow("Running analytics", MoreSymbol.Chart, "analytics", onAnalytics)
-                }
-            }
-        }
-        if(onManualLogging != null) {
-            item(key = "more-manual-logs") {
-                MoreGroup {
-                    MoreActionRow("Log strength and conditioning", MoreSymbol.Dumbbell,
-                        "manual-logs", onManualLogging)
-                }
-            }
-        }
-        if(onActivityBackup != null) {
-            item(key = "more-activity-backup") {
-                MoreGroup {
+        item(key = "more-data-title") { MoreSection("DATA & MAPS") }
+        item(key = "more-data") {
+            MoreGroup {
+                if (onActivityBackup != null) {
                     MoreActionRow("Activity backup and recovery", MoreSymbol.Info,
                         "activity-archive", onActivityBackup)
+                    MoreRule()
                 }
+                MoreActionRow("Offline maps", MoreSymbol.Map, "offline-maps", onOfflineMaps)
             }
         }
-        item(key = "more-data-title") { MoreSection("PREFERENCES") }
-        item(key = "more-preferences") {
+        item(key = "more-app-title") { MoreSection("APP") }
+        item(key = "more-app") {
             MoreGroup {
-                MoreActionRow("Offline maps", MoreSymbol.Map, "offline-maps", onOfflineMaps)
-                MoreRule()
                 MoreActionRow("App preferences", MoreSymbol.Sliders, "preferences", onPreferences)
                 MoreRule()
                 MoreActionRow("About StrideLab", MoreSymbol.Info, "about", onAbout)
             }
         }
-        if (signedIn) {
+        if (state.account != null) {
             item(key = "more-signout") {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     TextButton(
@@ -181,14 +151,6 @@ internal fun TracksideMoreScreen(
                     ) { Text("Sign out on this device", fontSize = 13.sp) }
                 }
             }
-        }
-        item(key = "more-footer") {
-            Text(
-                "StrideLab · Private Preview",
-                color = moreSecondary, fontSize = 11.sp,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
         }
     }
 }
@@ -311,7 +273,9 @@ internal fun TracksideMoreDetailScreen(
     title: String,
     symbol: MoreSymbol,
     tag: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    status: String? = null,
+    statusColor: Color = moreMuted
 ) {
     Row(
         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
@@ -324,14 +288,15 @@ internal fun TracksideMoreDetailScreen(
         MoreIcon(symbol, moreLime)
         Text(
             title, color = moreWhite, fontSize = 14.sp, fontWeight = FontWeight.Medium,
-            maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
+        if (status != null) Text(status, color = statusColor, fontSize = 12.sp,
+            modifier = Modifier.testTag("more-garmin-status"))
         MoreIcon(MoreSymbol.Chevron, moreSecondary, Modifier.size(18.dp))
     }
 }
 
-private enum class MoreSymbol { Person, Dumbbell, Watch, Map, Chart, Sliders, Info, Chevron }
+private enum class MoreSymbol { Person, Watch, Map, Sliders, Info, Chevron }
 
 /** Simple static vector glyphs; no dynamic resources or animated draw operations. */
 @Composable private fun MoreIcon(
@@ -350,12 +315,6 @@ private enum class MoreSymbol { Person, Dumbbell, Watch, Map, Chart, Sliders, In
                     color, 195f, 150f, false, Offset(w * .16f, h * .41f),
                     Size(w * .68f, h * .52f), style = Stroke(stroke)
                 )
-            }
-            MoreSymbol.Dumbbell -> {
-                drawLine(color, Offset(w * .14f, h * .5f), Offset(w * .86f, h * .5f), stroke)
-                for (x in listOf(.22f, .32f, .68f, .78f)) {
-                    drawLine(color, Offset(w * x, h * .25f), Offset(w * x, h * .75f), stroke * 1.8f)
-                }
             }
             MoreSymbol.Watch -> {
                 drawRoundRect(
@@ -384,12 +343,6 @@ private enum class MoreSymbol { Person, Dumbbell, Watch, Map, Chart, Sliders, In
                 drawLine(color, Offset(a, bottom), Offset(b, h * .70f), stroke)
                 drawLine(color, Offset(b, h * .70f), Offset(c, h * .88f), stroke)
                 drawLine(color, Offset(c, h * .88f), Offset(d, bottom), stroke)
-            }
-            MoreSymbol.Chart -> {
-                drawLine(color, Offset(w * .12f, h * .86f), Offset(w * .88f, h * .86f), stroke)
-                drawLine(color, Offset(w * .20f, h * .78f), Offset(w * .20f, h * .53f), stroke * 3f)
-                drawLine(color, Offset(w * .46f, h * .78f), Offset(w * .46f, h * .35f), stroke * 3f)
-                drawLine(color, Offset(w * .72f, h * .78f), Offset(w * .72f, h * .19f), stroke * 3f)
             }
             MoreSymbol.Sliders -> {
                 for ((y, knob) in listOf(.25f to .32f, .50f to .67f, .75f to .42f)) {

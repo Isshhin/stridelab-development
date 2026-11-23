@@ -21,6 +21,8 @@ internal object Engine15StrengthWorkoutComposer {
         allowCalendarReschedule: Boolean = false
     ): List<PlannedSession> {
         validateRequest(request)
+        if (Engine15DisciplineProgression.supports(request, "str"))
+            return Engine15DisciplineProgression.compose(request, id, "str", allowCalendarReschedule)
         val equipment = equipmentTokens(request)
         val selected = exerciseIds.map { (pattern, ids) ->
             val record = ids.asSequence().mapNotNull(library::find).firstOrNull { exercise ->
@@ -124,6 +126,8 @@ internal object Engine15StrengthWorkoutComposer {
     }
 
     fun validateRequest(request: PlanRequest) {
+        if (Engine15DisciplineProgression.supports(request, "str"))
+            return Engine15DisciplineProgression.validateRequest(request, "str")
         if (request.runDays > 0 || request.calDays > 0 || request.conditioningDays > 0)
             throw PlanConstraint("MIXED_DISCIPLINE_GENERATION_NOT_INDEPENDENT: Strength combined with other disciplines is deferred until Engine 1.5 static multi-discipline scheduling is available.")
         if (request.policyChoice != "engine15" || request.runDays != 0 || request.strengthDays !in 1..4 ||
@@ -147,6 +151,8 @@ internal object Engine15StrengthWorkoutComposer {
     }
 
     fun validateSaved(plan: PlanSnapshot, allowCalendarReschedule: Boolean = false) {
+        if (Engine15DisciplineProgression.supports(plan.request, "str"))
+            return Engine15DisciplineProgression.validateSaved(plan, "str", allowCalendarReschedule)
         validateRequest(plan.request)
         val expectedCount = plan.request.weeks * plan.request.strengthDays
         val (firstReps, maxReps, repStep) = when (plan.request.goal) {

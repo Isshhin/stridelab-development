@@ -51,20 +51,22 @@ internal object Engine15WeeklyReview {
         if(input.unavailableDays.any { it<=asOf || it>asOf.plusDays(7) })
             throw PlanConstraint("Availability changes must be within the next seven days.")
         val owned=(allPlans.filter { it.owner==plan.owner && it.id!=plan.id && Engine1Engines.canManage(it) }+plan)
-        val sessions=owned.flatMap { it.sessions }
+        val disciplines = plan.sessions.map { it.discipline }.toSet()
+        val sessions=owned.flatMap { it.sessions }.filter { it.discipline in disciplines }
         val duplicateLinks=sessions.mapNotNull { it.linkedActivityId }.groupingBy { it }.eachCount().filterValues { it>1 }.keys
         val duplicateIds=sessions.groupingBy { it.id }.eachCount().filterValues { it>1 }.keys
         val completed=sessions.filter { s ->
             val log=s.coachingLog(); val date=log?.performedOn
-            s.discipline=="run" && s.status=="completed" && s.logRevision>0 && s.id !in duplicateIds &&
+            s.status=="completed" && s.logRevision>0 && s.id !in duplicateIds &&
                 s.linkedActivityId !in duplicateLinks && log!=null && date!=null &&
+                (s.discipline !in setOf("str", "cal") || WorkoutLogValidation.hasPerformedSet(s, log)) &&
                 ChronoUnit.DAYS.between(date,asOf) in 0L..6L && kotlin.math.abs(ChronoUnit.DAYS.between(s.date,date))<=2 &&
                 !log.at.isAfter(now)
         }
         val health=completed.filter { it.coachingLog()!!.discomfort=="Pain" }
         val difficult=completed.filter { it.coachingLog()!!.effort?.let { r -> r in 8..10 }==true ||
             it.coachingLog()!!.completionDifficulty in setOf("Harder","Could not finish") || it.coachingLog()!!.discomfort=="Soreness" }
-        val missed=sessions.filter { it.id !in duplicateIds && it.linkedActivityId !in duplicateLinks && it.discipline=="run" && it.status in setOf("missed","skipped") && it.coachingLog()==null &&
+        val missed=sessions.filter { it.id !in duplicateIds && it.linkedActivityId !in duplicateLinks && it.status in setOf("missed","skipped") && it.coachingLog()==null &&
             ChronoUnit.DAYS.between(it.date,asOf) in 0L..6L }
         val illness=missed.any { it.missedReason=="Illness" }
         val negativeMiss=missed.any { it.missedReason in setOf("Fatigue","Soreness") }
@@ -82,7 +84,7 @@ internal object Engine15WeeklyReview {
         val strong=health.isNotEmpty() || illness
         val fatigue=input.fatigue?.let { it>=4 }==true
         val caution=difficult.isNotEmpty() || negativeMiss
-        val candidates=plan.sessions.filter { it.discipline=="run" && it.date>asOf && it.date<=asOf.plusDays(7) &&
+        val candidates=plan.sessions.filter { it.date>asOf && it.date<=asOf.plusDays(7) &&
             it.status=="planned" && it.coachingLog()==null && it.linkedActivityId==null && it.suggestion==null && it.id !in plan.request.lockedSessionDays }
             .sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
         val efficiencyAsOf=asOf.atTime(23,59,59).atZone(ZoneId.systemDefault()).toInstant()
@@ -94,10 +96,10 @@ internal object Engine15WeeklyReview {
                 val unavailable=s.date in input.unavailableDays
                 val limit=strong || fatigue || caution && s.id==candidates.firstOrNull()?.id
                 if(!unavailable && !limit)null else {
-                    val minutes=if(unavailable || strong || s.quality)0 else floor(s.minutes*0.8).toInt().coerceAtLeast(1)
+                    val minutes=if(unavailable || strong || s.quality || s.discipline != "run")0 else floor(s.minutes*0.8).toInt().coerceAtLeast(1)
                     if(minutes>=s.minutes)null else Change(s.id,minutes,when {
                         unavailable->"Reported unavailable day; no relocation or catch-up."
-                        strong->"Reported pain or illness requires review before further running; rest proposed, not a diagnosis or recovery deadline."
+                        strong->"Reported pain or illness requires review before further training. Rest is proposed."
                         fatigue->"Current high general fatigue: a lighter upcoming week is proposed."
                         else->"Reported difficulty in the reviewed week: reduce the next exposure and reassess."
                     },if(minutes==0) Direction.REST else Direction.REDUCE)
@@ -108,22 +110,23 @@ internal object Engine15WeeklyReview {
             } else {
                 val progressionReady=input.trigger==Trigger.WEEKLY && !strong && !fatigue && !caution &&
                     input.unavailableDays.isEmpty() && overruns.isEmpty() && (input.fatigue==null || input.fatigue<=2)
-                val allComfortableNoDiscomfort=completed.all { s ->
+                val completedRuns = completed.filter { it.discipline == "run" }
+                val allComfortableNoDiscomfort=completedRuns.all { s ->
                     val log=s.coachingLog()!!
                     log.completionDifficulty !in setOf("Harder","Could not finish") &&
                         log.discomfort !in setOf("Pain","Soreness")
                 }
-                val lowRpeWeek=completed.size>=3 && allComfortableNoDiscomfort &&
-                    completed.all { it.coachingLog()!!.effort?.let { r -> r in 1..4 }==true }
-                val efficiencyProgressWeek=efficiencyGainPct!=null && completed.size>=2 && allComfortableNoDiscomfort &&
-                    completed.all { s ->
+                val lowRpeWeek=completedRuns.size>=3 && allComfortableNoDiscomfort &&
+                    completedRuns.all { it.coachingLog()!!.effort?.let { r -> r in 1..4 }==true }
+                val efficiencyProgressWeek=efficiencyGainPct!=null && completedRuns.size>=2 && allComfortableNoDiscomfort &&
+                    completedRuns.all { s ->
                         val log=s.coachingLog()!!
                         log.effort != null && log.effort in 1..5
                     }
                 val progressionEligible = progressionReady && (lowRpeWeek || efficiencyProgressWeek)
                 if(progressionEligible) {
                     val progressTargets=candidates.filter { s ->
-                        !s.quality && s.runningPrescription?.role!="RECOVERY" &&
+                        s.discipline == "run" && !s.quality && s.runningPrescription?.role!="RECOVERY" &&
                             !s.title.contains("Recovery",ignoreCase=true) &&
                             !isProtectedRecoveryOrTaperWeek(plan.request, s.date)
                     }.sortedWith(compareByDescending<PlannedSession> { it.kind=="long" }.thenBy { it.date }.thenBy { it.id })
@@ -183,21 +186,22 @@ internal object Engine15WeeklyReview {
                 } else emptyList()
             }
         }
+        val runningEvidence = completed.filter { it.discipline == "run" }
         val progressionHeldBySchedule = changes.isEmpty() && !strong && !fatigue && !caution &&
             input.trigger == Trigger.WEEKLY && input.unavailableDays.isEmpty() && overruns.isEmpty() &&
             (input.fatigue == null || input.fatigue <= 2) && (
-                (completed.size >= 3 && completed.all { s ->
+                (runningEvidence.size >= 3 && runningEvidence.all { s ->
                     val log = s.coachingLog()!!
                     log.completionDifficulty !in setOf("Harder", "Could not finish") &&
                         log.discomfort !in setOf("Pain", "Soreness") &&
                         log.effort?.let { r -> r in 1..4 } == true
-                }) || (efficiencyGainPct != null && completed.size >= 2 && completed.all { s ->
+                }) || (efficiencyGainPct != null && runningEvidence.size >= 2 && runningEvidence.all { s ->
                     val log = s.coachingLog()!!
                     log.completionDifficulty !in setOf("Harder", "Could not finish") &&
                         log.discomfort !in setOf("Pain", "Soreness") &&
                         log.effort != null && log.effort in 1..5
                 })
-            ) && candidates.any { isProtectedRecoveryOrTaperWeek(plan.request, it.date) }
+            ) && candidates.any { it.discipline == "run" && isProtectedRecoveryOrTaperWeek(plan.request, it.date) }
         val hasProgression=changes.any { it.direction==Direction.PROGRESS }
         if(strong)notes+="Pain/illness remains a review concern; the end of this proposal is not clearance to resume."
         if(hasProgression) {

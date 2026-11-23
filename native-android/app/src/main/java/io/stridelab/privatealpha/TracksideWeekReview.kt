@@ -67,7 +67,8 @@ internal fun TracksideWeekReview(
     researchDraftCount: Int = 0,
     savedResearchReviews: List<IndependentResearchDraft> = emptyList(),
     onChooseGoalOption: (PlanRequest) -> Unit = {},
-    activities: List<ActivityRecord> = emptyList()
+    activities: List<ActivityRecord> = emptyList(),
+    recoveryNote: String? = null
 ) {
     val firstDate = plan?.request?.start ?: request.start
     val totalWeeks = (plan?.request?.weeks ?: request.weeks).coerceAtLeast(1)
@@ -101,16 +102,18 @@ internal fun TracksideWeekReview(
         toolbarTitle = if (plan == null) "Blueprint" else "Plan blueprint",
         eyebrow = "PLAN / BLUEPRINT",
         headline = if (plan == null) "Your training\nblueprint" else "Your training\nblueprint",
-        description = if (plan == null) "Review your weekly structure before generating your draft."
+        description = if (plan == null) "Review your weekly structure before generating your preview."
         else "Tap any week bar or workout card to inspect details before activating.",
         onBack = onBack,
-        ctaLabel = if (busy) "Finalizing…" else if (plan == null) "Generate My Plan" else "Finalize Plan",
+        ctaLabel = if (busy) "Finalizing…" else if (plan == null) "Generate My Plan" else "Activate Plan",
         onContinue = onContinue,
         continueEnabled = !busy,
         descriptionBottomGap = 16,
         contentTopPadding = 12,
         headlineLineHeight = 34
     ) {
+        if (plan != null) TextButton(onClick = onBack, enabled = !busy,
+            modifier = Modifier.testTag("builder-discard-preview")) { Text("Discard preview") }
         // 1. Hero Plan Blueprint Summary Card (when plan exists)
         if (plan != null) {
             val peakWeeklyKm = remember(plan.id, plan.revision) {
@@ -232,6 +235,11 @@ internal fun TracksideWeekReview(
             TidIntensityBar(evaluation = tidEval)
             Spacer(Modifier.height(10.dp))
             ProvisionalPaceZoneStrip(zones = paceZones)
+            Spacer(Modifier.height(12.dp))
+        }
+
+        recoveryNote?.let {
+            Text(it, color = StrideLabVisualPalette.moderateAmber, fontSize = 12.sp, lineHeight = 17.sp)
             Spacer(Modifier.height(12.dp))
         }
 

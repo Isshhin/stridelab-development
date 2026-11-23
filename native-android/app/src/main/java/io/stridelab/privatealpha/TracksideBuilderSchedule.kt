@@ -529,7 +529,7 @@ internal fun TracksideAvailabilityScreen(
 
         Spacer(Modifier.height(12.dp))
         Text(
-            "Generates a draft plan first so you can review every workout before activating.",
+            "Preview every workout before activating your plan.",
             color = PlanBuilderPalette.muted,
             fontSize = 11.5.sp,
             lineHeight = 16.sp,

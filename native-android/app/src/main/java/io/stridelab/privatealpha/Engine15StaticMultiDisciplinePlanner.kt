@@ -41,11 +41,11 @@ internal object Engine15StaticMultiDisciplinePlanner {
         val start = request.start.minusDays(1)
         val end = request.start.plusWeeks(request.weeks.toLong())
         val activeSessions = existingPlans.asSequence().filter {
-            it.owner == owner && it.status in setOf("approved", "paused")
-        }.flatMap { plan -> plan.sessions.asSequence().filter { it.status in setOf("planned", "in_progress") } }
-            .filter { it.date in start..end }.toList()
-        if (activeSessions.isNotEmpty())
-            throw PlanConstraint("EXTERNAL_SCHEDULE_REVIEW_REQUIRED: Combined generation does not yet merge pre-existing saved workouts; no existing session was ignored.")
+            it.owner == owner && it.status == "approved"
+        }.flatMap { plan -> plan.sessions.asSequence()
+            .filter { it.status in setOf("planned", "in_progress") && it.date in start..end }
+            .map { plan.policyId to it }
+        }.toList()
         RecordPolicy.identifier(owner)
         RecordPolicy.identifier(id)
         var runCandidatePlan: PlanSnapshot? = null
@@ -70,12 +70,16 @@ internal object Engine15StaticMultiDisciplinePlanner {
                 else -> Engine15ConditioningWorkoutComposer.compose(solo, id, library, allowCalendarReschedule = true)
             }
         }
-        val placed = place(request, sessions)
+        val placed = place(request, sessions, activeSessions)
         val shaped = runCandidateVolume?.let { volume ->
             reshapeCombinedRuns(placed, volume, request)
         } ?: placed
         val scheduled = annotateCombinedNotes(shaped)
         validateCalendar(request, scheduled)
+        if (scheduled.any { candidate -> activeSessions.any { (policy, session) ->
+                PlanScheduleValidation.acrossPlansConflict(candidate, session, ENGINE15_INDEPENDENT_COMBINED_POLICY, policy)
+            } })
+            throw PlanConstraint("The preview does not leave enough recovery around active plans.")
         if (scheduled.size != request.weeks * disciplines.sumOf { request.disciplineSessionCount(it) } ||
             scheduled.map { it.id }.distinct().size != scheduled.size)
             throw PlanConstraint("ENGINE15_COMBINED_PLAN_INCOMPLETE: A combined discipline slot is missing or duplicated.")
@@ -193,7 +197,8 @@ internal object Engine15StaticMultiDisciplinePlanner {
         }
     }
 
-    private fun place(request: PlanRequest, sessions: List<PlannedSession>): List<PlannedSession> {
+    private fun place(request: PlanRequest, sessions: List<PlannedSession>,
+                      external: List<Pair<String, PlannedSession>>): List<PlannedSession> {
         validateWeeklySlots(request, disciplines.filter { request.disciplineSessionCount(it) > 0 })
         val placed = mutableListOf<PlannedSession>()
         repeat(request.weeks) { weekIndex ->
@@ -234,9 +239,13 @@ internal object Engine15StaticMultiDisciplinePlanner {
                     }.thenBy { it })
                     for (date in eligible) {
                         val candidate = template.copy(date = date)
+                        if (external.any { (policy, session) ->
+                            PlanScheduleValidation.acrossPlansConflict(candidate, session, ENGINE15_INDEPENDENT_COMBINED_POLICY, policy)
+                        }) continue
                         val sameDay = (placed + weekPlaced).filter { it.date == date }
                         // Never place two sessions of the exact same discipline on the same day.
                         if (sameDay.any { it.discipline == candidate.discipline }) continue
+                        if ((placed + weekPlaced).any { Engine15DisciplineProgression.spacingConflict(candidate, it) }) continue
                         when (tier) {
                             1 -> {
                                 if (sameDay.isNotEmpty()) continue
@@ -264,7 +273,7 @@ internal object Engine15StaticMultiDisciplinePlanner {
             }
 
             val weekResult = tryTier(1) ?: tryTier(2) ?: tryTier(3) ?: throw PlanConstraint(
-                "ENGINE15_COMBINED_SCHEDULE_CONFLICT: Requested fixed weekday assignments, double-day limits, or daily time budget cannot fit within the selected available days."
+                "ENGINE15_COMBINED_SCHEDULE_CONFLICT: Week ${weekIndex + 1} cannot fit these workouts safely. Add available days, switch fixed workouts to automatic placement, or build separate plans for each discipline."
             )
             placed += weekResult
         }
@@ -327,6 +336,8 @@ internal object Engine15StaticMultiDisciplinePlanner {
         for (index in sessions.indices) for (other in index + 1 until sessions.size) {
             val a = sessions[index]
             val b = sessions[other]
+            if (Engine15DisciplineProgression.spacingConflict(a, b))
+                throw PlanConstraint("Leave a full day between hard lower-body, speed and high intensity sessions.")
             if (a.date == b.date && a.discipline == b.discipline) {
                 throw PlanConstraint("ENGINE15_COMBINED_SCHEDULE_CONFLICT: Two sessions of the same discipline cannot share a date.")
             }
@@ -350,7 +361,9 @@ internal object Engine15StaticMultiDisciplinePlanner {
     private fun sameDayCompatible(a: PlannedSession, b: PlannedSession, request: PlanRequest): Boolean =
         a.discipline != b.discipline
 
-    private fun isHard(session: PlannedSession) = session.quality || session.kind == "long" ||
+    private fun isHard(session: PlannedSession) = if (Engine15DisciplineProgression.isStructured(session))
+        session.quality || session.lower
+    else session.quality || session.kind == "long" ||
         session.discipline == "cal" || session.discipline in setOf("str", "cond") && session.lower
 
     private fun slotIndex(session: PlannedSession): Int {

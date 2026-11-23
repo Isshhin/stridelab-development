@@ -203,30 +203,9 @@ class TracksideActivityScrollTest {
         compose.onNodeWithTag("activity-summary-heading").assertExists()
         compose.onNodeWithTag("activity-summary-subtitle").assertDoesNotExist()
         compose.onNodeWithTag("activity-tab-analysis").performClick()
-        compose.onNodeWithTag("activity-continuous-scroll")
-            .performScrollToNode(hasTestTag("activity-analysis-detailed"))
-        // The new Analysis headline leads the section; technical content
-        // remains hidden until the explicit "Show technical details" action.
-        compose.onNodeWithTag("activity-analysis-headline").assertExists()
-        compose.onNodeWithTag("activity-analysis-detailed-headline").assertDoesNotExist()
-        compose.onNodeWithTag("activity-analysis-detailed-summary").assertDoesNotExist()
-        compose.onNodeWithTag("activity-analysis-detailed-descriptor").assertDoesNotExist()
-        compose.onNodeWithText("Detailed Analysis").assertExists()
-        compose.onNodeWithText("RECORDED DATA").assertDoesNotExist()
-        compose.onNodeWithTag("activity-analysis-detailed-detail-0").assertDoesNotExist()
-        compose.onNodeWithTag("activity-continuous-scroll")
-            .performScrollToNode(hasTestTag("activity-analysis-detailed-toggle"))
-        compose.onNodeWithTag("activity-analysis-detailed-toggle").performClick()
-        compose.onNodeWithTag("activity-analysis-detailed-headline").assertExists()
-        compose.onNodeWithTag("activity-analysis-detailed-summary").assertExists()
-        compose.onNodeWithTag("activity-analysis-detailed-detail-0").assertExists()
-        // Expanding makes the card taller; scroll to the relocated button
-        // before tapping again rather than relying on a stale screen offset.
-        compose.onNodeWithTag("activity-continuous-scroll")
-            .performScrollToNode(hasTestTag("activity-analysis-detailed-toggle"))
-        compose.onNodeWithTag("activity-analysis-detailed-toggle").performClick()
-        compose.onNodeWithTag("activity-analysis-detailed-detail-0").assertDoesNotExist()
-
+        compose.onNodeWithTag("activity-workout-label-edit").assertExists()
+        compose.onNodeWithTag("activity-analysis-detailed").assertDoesNotExist()
+        compose.onNodeWithTag("activity-overview-takeaway").assertDoesNotExist()
         compose.onNodeWithTag("activity-tab-splits").performClick()
         compose.waitUntil(timeoutMillis = 5000) {
             compose.onAllNodesWithTag("activity-section-splits")
@@ -237,10 +216,7 @@ class TracksideActivityScrollTest {
         val splitsHeadingBounds = compose.onNodeWithTag("activity-section-heading-splits")
             .getUnclippedBoundsInRoot()
         assertTrue(kotlin.math.abs((((splitsHeadingBounds.left + splitsHeadingBounds.right) - (splitsBounds.left + splitsBounds.right)) / 2f).value) < 2f)
-        compose.onNodeWithTag("activity-continuous-scroll")
-            .performScrollToNode(hasTestTag("activity-splits-insights"))
-        compose.onNodeWithTag("activity-splits-insights").assertExists()
-        compose.onNodeWithText("Splits Analysis").assertExists()
+        compose.onNodeWithText("Splits Analysis").assertDoesNotExist()
         compose.onNodeWithContentDescription("fastest split", substring = true).assertExists()
         compose.onNodeWithContentDescription("slowest split", substring = true).assertExists()
         compose.onNodeWithTag("activity-tab-charts").performClick()
@@ -264,32 +240,21 @@ class TracksideActivityScrollTest {
         compose.onNodeWithText("MAX BPM").assertExists()
         compose.onNodeWithTag("activity-hr-zone-1").assertExists()
         compose.onNodeWithTag("activity-hr-zone-5").assertExists()
-        compose.onNodeWithTag("activity-chart-insights-heart-rate-zones").assertExists()
+        compose.onNodeWithTag("activity-chart-insights-heart-rate-zones").assertDoesNotExist()
         // Cadence is a REAL recorded stream, not a calculated placeholder.
         compose.onNodeWithTag("activity-continuous-scroll")
             .performScrollToNode(hasTestTag("activity-chart-cadence"))
         compose.onNodeWithTag("activity-chart-cadence").assertIsDisplayed()
-        compose.onNodeWithTag("activity-chart-summary-cadence").assertExists()
         compose.onNodeWithTag("activity-chart-y-axis-cadence").assertExists()
-        compose.onNodeWithTag("activity-chart-insights-cadence").assertExists()
-        compose.onNodeWithText("Cadence Analysis").assertExists()
-        // The branded analysis must be below (not inside) the plotted chart
-        // container. Expanding it cannot change the chart's surface bounds.
-        val chartBounds = compose.onNodeWithTag("activity-chart-cadence")
-            .getUnclippedBoundsInRoot()
-        val analysisBounds = compose.onNodeWithTag("activity-chart-insights-cadence")
-            .getUnclippedBoundsInRoot()
-        assertTrue(
-            "Cadence Analysis is still inside the chart surface",
-            analysisBounds.top >= chartBounds.bottom
-        )
+        compose.onNodeWithTag("activity-chart-summary-cadence").assertExists()
+        compose.onNodeWithText("Cadence Analysis").assertDoesNotExist()
         compose.onNodeWithTag("stream-Cadence").performTouchInput { swipeRight() }
         compose.onNodeWithTag("activity-chart-cursor-cadence").assertExists()
-        // Cadence Analysis is the final real content item in this fixture.
+        // Cadence chart is the final real content item in this fixture.
         // Once it reaches the bottom, additional upward swipes must not
         // reveal the former viewport-sized blank tail.
         compose.onNodeWithTag("activity-continuous-scroll")
-            .performScrollToNode(hasTestTag("activity-chart-insights-cadence"))
+            .performScrollToNode(hasTestTag("activity-chart-cadence"))
         repeat(3) {
             compose.onNodeWithTag("activity-continuous-scroll")
                 .performTouchInput { swipeUp() }
@@ -297,7 +262,7 @@ class TracksideActivityScrollTest {
         compose.waitForIdle()
         val scrollBottom = compose.onNodeWithTag("activity-continuous-scroll")
             .getUnclippedBoundsInRoot().bottom
-        val finalAnalysisBottom = compose.onNodeWithTag("activity-chart-insights-cadence")
+        val finalAnalysisBottom = compose.onNodeWithTag("activity-chart-cadence")
             .getUnclippedBoundsInRoot().bottom
         assertTrue(
             "Blank scrolling continues past the final recorded analysis",

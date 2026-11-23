@@ -87,4 +87,34 @@ class TracksideCoachingIntegrationTest {
         assertEquals(4, cal.date.dayOfWeek.value)
         assertEquals(3, plan.sessions.size)
     }
+
+    @Test fun runningAndAnExplicitCombinedPlanIgnoreSeparateStrengthCalendarAsABlocker() {
+        val strengthRequest = PlanRequest(goal="Strength for Runners", start=start, weeks=4,
+            days=(1..7).toSet(), runDays=0, strengthDays=1, weeklySlots=mapOf("str" to listOf(7)),
+            timeBudgetEnabled=false)
+        val strength = PlanOperations.approve(generate(strengthRequest), emptyList())
+        val runningRequest = PlanRequest(start=start, weeks=4, days=setOf(2, 5, 7), longDay=7,
+            runDays=3, weeklyKm=24.0, longestKm=10.0, recentMileageBasis="RECORDED_PARTIAL",
+            timeBudgetEnabled=false)
+
+        val run = Engine15IndependentPlanGenerator.generateWithHistory(
+            TracksideCoaching.request(runningRequest), "athlete", listOf(strength), "running", now, library
+        )
+        assertEquals(ENGINE15_INDEPENDENT_RUNNING_POLICY, run.policyId)
+        assertEquals(strength.sessions.map { it.date }, run.sessions.filter { it.kind == "long" }.map { it.date })
+        assertNotNull(PlanScheduleValidation.crossPlanRecoveryNote(run, listOf(strength)))
+        val approvedRun = PlanOperations.approve(run, listOf(strength))
+        PlanScheduleValidation.validateRestoration(listOf(strength, approvedRun))
+        assertThrows(PlanConstraint::class.java) {
+            PlanOperations.approve(run.copy(id = "duplicate-running-plan"), listOf(approvedRun))
+        }
+
+        val mixed = Engine15IndependentPlanGenerator.generateWithHistory(
+            TracksideCoaching.request(runningRequest.copy(
+                calDays=1, disciplineGoals=mapOf("cal" to "Push"), weeklySlots=mapOf("cal" to listOf(2))
+            )), "athlete", listOf(strength), "mixed", now, library
+        )
+        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, mixed.policyId)
+        assertEquals("approved", PlanOperations.approve(mixed, listOf(strength)).status)
+    }
 }

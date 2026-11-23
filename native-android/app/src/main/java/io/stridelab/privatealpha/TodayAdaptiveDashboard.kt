@@ -326,8 +326,11 @@ internal object TodayOverviewCalculator {
         val sessionsByKey = plans.flatMap { p -> p.sessions.map { (p.id to it.id) to it } }.toMap()
         val rows = mutableListOf<TodayRecentRow>()
 
-        visibleActivities
+        visibleActivities.asSequence()
             .filter { !it.startedAt.isAfter(now) }
+            .distinctBy { it.id }
+            .sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenBy { it.id })
+            .take(limit)
             .forEach { act ->
                 val disc = TodayDiscipline.fromActivity(act.type)
                 val isRun = DashboardSummary.isRun(act)
@@ -486,6 +489,12 @@ internal fun TodayDateContextHeader(
     }
 }
 
+private fun TodayDailySessionItem.recordedActivity(): ActivityRecord? = when (this) {
+    is TodayDailySessionItem.Recorded -> activity
+    is TodayDailySessionItem.Planned -> linkedActivity.takeIf { isCompleted }
+    is TodayDailySessionItem.ConfirmedLog -> null
+}
+
 @Composable
 internal fun TodayDailyTrainingCard(
     selectedDate: LocalDate,
@@ -509,6 +518,20 @@ internal fun TodayDailyTrainingCard(
         Modifier.fillMaxWidth()
     }
 
+    val onlyItem = (dailyState as? TodayDailyTrainingState.Sessions)?.items?.singleOrNull()
+    val onlyActivity = onlyItem?.recordedActivity()
+    if (onlyItem != null && onlyActivity != null) {
+        Surface(cardModifier, shape = RoundedCornerShape(18.dp), color = TodayAdaptivePalette.card,
+            border = BorderStroke(1.dp, TodayAdaptivePalette.border)) {
+            RecordedDailySessionRow(
+                TodayDailySessionItem.Recorded(onlyActivity, onlyItem.discipline),
+                cachedDetails[onlyActivity.id], hasPrimaryHeroTag, onOpenActivityDetail,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
+            )
+        }
+        return
+    }
+
     Surface(
         modifier = cardModifier,
         shape = RoundedCornerShape(18.dp),
@@ -521,7 +544,7 @@ internal fun TodayDailyTrainingCard(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
+            if (dailyState !is TodayDailyTrainingState.Sessions || dailyState.items.any { it.recordedActivity() == null }) Text(
                 text = cardTitle,
                 color = TodayAdaptivePalette.textSecondary,
                 fontSize = 14.sp,
@@ -543,24 +566,17 @@ internal fun TodayDailyTrainingCard(
                             )
                         }
                         val useHeroActionTag = hasPrimaryHeroTag && item.stableKey == primaryCtaKey
-                        when (item) {
+                        val recorded = item.recordedActivity()
+                        if (recorded != null) {
+                            RecordedDailySessionRow(
+                                TodayDailySessionItem.Recorded(recorded, item.discipline),
+                                cachedDetails[recorded.id], useHeroActionTag, onOpenActivityDetail
+                            )
+                        } else when (item) {
                             is TodayDailySessionItem.Planned -> {
-                                PlannedDailySessionRow(
-                                    item = item,
-                                    cachedDetail = item.linkedActivity?.let { cachedDetails[it.id] },
-                                    useHeroActionTag = useHeroActionTag,
-                                    onOpenWorkout = onOpenWorkout,
-                                    onOpenActivityDetail = onOpenActivityDetail
-                                )
+                                PlannedDailySessionRow(item, useHeroActionTag, onOpenWorkout)
                             }
-                            is TodayDailySessionItem.Recorded -> {
-                                RecordedDailySessionRow(
-                                    item = item,
-                                    cachedDetail = cachedDetails[item.activity.id],
-                                    useHeroActionTag = useHeroActionTag,
-                                    onOpenActivityDetail = onOpenActivityDetail
-                                )
-                            }
+                            is TodayDailySessionItem.Recorded -> Unit // Rendered above.
                             is TodayDailySessionItem.ConfirmedLog -> {
                                 ConfirmedLogDailySessionRow(
                                     item = item,
@@ -636,7 +652,7 @@ internal fun TodayDailyTrainingCard(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Track multisport sessions freely or generate a weekly running plan tailored to your mileage.",
+                                text = "Track multisport sessions freely or generate a weekly training plan tailored to your goals.",
                                 color = TodayAdaptivePalette.textSecondary,
                                 fontSize = 13.sp,
                                 lineHeight = 18.sp
@@ -647,7 +663,7 @@ internal fun TodayDailyTrainingCard(
                             contentAlignment = Alignment.CenterEnd
                         ) {
                             Text(
-                                text = "Build a Running Plan",
+                                text = "Build a Training Plan",
                                 color = TodayAdaptivePalette.runningLime,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -671,29 +687,12 @@ internal fun TodayDailyTrainingCard(
 @Composable
 private fun PlannedDailySessionRow(
     item: TodayDailySessionItem.Planned,
-    cachedDetail: ActivityDetail?,
     useHeroActionTag: Boolean,
-    onOpenWorkout: (String, String) -> Unit,
-    onOpenActivityDetail: (String) -> Unit
+    onOpenWorkout: (String, String) -> Unit
 ) {
     val session = item.session
-    val linked = item.linkedActivity
     val accent = TodayAdaptivePalette.accentFor(item.discipline)
-
-    val metadata = if (item.isCompleted && linked != null) {
-        val dist = linked.distanceM?.takeIf { it.isFinite() && it > 0.0 }?.let {
-            String.format(Locale.US, "%.2f km", it / 1000.0)
-        }
-        val dur = (linked.movingTimeS ?: linked.durationS)?.takeIf { it.isFinite() && it > 0.0 }?.let {
-            if (item.discipline == TodayDiscipline.RUNNING) ActivityRecord.duration(it) else formatMinutesLabel(it)
-        }
-        val pace = if (item.discipline == TodayDiscipline.RUNNING) {
-            linked.detailPaceLabel.takeIf { it.isNotBlank() && it != "Not recorded" }
-        } else {
-            null
-        }
-        listOfNotNull(dist, dur, pace).joinToString(" • ")
-    } else if (item.discipline == TodayDiscipline.RUNNING) {
+    val metadata = if (item.discipline == TodayDiscipline.RUNNING) {
         val dist = session.distanceKm?.takeIf { it.isFinite() && it > 0.0 }?.let { "${formatCompactKm(it)} km" }
         val zone = sessionZoneLabel(session)
         val dur = session.effectiveMinutes.takeIf { it > 0 }?.let { "$it min" }
@@ -702,10 +701,6 @@ private fun PlannedDailySessionRow(
         val dur = session.effectiveMinutes.takeIf { it > 0 }?.let { "$it min" }
         val disc = item.discipline.title
         listOfNotNull(disc, dur).joinToString(" • ")
-    }
-
-    val route = remember(cachedDetail) {
-        cachedDetail?.samples?.let { RecordedGpsRoute.from(it) }
     }
 
     Column(
@@ -755,12 +750,7 @@ private fun PlannedDailySessionRow(
                 }
             }
 
-            if (item.isCompleted && route != null) {
-                TodayCompactGpsThumbnail(
-                    route = route,
-                    modifier = Modifier.size(width = 76.dp, height = 44.dp)
-                )
-            } else if (!item.isCompleted && item.discipline == TodayDiscipline.RUNNING) {
+            if (!item.isCompleted && item.discipline == TodayDiscipline.RUNNING) {
                 TodaySessionIntensityBars(
                     session = session,
                     isQuality = item.isQualityWorkout,
@@ -771,28 +761,19 @@ private fun PlannedDailySessionRow(
             }
         }
 
-        val ctaLabel = if (item.isCompleted && linked != null) "View Analysis" else "View Workout"
-        val onCtaClick: () -> Unit = {
-            if (item.isCompleted && linked != null) {
-                onOpenActivityDetail(linked.id)
-            } else {
-                onOpenWorkout(item.planId, session.id)
-            }
-        }
-
         Box(
             modifier = Modifier.fillMaxWidth(),
             contentAlignment = Alignment.CenterEnd
         ) {
             Text(
-                text = ctaLabel,
+                text = "View Workout",
                 color = TodayAdaptivePalette.runningLime,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
                     .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
                     .clip(RoundedCornerShape(8.dp))
-                    .clickable(onClick = onCtaClick)
+                    .clickable { onOpenWorkout(item.planId, session.id) }
                     .padding(horizontal = 4.dp, vertical = 4.dp)
             )
         }
@@ -804,7 +785,8 @@ private fun RecordedDailySessionRow(
     item: TodayDailySessionItem.Recorded,
     cachedDetail: ActivityDetail?,
     useHeroActionTag: Boolean,
-    onOpenActivityDetail: (String) -> Unit
+    onOpenActivityDetail: (String) -> Unit,
+    contentPadding: PaddingValues = PaddingValues(vertical = 4.dp)
 ) {
     val act = item.activity
     val isRun = DashboardSummary.isRun(act)
@@ -825,75 +807,54 @@ private fun RecordedDailySessionRow(
     val hr = act.averageHr?.takeIf { it.isFinite() && it > 0.0 }?.let { "${it.roundToInt()} bpm" }
     val subtitle = listOfNotNull(dur, pace, hr).joinToString(" • ")
 
-    val route = remember(cachedDetail) {
-        if (isRun) cachedDetail?.samples?.let { RecordedGpsRoute.from(it) } else null
-    }
+    val route = if (isRun) rememberActivityThumbnail(act.id, cachedDetail) else null
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
+            .clickable { onOpenActivityDetail(act.id) }
+            .padding(contentPadding),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(5.dp)
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = accent.copy(alpha = 0.16f)
             ) {
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = accent.copy(alpha = 0.16f)
-                ) {
-                    Text(
-                        text = badgeLabel,
-                        color = accent,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
                 Text(
-                    text = headline,
-                    color = TodayAdaptivePalette.text,
-                    fontSize = 16.sp,
+                    text = badgeLabel,
+                    color = accent,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    letterSpacing = 0.5.sp,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                 )
-                if (subtitle.isNotBlank()) {
-                    Text(
-                        text = subtitle,
-                        color = TodayAdaptivePalette.textSecondary,
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
             }
-            if (route != null) {
-                TodayCompactGpsThumbnail(
-                    route = route,
-                    modifier = Modifier.size(width = 72.dp, height = 42.dp)
+            Text(
+                text = headline,
+                color = TodayAdaptivePalette.text,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (subtitle.isNotBlank()) {
+                Text(
+                    text = subtitle,
+                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
+                    color = TodayAdaptivePalette.textSecondary,
+                    fontSize = 13.sp
                 )
             }
         }
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterEnd
-        ) {
-            Text(
-                text = "View Analysis",
-                color = TodayAdaptivePalette.runningLime,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { onOpenActivityDetail(act.id) }
-                    .padding(horizontal = 4.dp, vertical = 4.dp)
+        if (route != null) {
+            TodayCompactGpsThumbnail(
+                route = route,
+                modifier = Modifier.size(width = 84.dp, height = 64.dp)
             )
         }
     }
@@ -1302,9 +1263,7 @@ private fun TodayRecentActivityListRow(
     onClick: () -> Unit
 ) {
     val accent = TodayAdaptivePalette.accentFor(row.discipline)
-    val route = remember(cachedDetail, row.isRun) {
-        if (row.isRun) cachedDetail?.samples?.let { RecordedGpsRoute.from(it) } else null
-    }
+    val route = if (row.isRun) rememberActivityThumbnail(row.activityId, cachedDetail) else null
 
     Row(
         modifier = Modifier

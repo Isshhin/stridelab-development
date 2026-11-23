@@ -225,31 +225,42 @@ class TrainingRepositoryTest {
         assertFalse(repo.refresh()); assertTrue(repo.state.value.needsSignIn)
         assertEquals(1,repo.state.value.activities.size); assertArrayEquals(damaged,file.readBytes())
     }
-    @Test fun largeSavedRecordingsDoNotHideOfflineGarminHistory() = runBlocking {
-        remote.rows=(0 until 8).map { row("garmin-$it",source="garmin") }
+    @Test fun startupPublishesNewestSummariesWithoutHydratingLargeRecordings() = runBlocking {
+        remote.rows=(0 until 8).map {
+            row("garmin-$it",source="garmin").put("started_at", "2026-10-25T12:0${it}:00Z")
+        }
         assertTrue(repo.signIn("fixture@example.invalid","fixture"))
         val storage=TrainingStore(context,database)
         try {
             for(i in 0 until 8) {
                 val id="garmin-$i"
-                val sample=JSONObject().put("activity_id",id)
-                    .put("sample_index",0).put("elapsed_s",0.0)
+                val samples = JSONArray()
+                repeat(2) { index ->
+                    samples.put(JSONObject().put("activity_id",id)
+                        .put("sample_index",index).put("elapsed_s",index.toDouble())
+                        .put("latitude",14.5).put("longitude",121.0 + index * 0.00001))
+                }
                 val raw=JSONObject().put("user_id",account)
                     .put("activity_id",id).put("fetched_at",1234)
-                    .put("samples",JSONArray().put(sample)).put("laps",JSONArray())
+                    .put("samples",samples).put("laps",JSONArray())
                     // A source-faithful synthetic payload near CursorWindow size.
-                    .put("fixture_padding","x".repeat(1_800_000)).toString()
+                    .put("fixture_padding","é".repeat(900_000)).toString()
                 storage.applyRemotePage(account,"activity_detail",
                     listOf(TrainingStore.RemoteRecord(id,raw,null)),
                     null,System.currentTimeMillis())
+                if (i == 0) assertEquals(raw, storage.getActivityDetailPayloadChunked(account, id))
             }
         } finally { storage.close() }
         repo.close(); remote.offline=true; open()
-        assertEquals(8,repo.state.value.activities.size)
+        assertEquals((7 downTo 0).map { "garmin-$it" }, repo.state.value.activities.map { it.id })
         assertTrue(repo.state.value.activities.all { it.source=="garmin" })
-        assertTrue(repo.state.value.details.size<=6)
+        assertTrue(repo.state.value.todayPlanReady)
+        assertTrue(repo.state.value.activitySummariesReady)
+        assertTrue(repo.state.value.details.isEmpty())
+        assertEquals(2, repo.loadActivityThumbnail("garmin-0")?.pointCount)
+        assertTrue(repo.state.value.details.isEmpty())
         assertTrue(repo.loadCachedDetail("garmin-0"))
-        assertEquals(1,repo.state.value.details["garmin-0"]!!.samples.size)
+        assertEquals(2,repo.state.value.details["garmin-0"]!!.samples.size)
         assertFalse(repo.loadCachedDetail("not-a-saved-activity"))
     }
 
@@ -259,6 +270,8 @@ class TrainingRepositoryTest {
         assertTrue(repo.loadDetail("activity-1"))
         assertEquals(1,repo.state.value.details["activity-1"]!!.samples.size)
         repo.close(); remote.offline=true; open()
+        assertTrue(repo.state.value.details.isEmpty())
+        assertTrue(repo.loadCachedDetail("activity-1"))
         assertEquals(1,repo.state.value.details["activity-1"]!!.samples.size)
         assertFalse(repo.loadDetail("activity-1"))
         assertEquals(1,repo.state.value.details["activity-1"]!!.samples.size)

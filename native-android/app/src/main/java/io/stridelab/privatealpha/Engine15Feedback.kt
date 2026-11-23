@@ -81,7 +81,7 @@ internal object Engine15Feedback {
         ) return null
         if (session.discipline in setOf("str", "cal") &&
             !WorkoutLogValidation.hasPerformedSet(session, log)) return null
-        if(log.discomfort=="Pain") return Evidence(session,performed,"Pain","Reported pain during the completed run")
+        if(log.discomfort=="Pain") return Evidence(session,performed,"Pain","Reported pain during the completed workout")
         if(log.discomfort=="Soreness" || log.completionDifficulty in setOf("Harder","Could not finish"))
             return Evidence(session,performed,"Reported difficulty","Reported ${log.completionDifficulty ?: log.discomfort}; no fitness inference")
         val effort = log.effort ?: return null
@@ -125,7 +125,8 @@ internal object Engine15Feedback {
         val proposed = mutableListOf<Proposal>()
         for (source in sourceEvidence) {
             val target = plan.sessions.asSequence()
-                .filter { it.discipline == "run" && it.id !in reserved && it.date > asOf && it.date > source.date }
+                .filter { (it.discipline == "run" || it.discipline == source.session.discipline) &&
+                    it.id !in reserved && it.date > asOf && it.date > source.date }
                 .filter { ChronoUnit.DAYS.between(source.date, it.date) in 1L..4L }
                 .filter {
                     it.status == "planned" && it.coachingLog() == null &&
@@ -136,7 +137,7 @@ internal object Engine15Feedback {
                 .firstOrNull() ?: continue
             // An explicit illness or high effort before quality suggests reviewed
             // rest, never an automatically rewritten "easy" workout with hard steps.
-            val rest = source.category in setOf("Illness","Pain") || target.quality
+            val rest = source.category in setOf("Illness","Pain") || target.quality || target.discipline != "run"
             val adjusted = if (rest) 0 else floor(
                 target.minutes * if (source.category in setOf("Fatigue", "Soreness")) 0.70 else 0.75
             ).toInt().coerceAtLeast(10).coerceAtMost(target.minutes)

@@ -166,43 +166,17 @@ internal object HeartRateZoneAnalysis {
             kotlin.math.abs(it.seconds - dominant.seconds) < 0.001
         } > 1
         val dominantPct = (dominant.fraction * 100).roundToInt()
-        val imported = distribution.importedGarminProfile
-        val sourceLabel = if (imported != null)
-            "Garmin Connect ${imported.sport.lowercase(Locale.ROOT)} · actual BPM floors"
-        else methodSummary(distribution.settings)
-        val evidence = distribution.buckets.map { bucket ->
-            "Zone ${bucket.zone}: ${ActivityRecord.duration(bucket.seconds)} " +
-                "(${(bucket.fraction * 100).roundToInt()}% of classified time)."
-        } + listOf(
-            if (imported != null)
-                "Source: Garmin Connect ${imported.sport}; BPM floors ${imported.floorsBpm.joinToString(", ")}. Actual imported boundaries; samples outside the documented zone range are excluded and durations remain approximate."
-            else
-                "Method: ${methodSummary(distribution.settings)}. " +
-                    methodDefinition(distribution.settings) +
-                    " These are StrideLab estimates, not imported Garmin zone boundaries.",
-            "Only ${distribution.classifiedIntervals} intervals between recorded HR " +
-                "samples lasting 30 seconds or less were classified; " +
-                "${distribution.excludedIntervals} missing, duplicate or longer " +
-                "intervals were excluded. Time in zones is approximate.",
-            "This distribution cannot determine training readiness, recovery " +
-                "or a specific workout benefit."
-        )
         return ActivityInsightPresentation(
-            headline = if (tied) "Time was spread across multiple heart-rate zones"
-                else "Most classified time in Zone ${dominant.zone}",
+            headline = when {
+                tied -> "Effort across several zones"
+                dominant.zone == 2 -> "Mostly in Zone 2"
+                else -> "Mostly in Zone ${dominant.zone}"
+            },
             summary = if (tied)
-                "Multiple zones share the largest portion of " +
-                    "${ActivityRecord.duration(distribution.classifiedSeconds)} classified " +
-                    "recording time using ${sourceLabel}."
-            else String.format(
-                Locale.getDefault(),
-                "About %d%% of %s classified recording time was in Zone %d using %s.",
-                dominantPct,
-                ActivityRecord.duration(distribution.classifiedSeconds),
-                dominant.zone,
-                sourceLabel
-            ),
-            evidence = evidence,
+                "Your heart rate spent similar time in several zones."
+            else "You spent ${ActivityRecord.duration(dominant.seconds)} in Zone ${dominant.zone}, " +
+                "about ${dominantPct}% of the time with usable heart rate.",
+            evidence = emptyList(),
             hasComparison = false
         )
     }

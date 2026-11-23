@@ -101,12 +101,15 @@ internal fun AdaptationProposalSheet(proposal: PlanAdaptationProposal?, busy: Bo
             Text(proposal.coachingRationale, style = MaterialTheme.typography.bodyMedium)
             val diff = proposal.diff
             Text("FROM ${diff.effectiveFromDate} · ${diff.affectedSessionCount} sessions", style = MaterialTheme.typography.labelMedium, color = CoachingMuted)
-            Text("Remaining distance · ${diff.totalRemainingKmBefore.oneDecimal()} → ${diff.totalRemainingKmAfter.oneDecimal()} km", style = MaterialTheme.typography.bodyMedium)
+            val disciplineRecovery = "NON_RUNNING_RECOVERY" in proposal.reasonCodes
+            if (!disciplineRecovery)
+                Text("Remaining distance · ${diff.totalRemainingKmBefore.oneDecimal()} → ${diff.totalRemainingKmAfter.oneDecimal()} km", style = MaterialTheme.typography.bodyMedium)
             diff.paceDiffs.forEach { pace ->
                 Text("${pace.intent.name.prettyLabel()} · ${paceBand(pace.oldMinSecPerKm, pace.oldMaxSecPerKm)} → ${paceBand(pace.newMinSecPerKm, pace.newMaxSecPerKm)}", style = MaterialTheme.typography.bodySmall)
             }
             diff.weekDiffs.forEach { week ->
-                Text("Week ${week.weekIndex + 1} · ${week.phaseBefore} → ${week.phaseAfter} · ${week.plannedKmBefore.oneDecimal()} → ${week.plannedKmAfter.oneDecimal()} km\n${week.summaryNote}", style = MaterialTheme.typography.bodySmall)
+                val km = if (disciplineRecovery) "" else " · ${week.plannedKmBefore.oneDecimal()} → ${week.plannedKmAfter.oneDecimal()} km"
+                Text("Week ${week.weekIndex + 1} · ${week.phaseBefore} → ${week.phaseAfter}$km\n${week.summaryNote}", style = MaterialTheme.typography.bodySmall)
             }
             if (proposal.candidatePlanJson != null) {
                 Button(onClick = { onApply(proposal.planId, proposal.proposalId); onDismiss() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text("Apply Adjustment") }

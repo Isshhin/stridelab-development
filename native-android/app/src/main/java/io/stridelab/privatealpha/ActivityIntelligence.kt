@@ -62,16 +62,13 @@ internal object ActivityIntelligence {
         recorded: ActivityDetail?,
         history: List<ActivityRecord>
     ): ActivityInsightPresentation? {
-        if (!running(activity)) return null
-        val matched = comparison(activity, history)
-        val pace = activity.recordedPace?.takeIf { it.isFinite() && it > 0.0 }
-        val distance = activity.distanceM?.takeIf { it.isFinite() && it > 0.0 }
-            ?.let { String.format(Locale.getDefault(), "%.2f km", it / 1000.0) }
+        val matched = comparison(activity, history) ?: return null
+        val pace = activity.recordedPace ?: return null
         val context = briefInsights(activity, recorded, history)
 
         val headline: String
         val summary: String
-        if (matched != null && pace != null) {
+        run {
             val change = abs(matched.changePercent)
             headline = when {
                 change < 1.0 -> "A pace close to your comparable runs"
@@ -83,28 +80,10 @@ internal object ActivityIntelligence {
             }
             summary = "You averaged " + ActivityRecord.duration(pace) +
                 "/km, compared with " + ActivityRecord.duration(matched.medianPace) +
-                "/km across " + matched.count + " earlier matched runs. " +
-                "Effort, terrain and conditions may differ."
-        } else {
-            headline = when {
-                pace != null && distance != null ->
-                    "A " + distance + " run at " + ActivityRecord.duration(pace) + "/km"
-                pace != null -> "Your run averaged " + ActivityRecord.duration(pace) + "/km"
-                distance != null -> "You recorded a " + distance + " run"
-                else -> "Your running activity, at a glance"
-            }
-            summary = if (recorded?.samples?.any {
-                    it.hr?.isFinite() == true || it.cadenceSpm?.isFinite() == true
-                } == true) {
-                "Your recorded measurements can add context to this effort. " +
-                    "There are not yet enough similar runs for a reliable pace comparison."
-            } else {
-                "There are not yet enough comparable past runs for a pace trend. " +
-                    "More recorded activity data will make this analysis useful."
-            }
+                "/km across " + matched.count + " similar runs."
         }
         return ActivityInsightPresentation(headline, summary, context,
-            hasComparison = matched != null)
+            hasComparison = true)
     }
 
     /**
@@ -218,7 +197,7 @@ internal object ActivityIntelligence {
             lines.add(
                 "Your step rate went from " + cadence.min().toInt() +
                 " to " + cadence.max().toInt() +
-                " steps per minute. See where that changed alongside your pace."
+                " steps per minute."
             )
         }
         return lines

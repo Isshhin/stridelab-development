@@ -12,7 +12,7 @@ internal fun activityUsesStationaryDetail(activity: ActivityRecord): Boolean {
         .replace('-', '_').replace(' ', '_')
     return listOf(
         "strength", "weight", "resistance", "calisthenics",
-        "conditioning", "functional", "crossfit",
+        "conditioning", "plyometrics", "plyometric", "isometrics", "isometric", "functional", "crossfit",
         "yoga", "pilates", "mobility", "stretch",
         "hiit", "gym", "cardio", "elliptical",
         "rowing", "stair_stepper", "indoor_workout"

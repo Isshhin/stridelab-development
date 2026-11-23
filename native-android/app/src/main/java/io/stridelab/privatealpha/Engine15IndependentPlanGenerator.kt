@@ -281,23 +281,18 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val library = exerciseLibrary ?: throw PlanConstraint(
                 "CONDITIONING_CATALOG_REQUIRED: The shared offline exercise catalog is unavailable; no substitute was generated."
             )
-            val existing = plans.asSequence().filter { it.owner == owner && it.status in setOf("approved", "paused") }
-                .flatMap { plan -> plan.sessions.asSequence().filter { it.status in setOf("planned", "in_progress") }.map { it.date } }
-                .any { it in request.start.minusDays(1)..request.start.plusWeeks(request.weeks.toLong()) }
-            if (existing) throw PlanConstraint(
-                "EXTERNAL_SCHEDULE_REVIEW_REQUIRED: Conditioning-only generation does not yet coordinate known saved sessions; no existing session was ignored."
-            )
             RecordPolicy.identifier(owner)
             RecordPolicy.identifier(id)
-            val sessions = Engine15ConditioningWorkoutComposer.compose(request, id, library)
+            val (scheduledRequest, sessions) = soloExternalCalendar(request, owner, plans, "cond") {
+                Engine15ConditioningWorkoutComposer.compose(it, id, library)
+            }
             return PlanSnapshot(
                 id = id, owner = owner, engineVersion = version,
                 policyId = ENGINE15_INDEPENDENT_CONDITIONING_POLICY, createdAt = now,
-                request = request, sessions = sessions,
+                request = scheduledRequest, sessions = sessions,
                 explanations = listOf(
                     "Independent Engine 1.5 conditioning plan; no legacy generator or coaching validator was used.",
-                    "The low-impact stepping exercise is selected from the shared offline educational catalog; Engine 1.5 owns the fixed four-week duration progression and recovery weeks.",
-                    "This static plan does not increase effort or recalculate workload from completed sessions.",
+                    "Work and recovery targets are set by the selected conditioning goal and reduced in recovery weeks.",
                     "This is a draft. Review the movement, schedule and comfortable talk-test limit before explicit approval."
                 ),
                 name = "Engine 1.5 independent conditioning plan"
@@ -308,23 +303,18 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val library = exerciseLibrary ?: throw PlanConstraint(
                 "CALISTHENICS_CATALOG_REQUIRED: The shared offline exercise catalog is unavailable; no substitute was generated."
             )
-            val existing = plans.asSequence().filter { it.owner == owner && it.status in setOf("approved", "paused") }
-                .flatMap { plan -> plan.sessions.asSequence().filter { it.status in setOf("planned", "in_progress") }.map { it.date } }
-                .any { it in request.start.minusDays(1)..request.start.plusWeeks(request.weeks.toLong()) }
-            if (existing) throw PlanConstraint(
-                "EXTERNAL_SCHEDULE_REVIEW_REQUIRED: Calisthenics-only generation does not yet coordinate known saved sessions; no existing session was ignored."
-            )
             RecordPolicy.identifier(owner)
             RecordPolicy.identifier(id)
-            val sessions = Engine15CalisthenicsWorkoutComposer.compose(request, id, library)
+            val (scheduledRequest, sessions) = soloExternalCalendar(request, owner, plans, "cal") {
+                Engine15CalisthenicsWorkoutComposer.compose(it, id, library)
+            }
             return PlanSnapshot(
                 id = id, owner = owner, engineVersion = version,
                 policyId = ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, createdAt = now,
-                request = request, sessions = sessions,
+                request = scheduledRequest, sessions = sessions,
                 explanations = listOf(
                     "Independent Engine 1.5 calisthenics plan; no legacy generator or coaching validator was used.",
-                    "Exercise records come from the shared offline educational catalog; selection, skill gates, repetitions, recovery periods and calendar placement are Engine 1.5-owned.",
-                    "This static plan does not promote skills based on elapsed time or adjust workload from completed sessions.",
+                    "The selected goal and skill levels set the movement, repetition or hold targets and recovery periods.",
                     "This is a draft. Review each exercise, equipment requirement, schedule and repetition/hold target before explicit approval."
                 ),
                 name = "Engine 1.5 independent calisthenics plan"
@@ -335,25 +325,19 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val library = exerciseLibrary ?: throw PlanConstraint(
                 "STRENGTH_CATALOG_REQUIRED: The shared offline exercise catalog is unavailable; no substitute was generated."
             )
-            val first = request.start.minusDays(1)
-            val last = request.start.plusWeeks(request.weeks.toLong())
-            val existing = plans.asSequence().filter { it.owner == owner && it.status in setOf("approved", "paused") }
-                .flatMap { plan -> plan.sessions.asSequence().filter { it.status in setOf("planned", "in_progress") }.map { plan.id to it } }
-                .filter { (_, session) -> session.date in first..last }.toList()
-            if (existing.isNotEmpty()) throw PlanConstraint(
-                "EXTERNAL_SCHEDULE_REVIEW_REQUIRED: Strength-only generation does not yet coordinate known saved sessions; no existing session was ignored."
-            )
             RecordPolicy.identifier(owner)
             RecordPolicy.identifier(id)
-            val sessions = Engine15StrengthWorkoutComposer.compose(request, id, library)
+            val (scheduledRequest, sessions) = soloExternalCalendar(request, owner, plans, "str") {
+                Engine15StrengthWorkoutComposer.compose(it, id, library)
+            }
             return PlanSnapshot(
                 id = id, owner = owner, engineVersion = version,
                 policyId = ENGINE15_INDEPENDENT_STRENGTH_POLICY, createdAt = now,
-                request = request, sessions = sessions,
+                request = scheduledRequest, sessions = sessions,
                 explanations = listOf(
                     "Independent Engine 1.5 strength plan; no Engine 1.0 generation or validation was used.",
-                    "Exercise records come from the shared offline library; selection, goal-specific repetition progression, deloads and constraints are owned by Engine 1.5.",
-                    "Repetition targets progress within each four-week block and reset in the fourth-week one-set recovery period; no load increase or feedback-based recalculation is inferred.",
+                    "The selected goal sets the movement and whether the dose is prescribed in reps, hold seconds or ground contacts.",
+                    "Every fourth week reduces exposure. Changes from workout feedback require review and approval.",
                     "This is a draft. Review each exercise, equipment requirement, schedule and repetition target before explicit approval."
                 ),
                 name = "Engine 1.5 independent strength plan"
@@ -365,8 +349,15 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             val external = externalPlanContext(request, owner, plans)
             return Engine15TimeOnlyRunWalkBuilder.compose(request, owner, id, now, external.blockedRunDates)
         }
+        // Independent app plans share a calendar, but only overlapping running slots
+        // and legacy policies enter the strict M6 interference review.
+        val runningCalendar = plans.map { plan ->
+            if (PlanScheduleValidation.isIndependent(plan.policyId)) plan.copy(
+                sessions = plan.sessions.filter { it.discipline == "run" || it.status !in setOf("planned", "in_progress") }
+            ) else plan
+        }
         return appDraft(previewAutoReconciled(
-            request, owner, id, now, plans, activityEvidence, qualityEvidence,
+            request, owner, id, now, runningCalendar, activityEvidence, qualityEvidence,
             activities = activities, detections = detections
         ))
     }
@@ -1299,11 +1290,54 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         if ((runDays >= 3 || runDays == 1) && role == Engine15M5RunRole.LONG) 0
         else if (runDays >= 3) slotNumber else slotNumber - 1
 
-    fun conflict(a: PlannedSession, b: PlannedSession): Boolean {
-        if (a.date == b.date) return true
+    private fun soloExternalCalendar(
+        request: PlanRequest, owner: String, plans: List<PlanSnapshot>, discipline: String,
+        compose: (PlanRequest) -> List<PlannedSession>
+    ): Pair<PlanRequest, List<PlannedSession>> {
+        val window = request.start.minusDays(1)..request.start.plusWeeks(request.weeks.toLong())
+        val existing = plans.filter { it.owner == owner && it.status == "approved" }
+            .flatMap { plan -> plan.sessions.map { plan.policyId to it } }
+            .filter { (_, session) -> session.status in setOf("planned", "in_progress") && session.date in window }
+        val policy = when (discipline) {
+            "str" -> ENGINE15_INDEPENDENT_STRENGTH_POLICY
+            "cal" -> ENGINE15_INDEPENDENT_CALISTHENICS_POLICY
+            else -> ENGINE15_INDEPENDENT_CONDITIONING_POLICY
+        }
+        fun fits(rows: List<PlannedSession>, strict: Boolean) = rows.none { row ->
+            existing.any { (savedPolicy, saved) ->
+                if (strict) conflict(row, saved)
+                else PlanScheduleValidation.acrossPlansConflict(row, saved, policy, savedPolicy)
+            }
+        }
+        val initial = runCatching { compose(request) }.getOrElse { error ->
+            if (error !is PlanConstraint || existing.isEmpty() || discipline in request.weeklySlots) throw error
+            null
+        }
+        if (initial != null && fits(initial, strict = true)) return request to initial
+        var fallback = initial?.takeIf { fits(it, strict = false) }?.let { request to it }
+        if (discipline !in request.weeklySlots && request.lockedSessionDays.isEmpty()) {
+            val days = (0..6).map { request.start.plusDays(it.toLong()).dayOfWeek.value }.filter { it in request.days }
+            for (mask in 1 until (1 shl days.size)) {
+                if (Integer.bitCount(mask) != request.disciplineSessionCount(discipline)) continue
+                val pattern = days.filterIndexed { index, _ -> mask and (1 shl index) != 0 }
+                val scheduled = request.copy(weeklySlots = mapOf(discipline to pattern))
+                val rows = try { compose(scheduled) } catch (_: PlanConstraint) { continue }
+                if (fits(rows, strict = true)) return scheduled to rows
+                if (fallback == null && fits(rows, strict = false)) fallback = scheduled to rows
+            }
+        }
+        fallback?.let { return it }
+        throw PlanConstraint("The selected workouts cannot fit around active plans. Choose more available days or revise the fixed days.")
+    }
+
+    fun conflict(a: PlannedSession, b: PlannedSession): Boolean =
+        a.date == b.date || hardSpacingConflict(a, b)
+
+    fun hardSpacingConflict(a: PlannedSession, b: PlannedSession): Boolean {
         val gap = kotlin.math.abs(ChronoUnit.DAYS.between(a.date, b.date))
         fun hard(session: PlannedSession) = session.quality ||
-            session.discipline == "cal" || session.discipline in setOf("str", "cond") && session.lower
+            if (Engine15DisciplineProgression.isStructured(session)) session.lower
+            else session.discipline == "cal" || session.discipline in setOf("str", "cond") && session.lower
         fun longRun(session: PlannedSession) = session.discipline == "run" && session.kind == "long"
         return hard(a) && hard(b) && gap < 2 ||
             longRun(a) && hard(b) && gap < 2 || longRun(b) && hard(a) && gap < 2

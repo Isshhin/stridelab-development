@@ -20,8 +20,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -216,65 +214,7 @@ internal fun MoreFeatureSecondaryAction(
     ) { Text(text, fontWeight = FontWeight.Medium, fontSize = 14.sp) }
 }
 
-/** Dark text fields used by the standalone manual activity editor. */
-@Composable
-internal fun moreFeatureInputColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
-    focusedContainerColor = MoreFeatureColors.surface,
-    unfocusedContainerColor = MoreFeatureColors.surface,
-    disabledContainerColor = MoreFeatureColors.surface,
-    focusedTextColor = MoreFeatureColors.text,
-    unfocusedTextColor = MoreFeatureColors.text,
-    disabledTextColor = MoreFeatureColors.subdued,
-    focusedLabelColor = MoreFeatureColors.lime,
-    unfocusedLabelColor = MoreFeatureColors.muted,
-    focusedBorderColor = MoreFeatureColors.lime,
-    unfocusedBorderColor = MoreFeatureColors.border,
-    cursorColor = MoreFeatureColors.lime
-)
-
 @Composable
 internal fun MoreFeatureDivider() {
     HorizontalDivider(thickness = 1.dp, color = MoreFeatureColors.divider)
-}
-
-@Composable
-internal fun MoreFeatureActivityRow(
-    activity: ActivityRecord,
-    tag: String,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().testTag(tag),
-        shape = RoundedCornerShape(19.dp),
-        color = MoreFeatureColors.surface,
-        border = BorderStroke(1.dp, MoreFeatureColors.border)
-    ) {
-        Column(
-            Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                MoreFeatureEyebrow(activity.type.uppercase())
-                Text("›", color = MoreFeatureColors.lime, fontSize = 24.sp)
-            }
-            Text(
-                activity.title,
-                fontSize = 15.sp,
-                lineHeight = 21.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MoreFeatureColors.text
-            )
-            Text(
-                "${activity.dateLabel} · ${activity.distanceLabel} · ${activity.durationLabel}",
-                fontSize = 12.sp,
-                color = MoreFeatureColors.muted
-            )
-            MoreFeatureMuted(activity.sourceLabel)
-        }
-    }
 }

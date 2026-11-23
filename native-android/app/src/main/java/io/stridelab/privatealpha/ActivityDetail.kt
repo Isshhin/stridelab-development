@@ -2,7 +2,8 @@ package io.stridelab.privatealpha
 
 import org.json.JSONObject
 
-internal data class ActivitySample(val index: Int, val seconds: Double, val pace: Double?, val hr: Double?, val altitude: Double?, val latitude: Double?, val longitude: Double?, val cadenceSpm: Double? = null)
+internal data class ActivitySample(val index: Int, val seconds: Double, val pace: Double?, val hr: Double?, val altitude: Double?, val latitude: Double?, val longitude: Double?, val cadenceSpm: Double? = null,
+    val runningDynamics: RunningDynamics? = null)
 internal data class ActivityLap(
     val index: Int,
     val distance: Double?,
@@ -44,7 +45,9 @@ internal data class ActivityDetail(
     val pauseIntervals: List<ActivityPauseInterval> = emptyList(),
     val sourceHeartRateZones: ActivitySourceHeartRateZones? = null,
     val workoutSteps: List<ActivityWorkoutStep> = emptyList(),
-    val sourceWorkoutReferences: List<GarminActivityWorkoutReference> = emptyList()
+    val sourceWorkoutReferences: List<GarminActivityWorkoutReference> = emptyList(),
+    val runningDynamics: RunningDynamics? = null,
+    val runningDynamicsChecked: Boolean = false
 ) {
     companion object {
         fun parse(raw: JSONObject, account: String, id: String): ActivityDetail {
@@ -55,6 +58,11 @@ internal data class ActivityDetail(
                 require(value.isFinite() && value >= minimum) { "Invalid sample metric" }
                 return value
             }
+            fun dynamics(row: JSONObject): RunningDynamics? = RunningDynamics(
+                metric(row, "stance_time_ms", .001), metric(row, "vertical_oscillation_cm", .001),
+                metric(row, "step_length_m", .001), metric(row, "vertical_ratio_pct", .001),
+                metric(row, "average_cadence_spm", .001)
+            ).present()
             val samples = raw.getJSONArray("samples")
             require(samples.length() <= 20000)
             val points = (0 until samples.length()).map { i ->
@@ -66,7 +74,8 @@ internal data class ActivityDetail(
                     return row.getDouble(key).also { require(it.isFinite() && it in -limit..limit) }
                 }
                 ActivitySample(index, metric(row,"elapsed_s")!!, metric(row,"pace_sec_per_km",.001), metric(row,"heart_rate",.001),
-                    metric(row,"altitude_m",-12000.0), coordinate("latitude",90.0),coordinate("longitude",180.0),metric(row,"cadence_spm"))
+                    metric(row,"altitude_m",-12000.0), coordinate("latitude",90.0),coordinate("longitude",180.0),
+                    metric(row,"cadence_spm"), dynamics(row))
             }
             require(points.zipWithNext().all { (a,b) -> b.index > a.index && b.seconds >= a.seconds })
             val laps = raw.getJSONArray("laps"); require(laps.length() <= 1000)
@@ -144,7 +153,9 @@ internal data class ActivityDetail(
                 workoutSteps = steps,
                 sourceWorkoutReferences = raw.optJSONArray("garmin_workouts")?.let {
                     GarminActivityWorkouts.parse(it.toString())
-                }.orEmpty()
+                }.orEmpty(),
+                runningDynamics = raw.optJSONObject("running_dynamics")?.let(::dynamics),
+                runningDynamicsChecked = raw.optBoolean("running_dynamics_checked")
             )
         }
     }

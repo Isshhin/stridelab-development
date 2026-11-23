@@ -94,6 +94,7 @@ internal object Engine15WorkoutDifficultyAdjuster {
             runningPrescription = base.runningPrescription
         )
         return when {
+            Engine15DisciplineProgression.isStructured(base) -> Engine15DisciplineProgression.reduce(base, targetStep, baseline)
             base.discipline == "run" && base.quality -> adjustQualityRun(base, request, targetStep, baseline)
             base.discipline == "run" -> adjustEasyOrLongRun(base, request, targetStep, baseline)
             base.discipline in setOf("str", "cal") -> adjustResistance(base, request, targetStep, baseline)

@@ -43,7 +43,8 @@ internal fun TracksideStationaryActivityDetail(
     onShare: () -> Unit,
     onEdit: (() -> Unit)?,
     onRefreshSource: (() -> Unit)? = null,
-    refreshEnabled: Boolean = false
+    refreshEnabled: Boolean = false,
+    debrief: SessionDebrief? = null
 ) {
     val type = activity.type.lowercase(Locale.ROOT)
     val discipline = when {
@@ -119,6 +120,7 @@ internal fun TracksideStationaryActivityDetail(
                 )
             }
         }
+        if (debrief != null) item(key = "stationary-debrief") { CoachDebriefCard(debrief) }
         item(key = "stationary-metrics") {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -154,7 +156,7 @@ internal fun TracksideStationaryActivityDetail(
                     fontSize = 13.sp,
                     lineHeight = 19.sp
                 )
-                Text(
+                if (debrief == null) Text(
                     "Exercise names, sets and repetitions are not available in this saved activity record; none have been estimated.",
                     color = TracksidePalette.textMuted,
                     fontSize = 12.sp,

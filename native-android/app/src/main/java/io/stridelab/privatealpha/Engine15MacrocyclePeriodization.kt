@@ -33,8 +33,11 @@ internal object Engine15MacrocyclePeriodization {
     fun assignPhases(
         request: PlanRequest,
         volume: Engine15IndependentVolumePlanner.Result
-    ): Map<Int, Engine15MacroPhase> {
-        val totalWeeks = volume.weeks.size
+    ): Map<Int, Engine15MacroPhase> = assignPhases(request,
+        volume.weeks.map { it.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY })
+
+    fun assignPhases(request: PlanRequest, recoveryWeeks: List<Boolean>): Map<Int, Engine15MacroPhase> {
+        val totalWeeks = recoveryWeeks.size
         if (totalWeeks == 0) return emptyMap()
 
         val raceGoal = isRaceGoal(request.goal)
@@ -48,11 +51,11 @@ internal object Engine15MacrocyclePeriodization {
         val result = LinkedHashMap<Int, Engine15MacroPhase>(totalWeeks)
         val loadingWeeks = mutableListOf<Int>()
 
-        for (week in volume.weeks) {
-            val wkNum = week.index + 1
+        for ((index, recovery) in recoveryWeeks.withIndex()) {
+            val wkNum = index + 1
             when {
                 wkNum in taperWeekNumbers -> result[wkNum] = Engine15MacroPhase.TAPER
-                week.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY -> result[wkNum] = Engine15MacroPhase.RECOVERY
+                recovery -> result[wkNum] = Engine15MacroPhase.RECOVERY
                 else -> loadingWeeks += wkNum
             }
         }

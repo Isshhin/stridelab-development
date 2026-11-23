@@ -1143,7 +1143,7 @@ class TracksideResponsiveQaTest {
         compose.onNodeWithTag("builder-research-reopened").assertExists()
         compose.onNodeWithText("Research comparison · not executable").assertExists()
         compose.onNodeWithText("Week 1:",substring=true).assertExists()
-        compose.onNodeWithText("Finalize Plan").assertDoesNotExist()
+        compose.onNodeWithText("Activate Plan").assertDoesNotExist()
         compose.onNodeWithText("Approve plan").assertDoesNotExist()
     }
 
@@ -1187,7 +1187,7 @@ class TracksideResponsiveQaTest {
         // After the actual Engine 1 draft exists, every displayed prescription
         // comes from the saved draft and approval remains a separate action.
         compose.onNodeWithText("ACTIVE DAYS").assertExists()
-        compose.onNodeWithText("Finalize Plan").assertExists()
+        compose.onNodeWithText("Activate Plan").assertExists()
         compose.onNodeWithText("MAX 2 / DAY").assertExists()
         compose.onNodeWithText("5 Running").assertExists()
         compose.onNodeWithText("4 Cali").assertExists()

@@ -25,49 +25,24 @@ import org.json.JSONObject
 @Composable internal fun PlanBuilder(state:TrainingState,actions:PlanActions,discipline:String="all",onDone:()->Unit,onSignIn:()->Unit,onPreview:(String,String)->Unit) {
     // Signed-out plans are persisted under an isolated on-device owner.
     // Cloud sign-in remains optional for backup; generating does not need it.
-    val observedBaseline=remember(state.activities,state.plans) {
-        automaticRunningBaseline(state.activities,plans=state.plans)
+    val athletePlans = remember(state.plans, state.account, state.localPlanOwner) {
+        state.plans.filter { it.owner == (state.account ?: state.localPlanOwner) }
+    }
+    val observedBaseline=remember(state.activities,athletePlans) {
+        runningPlanHistory(state.activities, athletePlans)
     }
     val detectedExperience=remember(state.activities,state.plans) {
-        automaticRunningExperience(state.activities,plans=state.plans)
+        automaticRunningExperience(state.activities,plans=athletePlans)
     }
     val historicalEasyPace=remember(state.activities) {
         Engine15PaceZoneEstimator.inferHistoricalEasyPaceSecondsPerKm(state.activities, 360.0)
     }
-    val baseline=remember {
-        val existing=state.plans.firstOrNull {
-            Engine1Engines.canManage(it) && it.policyId != SessionTemplate.POLICY_ID
-        }?.let(TracksideCoaching::setupFor)
-        if(existing!=null) {
-            val withDetectedExp = if (detectedExperience != null) existing.copy(
-                experience = detectedExperience,
-                planningPace = historicalEasyPace
-            ) else existing
-            if(withDetectedExp.weeklyKm>0.0) {
-                withDetectedExp.copy(
-                    recentMileageBasis = if (withDetectedExp.recentMileageBasis in setOf("LEGACY_UNSPECIFIED", "UNKNOWN"))
-                        "SELF_REPORTED_AVERAGE" else withDetectedExp.recentMileageBasis
-                )
-            } else if (withDetectedExp.recentMileageBasis in setOf("UNKNOWN","CONFIRMED_ZERO","PEAK_WEEK_ONLY")) {
-                withDetectedExp
-            } else observedBaseline?.let {
-                withDetectedExp.copy(weeklyKm=it.weeklyKm,recentMileageBasis="RECORDED_PARTIAL")
-            } ?: withDetectedExp
-        } else {
-            sanitizeRunningScheduleDays(PlanRequest(
-                policyChoice="engine15",
-                experience=detectedExperience ?: 0,
-                planningPace=historicalEasyPace,
-                weeklyKm=observedBaseline?.weeklyKm ?: 0.0,
-                recentMileageBasis=if(observedBaseline==null) "SELF_REPORTED_AVERAGE" else "RECORDED_PARTIAL",
-                longestKm=state.activities.filter { DashboardSummary.isRun(it) }
-                    .mapNotNull { it.distanceM }.maxOrNull()?.div(1000) ?: 0.0,
-                qualityCount=1,
-                qualityDays=setOf(2)
-            ))
-        }
-    }
     val initial=remember {
+        val baseline=PlanRequest(
+            experience=detectedExperience ?: 0, planningPace=historicalEasyPace,
+            recentMileageBasis="UNKNOWN", qualityCount=1, qualityDays=setOf(2),
+            days=setOf(1,2,3,4,5,7), longDay=7
+        )
         when(discipline) {
             "run" -> sanitizeRunningScheduleDays(baseline.copy(
                 runDays=3,strengthDays=0,calDays=0,conditioningDays=0,
@@ -86,30 +61,51 @@ import org.json.JSONObject
                 qualityDays=emptySet(),weeklySlots=emptyMap(),
                 disciplineGoals=emptyMap()
             )
-            else -> baseline
-        }.let { request ->
-        if(state.plans.isEmpty()) sanitizeRunningScheduleDays(request.copy(
-            days=setOf(1,2,3,4,5,7), longDay=7
-        )) else request
-    }.copy(timeBudgetEnabled=false) }
+            "plyo", "iso" -> chooseStrengthTrack(
+                baseline.copy(runDays=0, qualityCount=0, qualityDays=emptySet()), discipline, deselect=false
+            )
+            "cond" -> baseline.copy(
+                goal="Conditioning", runDays=0, conditioningDays=1, qualityCount=0, qualityDays=emptySet()
+            )
+            else -> if (state.plans.any { it.status == "approved" }) baseline.copy(
+                runDays = 0, strengthDays = 0, calDays = 0, conditioningDays = 0,
+                qualityCount = 0, qualityDays = emptySet(), weeklySlots = emptyMap(),
+                disciplineGoals = emptyMap(), lockedSessionDays = emptyMap()
+            ) else baseline
+        }.let(::sanitizeRunningScheduleDays).copy(timeBudgetEnabled=false)
+    }
     var encoded by rememberSaveable { mutableStateOf(initial.encode().toString()) }
     var step by rememberSaveable { mutableIntStateOf(0) }
-    val input=PlanRequest.decode(JSONObject(encoded))
-    fun edit(p:PlanRequest) { encoded=p.encode().toString() }
-    var km by rememberSaveable { mutableStateOf(initial.weeklyKm.toString()) };var targetKm by rememberSaveable { mutableStateOf((initial.targetWeeklyKm ?: initial.weeklyKm).toString()) };var targetSupplied by rememberSaveable { mutableStateOf(initial.targetWeeklyKm != null) };var longest by rememberSaveable { mutableStateOf(initial.longestKm.toString()) }
+    val configured=remember(encoded) { PlanRequest.decode(JSONObject(encoded)) }
+    var longestOverride by rememberSaveable { mutableStateOf<Double?>(null) }
+    var experienceOverride by rememberSaveable { mutableStateOf<Int?>(null) }
+    val input=observedBaseline.applyTo(configured).let { request ->
+        request.copy(
+            longestKm = longestOverride ?: request.longestKm,
+            experience = experienceOverride ?: detectedExperience ?: request.experience,
+            planningPace = historicalEasyPace
+        )
+    }
+    fun edit(p:PlanRequest) {
+        // Keep derived fields live as imports arrive while the builder is open.
+        val saved = if (p.recentMileageBasis == "RECORDED_PARTIAL")
+            p.copy(weeklyKm=0.0, recentMileageBasis="UNKNOWN") else p
+        encoded=saved.copy(longestKm=0.0).encode().toString()
+    }
+    var targetKm by rememberSaveable { mutableStateOf((initial.targetWeeklyKm ?: initial.weeklyKm).toString()) };var targetSupplied by rememberSaveable { mutableStateOf(initial.targetWeeklyKm != null) }
     var peakWeekKm by rememberSaveable {
         mutableStateOf(initial.reportedPeakWeeklyKm?.toString() ?: "")
     }
-    var pace by rememberSaveable { mutableStateOf((initial.planningPace/60).toString()) };var start by rememberSaveable { mutableStateOf(maxOf(initial.start,LocalDate.now()).toString()) }
+    var start by rememberSaveable { mutableStateOf(maxOf(initial.start,LocalDate.now()).toString()) }
     var weeks by rememberSaveable { mutableStateOf(initial.weeks.toString()) };var minutes by rememberSaveable { mutableStateOf(initial.minutes.toString()) };var dailyMinutes by rememberSaveable { mutableStateOf(initial.dailyMinutes.toString()) }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var awaiting by rememberSaveable { mutableStateOf(false) }
     var beforeId by rememberSaveable { mutableStateOf<String?>(null) }
     var previewId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingApprovalId by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(state.busy,state.plans,state.message) {
+    LaunchedEffect(state.busy,state.plans,state.planPreview,state.message) {
         if(awaiting && !state.busy) {
-            val newest=state.plans.firstOrNull()
+            val newest=state.planPreview
             if(newest!=null && newest.id!=beforeId && newest.status=="draft") {
                 previewId=newest.id
                 step=4
@@ -143,13 +139,12 @@ import org.json.JSONObject
         input.copy(
             start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),
             dailyMinutes=if(input.policyChoice=="multi-session")dailyMinutes.toInt() else input.dailyMinutes,
-            weeklyKm=km.toDouble(),targetWeeklyKm=if(targetSupplied) targetKm.toDouble() else null,
-            longestKm=longest.toDouble(),planningPace=pace.toDouble()*60,
+            targetWeeklyKm=if(targetSupplied) targetKm.toDouble() else null,
             reportedPeakWeeklyKm=peak,timeBudgetEnabled=false
         )
     } catch(e:PlanConstraint) { throw e }
       catch(e:Exception) {
-        throw PlanConstraint("Enter valid dates and numeric recent average, peak, target mileage, pace and weeks.")
+        throw PlanConstraint("Enter valid dates, plan length and mileage targets.")
     }
     var previewWeek by rememberSaveable { mutableIntStateOf(0) }
     var runningSubPage by rememberSaveable { mutableIntStateOf(0) }
@@ -157,7 +152,7 @@ import org.json.JSONObject
     var runningSelectedSlot by rememberSaveable { mutableIntStateOf(0) }
     var otherSelectedDiscipline by rememberSaveable { mutableStateOf("str") }
     var otherSelectedSlot by rememberSaveable { mutableIntStateOf(0) }
-    var runningCustom by rememberSaveable { mutableStateOf(true) }
+    var runningCustom by rememberSaveable { mutableStateOf(false) }
     var desiredQualityCount by rememberSaveable { mutableIntStateOf(initial.qualityCount) }
     var qualityPreference by rememberSaveable {
         mutableStateOf(initial.preferredQuality)
@@ -183,6 +178,7 @@ import org.json.JSONObject
         mutableStateOf(when(Engine1Engines.goal(initial,"str")) {
             "Muscle development" -> "Build Muscle"
             "Strength endurance" -> "Maintain Fitness"
+            in Engine15DisciplineProgression.goals.getValue("str") -> Engine1Engines.goal(initial, "str")
             else -> "Build Strength"
         })
     }
@@ -194,8 +190,13 @@ import org.json.JSONObject
         "Marathon" -> "42K"
         else -> "5K"
     }) }
-    val preview=state.plans.find { it.id==previewId }
-    if (step == 3) {
+    val preview=state.planPreview?.takeIf { it.id == previewId }
+    androidx.activity.compose.BackHandler(enabled = step == 4 && !state.busy) {
+        actions.discardPlanPreview()
+        step = 2
+        scheduleSubPage = 0
+    }
+    if (step == 3 || (step == 4 && preview == null && !awaiting && pendingApprovalId == null)) {
         LaunchedEffect(Unit) {
             scheduleSubPage = 0
             step = 2
@@ -214,7 +215,7 @@ import org.json.JSONObject
             else -> 15
         }
         step == 1 && (input.runDays == 0 || crossTrainingGoals) -> when {
-            input.strengthDays > 0 && !strengthGoalSaved -> 20
+            input.strengthDays > 0 && !strengthGoalSaved && strengthTrack(input) == "str" -> 20
             input.strengthDays > 0 && !strengthSetupSaved -> 21
             input.calDays > 0 && crossGoalsSaved -> 23
             else -> 22
@@ -240,6 +241,7 @@ import org.json.JSONObject
                     plan = activePreview,
                     busy = state.busy || awaiting || pendingApprovalId != null,
                     onBack = {
+                        actions.discardPlanPreview()
                         step = 2
                         scheduleSubPage = 0
                     },
@@ -254,8 +256,9 @@ import org.json.JSONObject
                     weekIndex = previewWeek,
                     onWeekChange = { previewWeek = it },
                     error = error,
+                    recoveryNote = PlanScheduleValidation.crossPlanRecoveryNote(activePreview, state.plans),
                     onChooseGoalOption = { chosen ->
-                        error = null; beforeId = state.plans.firstOrNull()?.id; awaiting = true
+                        error = null; beforeId = state.planPreview?.id; awaiting = true
                         weeks = chosen.weeks.toString(); targetKm = chosen.targetWeeklyKm.toString(); targetSupplied = true; edit(chosen)
                         actions.generate(chosen)
                     },
@@ -267,7 +270,7 @@ import org.json.JSONObject
             onToggle = { d ->
                 val active = when(d) {
                     "run" -> input.runDays > 0
-                    "str" -> input.strengthDays > 0
+                    "str", "plyo", "iso" -> input.strengthDays > 0 && strengthTrack(input) == d
                     "cal" -> input.calDays > 0
                     else -> input.conditioningDays > 0
                 }
@@ -281,7 +284,7 @@ import org.json.JSONObject
                             sanitizeRunningScheduleDays(input.copy(runDays=3, qualityCount=1))
                         }
                     }
-                    "str" -> input.copy(strengthDays=if(active)0 else 2)
+                    "str", "plyo", "iso" -> chooseStrengthTrack(input, d, active)
                     "cal" -> input.copy(calDays=if(active)0 else 2)
                     else -> input.copy(conditioningDays=if(active)0 else 1)
                 }
@@ -301,7 +304,9 @@ import org.json.JSONObject
                     "Push-up progression","Core strength and control",
                     "Handstand foundations" -> cleaned.calDays>0
                     "Conditioning" -> cleaned.conditioningDays>0
-                    else -> true
+                    else -> Engine1Engines.discipline(cleaned.goal)?.let {
+                        cleaned.disciplineSessionCount(it) > 0
+                    } ?: true
                 }
                 val fallback=when {
                     cleaned.runDays>0 -> "General fitness"
@@ -317,7 +322,7 @@ import org.json.JSONObject
                 step=1
                 runningSubPage=0
                 crossTrainingGoals=false
-                strengthGoalSaved=false
+                strengthGoalSaved=strengthTrack(input) != "str"
                 strengthSetupSaved=false
                 crossGoalsSaved=false
             }
@@ -407,21 +412,37 @@ import org.json.JSONObject
                 }
                 TracksideRunningAbilityScreen(
                     experience = input.experience,
-                    weeklyKm = km.toDoubleOrNull()?.coerceIn(0.0, 120.0) ?: 0.0,
-                    longestKm = longest.toDoubleOrNull()?.coerceIn(0.0, 42.0) ?: 0.0,
-                    onExperience = { edit(input.copy(experience = it)) },
+                    weeklyKm = input.weeklyKm.takeIf { input.recentMileageBasis != "UNKNOWN" },
+                    longestKm = input.longestKm.takeIf { it > 0.0 || longestOverride != null },
+                    onExperience = { experienceOverride = it },
                     onWeeklyKm = { value ->
-                        km = value.toInt().toString()
                         edit(input.copy(
-                            weeklyKm = value,
-                            recentMileageBasis = "SELF_REPORTED_AVERAGE",
+                            weeklyKm = kotlin.math.round(value * 10) / 10,
+                            recentMileageBasis = if (value >= 0.05) "SELF_REPORTED_AVERAGE" else "UNKNOWN",
                             foundationAcknowledged = false
                         ))
                     },
                     onLongestKm = { value ->
-                        longest = value.toInt().toString()
-                        edit(input.copy(longestKm = value))
+                        longestOverride = kotlin.math.round(value * 10) / 10
                     },
+                    weeklySource = when (input.recentMileageBasis) {
+                        "RECORDED_PARTIAL" -> "From recent runs"
+                        "SELF_REPORTED_AVERAGE" -> "Entered by you"
+                        "CONFIRMED_ZERO" -> "No recent running"
+                        else -> "No estimate yet"
+                    },
+                    longestSource = when {
+                        longestOverride != null -> "Entered by you"
+                        input.longestKm > 0 -> "Last 30 days"
+                        else -> "No recent distance"
+                    },
+                    onConfirmNoRecentRunning = if (input.weeklyKm == 0.0 && input.longestKm == 0.0 &&
+                        input.recentMileageBasis != "CONFIRMED_ZERO") {
+                        {
+                            experienceOverride = 0
+                            edit(input.copy(recentMileageBasis = "CONFIRMED_ZERO"))
+                        }
+                    } else null,
                     onBack = {
                         runningSubPage = when (runningRoute) {
                             "race" -> 1
@@ -454,7 +475,7 @@ import org.json.JSONObject
                     paceZones = remember(input.benchmarkDistanceMeters, input.benchmarkDurationSeconds, input.planningPace, state.activities) {
                         Engine15PaceZoneEstimator.estimate(input, activities = state.activities)
                     },
-                    autoDetectedExperience = detectedExperience != null
+                    autoDetectedExperience = detectedExperience != null && experienceOverride == null
                 )
             }
             3 -> TracksideAdvancedRunning(
@@ -629,7 +650,7 @@ import org.json.JSONObject
                 }
             )
         }
-        20, 21, 22, 23 -> if(input.strengthDays>0 && !strengthGoalSaved) {
+        20, 21, 22, 23 -> if(input.strengthDays>0 && !strengthGoalSaved && strengthTrack(input) == "str") {
             TracksideStrengthGoalScreen(
                 selected=strengthGoalLabel,
                 onSelect={ strengthGoalLabel=it },
@@ -677,8 +698,8 @@ import org.json.JSONObject
                     edit(input.copy(equipment=input.equipment+
                         (equipmentId to if(enabled)1 else 0)))
                 },
-                onBack={ strengthGoalSaved=false },
-                onEditGoal={ strengthGoalSaved=false },
+                onBack={ if (strengthTrack(input) == "str") strengthGoalSaved=false else step=0 },
+                onEditGoal={ if (strengthTrack(input) == "str") strengthGoalSaved=false else step=0 },
                 onContinue={ strengthSetupSaved=true }
             )
         } else if(input.calDays>0 && crossGoalsSaved) {
@@ -853,7 +874,7 @@ import org.json.JSONObject
                             IndependentEngineRoute.EXISTING_COACH
                         )
                         val selected=TracksideCoaching.request(p)
-                        beforeId=state.plans.firstOrNull()?.id
+                        beforeId=state.planPreview?.id
                         awaiting=true
                         actions.generate(selected)
                     } catch(e:PlanConstraint) { error=e.message }
@@ -861,59 +882,7 @@ import org.json.JSONObject
             }
         )
         else -> {
-            // An orphaned draft after process restore must never reveal the removed
-            // legacy chip-based builder. Preserve all edited request inputs.
-            val missingDraft = step == 4
-            TracksideBuilderFrame(
-                eyebrow = "PLAN / RECOVERY",
-                toolbarTitle = if(missingDraft) "Restore draft" else "Plan setup",
-                headline = if(missingDraft) "Draft unavailable" else "Resume plan setup",
-                description = if(missingDraft)
-                    "The draft is no longer available. Your choices are still here."
-                    else "This step could not be restored. Your plan inputs are preserved.",
-                ctaLabel = if(missingDraft) "Review plan dates" else "Return to setup",
-                onBack = {
-                    if(missingDraft) { step=2; scheduleSubPage=0 } else step = 0
-                },
-                onContinue = {
-                    error = null
-                    if(missingDraft) {
-                        previewId = null
-                        pendingApprovalId = null
-                        step = 2
-                        scheduleSubPage = 0
-                    } else {
-                        step = 0
-                        runningSubPage = 0
-                        scheduleSubPage = 0
-                        crossTrainingGoals = false
-                        strengthGoalSaved = false
-                    }
-                }
-            ) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().testTag("builder-draft-recovery"),
-                    color = PlanBuilderPalette.surface,
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
-                ) {
-                    Column(Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(
-                            if(missingDraft) "No saved draft found" else "Setup could not resume",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = PlanBuilderPalette.text
-                        )
-                        Text(
-                            if(missingDraft)
-                                "Review your selected disciplines, weekdays, session counts and plan dates before generating a new draft. No existing approved plan is changed."
-                            else "Return to the first step and continue editing your existing plan choices.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = PlanBuilderPalette.secondary
-                        )
-                        error?.let { PlanBuilderErrorBanner(it) }
-                    }
-                }
-            }
+            LaunchedEffect(Unit) { step = 0 }
         }
         }
     }
@@ -939,7 +908,7 @@ private fun builderGoals(p:PlanRequest)=ALL_SUPPORTED_GOALS.filter { goal -> whe
     "General strength","Muscle development","Strength endurance"->p.strengthDays>0
     "Calisthenics foundation","Pull-up progression","Push-up progression","Core strength and control","Handstand foundations"->p.calDays>0
     "Conditioning"->p.conditioningDays>0
-    else->false
+    else->Engine1Engines.discipline(goal)?.let { p.disciplineSessionCount(it) > 0 } == true
 } }
 
 /** Repairs `longDay` and `qualityDays` against available `days`, preserving user pins when manual. */

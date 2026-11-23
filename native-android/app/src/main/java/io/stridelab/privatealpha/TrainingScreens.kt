@@ -186,7 +186,7 @@ import kotlinx.coroutines.withContext
                 val hasBackupAccess = hasExportable || state.account != null || state.localPlanOwner != null
                 if (plan != null) item {
                     OutlinedButton(onClick = onBuild, modifier = Modifier.fillMaxWidth()) {
-                        Text("Create or update draft plan")
+                        Text("Create another plan")
                     }
                 }
                 if (hasBackupAccess) item {
@@ -230,10 +230,10 @@ import kotlinx.coroutines.withContext
                         }
                     }
                 }
-                if(plan?.status in setOf("draft","paused")) item { Spacer(Modifier.height(96.dp)) }
+                if(plan?.status == "paused") item { Spacer(Modifier.height(96.dp)) }
             }
         }
-        if(plan != null && plan.status in setOf("draft","paused")) {
+        if(plan != null && plan.status == "paused") {
             TracksideParityDraftApprovalDock(
                 plan,
                 enabled = !state.busy && Engine1Engines.canManage(plan) && plan.sessions.none { it.status == "unassigned" },
@@ -331,7 +331,7 @@ import kotlinx.coroutines.withContext
             val text=withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)?.use { input -> val bytes=readPlanBackupBytes(input);if(bytes.size>RecordPolicy.MAX_PAYLOAD_BYTES)throw PlanConstraint("Choose a plan backup smaller than 2 MB.");String(bytes,Charsets.UTF_8) } ?: throw PlanConstraint("The backup could not be opened.") }
             val (backup,additions,reviewAdditions)=withContext(Dispatchers.Default) {
                 val bundle=PlanBackup.readBundle(text,state.account ?: state.localPlanOwner ?: "")
-                Triple(bundle,PlanBackup.additions(bundle.plans,state.plans),PlanBackup.researchAdditions(bundle.researchReviews,state.researchDrafts))
+                Triple(bundle,PlanBackup.additions(bundle.plans.filter { it.status != "draft" },state.plans),PlanBackup.researchAdditions(bundle.researchReviews,state.researchDrafts))
             }
             description="${backup.plans.size} plans and ${backup.researchReviews.size} non-executable research reviews in this profile's backup; ${additions.size} new plans and ${reviewAdditions.size} new reviews will be restored. Existing records are retained. Local-only backups require the original device identity and are not imported into another account."
             raw=text

@@ -74,9 +74,11 @@ class LocalPlanRepositoryTest {
         val deviceOwner = requireNotNull(repo.state.value.localPlanOwner)
         assertTrue(LocalPlanOwnership.isLocalPlanOwner(deviceOwner))
         assertTrue(repo.generatePlan(request()))
-        var plan = repo.state.value.plans.single()
+        var plan = requireNotNull(repo.state.value.planPreview)
         assertEquals(deviceOwner, plan.owner)
         assertEquals("draft", plan.status)
+        assertEquals(0, rawPlanCount(deviceOwner))
+        assertTrue(repo.state.value.plans.isEmpty())
         assertTrue(repo.approvePlan(plan.id, plan.revision))
         plan = repo.state.value.plans.single()
         assertEquals("approved", plan.status)
@@ -90,9 +92,25 @@ class LocalPlanRepositoryTest {
         assertEquals(0, outboxCount(deviceOwner))
     }
 
+    @Test fun abandonedPreviewDoesNotSurviveAndLegacyDraftIsHidden() = runBlocking {
+        assertTrue(repo.generatePlan(request()))
+        val preview = requireNotNull(repo.state.value.planPreview)
+        repo.discardPlanPreview()
+        assertNull(repo.state.value.planPreview)
+        assertEquals(0, rawPlanCount(preview.owner))
+        TrainingStore(context, databaseName).use { store ->
+            store.applyRemotePage(preview.owner, "plan",
+                listOf(TrainingStore.RemoteRecord(preview.id, preview.encode().toString(), null)), null, 1L)
+        }
+        repo.close()
+        open()
+        assertTrue(repo.state.value.plans.isEmpty())
+        assertNull(repo.state.value.planPreview)
+    }
+
     @Test fun localEntryDraftAndFeedbackRemainPrivateAndSurviveRestart() = runBlocking {
         assertTrue(repo.generatePlan(request()))
-        var plan = repo.state.value.plans.single()
+        var plan = requireNotNull(repo.state.value.planPreview)
         assertTrue(repo.approvePlan(plan.id, plan.revision))
         plan = repo.state.value.plans.single()
         val session = plan.sessions.first()
@@ -117,15 +135,66 @@ class LocalPlanRepositoryTest {
         assertEquals(0, outboxCount(plan.owner))
     }
 
+    @Test fun guidedSetAndRestRecoverTogetherAndFinalSaveRemainsLocal() = runBlocking {
+        assertTrue(repo.generatePlan(request()))
+        val preview = requireNotNull(repo.state.value.planPreview)
+        assertTrue(repo.approvePlan(preview.id, preview.revision))
+        val plan = repo.state.value.plans.single()
+        val session = plan.sessions.first()
+        val started = requireNotNull(repo.executeWorkout(plan.id, session.id, null, null))
+        val target = started.current.target
+        val actual = SetActual(reps = target.reps, seconds = target.seconds)
+        val confirmed = requireNotNull(repo.executeWorkout(plan.id, session.id, started.revision, PlayerEvent.CompleteSet(actual)))
+        assertEquals(PlayerPhase.Resting, confirmed.phase)
+        assertEquals(0, outboxCount(plan.owner))
+        repo.close()
+        open()
+
+        val recovered = requireNotNull(repo.executeWorkout(plan.id, session.id, null, null))
+        assertEquals(confirmed.executionId, recovered.executionId)
+        assertEquals(PlayerPhase.Resting, recovered.phase)
+        assertEquals(actual, recovered.current.actual)
+        val review = requireNotNull(repo.executeWorkout(plan.id, session.id, recovered.revision, PlayerEvent.FinishEarly))
+        val final = PlayerEvent.FinalizeSession(Instant.now(), 5, "", LocalDate.now())
+        val saved = requireNotNull(repo.executeWorkout(plan.id, session.id, review.revision, final))
+        assertTrue(saved.receipt)
+        val committed = repo.state.value.plans.single()
+        val repeated = requireNotNull(repo.executeWorkout(plan.id, session.id, review.revision, final))
+        assertEquals(saved, repeated)
+        assertEquals(committed, repo.state.value.plans.single())
+
+        // Recreate the durable state immediately after the plan commit, before the receipt write.
+        val frozen = saved.copy(receipt = false, phase = PlayerPhase.Reviewing)
+        val key = WorkoutExecutionCheckpoint.key(plan.id, session.id)
+        val wall = System.currentTimeMillis()
+        val payload = WorkoutExecutionCheckpoint.encode(plan.owner, frozen, android.os.SystemClock.elapsedRealtime(), wall)
+        TrainingStore(context, databaseName).use { store ->
+            store.applyRemotePage(plan.owner, "workout", listOf(TrainingStore.RemoteRecord(key, payload, null)), null, wall)
+        }
+        repo.close()
+        open()
+        val recoveredSave = requireNotNull(repo.executeWorkout(plan.id, session.id, review.revision, final.copy(effort = 10)))
+        assertTrue(recoveredSave.receipt)
+        assertEquals(saved.finalizationId, recoveredSave.finalizationId)
+        assertEquals(saved.finalLog, recoveredSave.finalLog)
+        assertEquals(committed, repo.state.value.plans.single())
+        assertEquals(1, rawPlanCount(plan.owner))
+        assertEquals(0, outboxCount(plan.owner))
+    }
+
     @Test fun localPlansHideDuringCloudSignInAndReappearAfterSignOut() = runBlocking {
         assertTrue(repo.generatePlan(request()))
         val deviceOwner = requireNotNull(repo.state.value.localPlanOwner)
+        val devicePreview = requireNotNull(repo.state.value.planPreview)
+        assertTrue(repo.approvePlan(devicePreview.id, devicePreview.revision))
         val devicePlan = repo.state.value.plans.single()
         assertTrue(repo.signIn("synthetic@example.invalid", "fixture"))
         assertEquals(cloudOwner, repo.state.value.account)
         assertEquals(deviceOwner, repo.state.value.localPlanOwner)
         assertTrue(repo.state.value.plans.isEmpty())
         assertTrue(repo.generatePlan(request()))
+        val cloudPreview = requireNotNull(repo.state.value.planPreview)
+        assertTrue(repo.approvePlan(cloudPreview.id, cloudPreview.revision))
         val cloudPlan = repo.state.value.plans.single()
         assertEquals(cloudOwner, cloudPlan.owner)
         assertNotEquals(devicePlan.id, cloudPlan.id)
@@ -140,7 +209,7 @@ class LocalPlanRepositoryTest {
 
     @Test fun manualLocalBackupRestoreRequiresSameOriginalDeviceOwner() = runBlocking {
         val deviceOwner = requireNotNull(repo.state.value.localPlanOwner)
-        val incoming = Engine15IndependentPlanGenerator.generateWithHistory(request(), deviceOwner, emptyList(), "synthetic-local-import", exerciseLibrary = library())
+        val incoming = Engine15IndependentPlanGenerator.generateWithHistory(request(), deviceOwner, emptyList(), "synthetic-local-import", exerciseLibrary = library()).copy(status = "approved")
         val file = JSONObject().put("schemaVersion", 1)
             .put("plans", JSONArray().put(incoming.encode())).toString()
         assertTrue(repo.restorePlans(file))

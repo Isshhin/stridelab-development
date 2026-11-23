@@ -52,4 +52,21 @@ class AutomaticRunningBaselineTest {
                 week(1,listOf(10.0,10.0,10.0)),
             now,zone=ZoneOffset.UTC))
     }
+
+    @Test fun builderUsesRecordedTypicalWeeksAndTheLastThirtyDaysSeparately() {
+        val history = week(1,listOf(5.0,7.0)) + week(2,listOf(5.0,6.0)) +
+            run("recent-long", monday, 17.25) + run("stale-long", monday.minusDays(60), 40.0) +
+            run("future", monday.plusDays(1), 30.0)
+        val estimate = runningPlanHistory(history, emptyList(), now, ZoneOffset.UTC)
+        assertEquals(11.5, estimate.weeklyKm)
+        assertEquals(17.25, estimate.longestKm)
+        val request = PlanRequest(recentMileageBasis = "UNKNOWN")
+        assertEquals(request.copy(weeklyKm=11.5, longestKm=17.25, recentMileageBasis="RECORDED_PARTIAL"),
+            estimate.applyTo(request))
+        val manual = request.copy(weeklyKm=20.0, longestKm=12.0, recentMileageBasis="SELF_REPORTED_AVERAGE")
+        assertEquals(manual, estimate.applyTo(manual))
+        val sparse = runningPlanHistory(listOf(run("one-run", monday, 5.4)), emptyList(), now, ZoneOffset.UTC)
+        assertNull(sparse.weeklyKm)
+        assertEquals(5.4, sparse.longestKm)
+    }
 }

@@ -89,7 +89,9 @@ internal object Engine15Availability {
                     val proposed=session.copy(date=date,status="planned")
                     val current=fixed+placed+chosen
                     val localDay=current.filter { it.date==date }
-                    val externalDay=approvedOthers.filter { it.second.date==date }
+                    val externalDay=approvedOthers.filter { (other, peer) ->
+                        peer.date == date && !PlanScheduleValidation.separateTracks(proposed, peer, plan.policyId, other.policyId)
+                    }
                     if(localDay.size+externalDay.size>=maxOnDay)continue
                     if(request.timeBudgetEnabled && localDay.sumOf { it.effectiveMinutes }+
                         proposed.effectiveMinutes>request.dailyMinutes)continue
@@ -98,7 +100,7 @@ internal object Engine15Availability {
                             proposed,it,plan.policyId,plan.policyId)
                     })continue
                     if(approvedOthers.any { (other,sessionInOther) ->
-                        PlanScheduleValidation.conflict(
+                        PlanScheduleValidation.acrossPlansConflict(
                             proposed,sessionInOther,plan.policyId,other.policyId)
                     })continue
                     if(externalDay.isNotEmpty()) {

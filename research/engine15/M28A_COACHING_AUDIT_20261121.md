@@ -12,7 +12,7 @@ Generated across 15 scenarios (12 standard matrix personas + 3 messy real-world 
 | W4 | 3 | 14.0 | 4.7 (34%) | — | OK |
 | W5 | 3 | 18.3 | 6.1 (33%) | Tempo (15m work / 43m tot) | OK |
 | W6 | 3 | 19.1 | 6.4 (34%) | Fartlek (10m work / 45m tot) | OK |
-| W7 | 3 | 19.9 | 6.7 (34%) | Fartlek (10m work / 47m tot) | OK |
+| W7 | 3 | 19.9 | 6.7 (34%) | Hills (6m work / 49m tot) | OK |
 | W8 | 3 | 15.5 | 5.2 (34%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
@@ -26,8 +26,8 @@ Generated across 15 scenarios (12 standard matrix personas + 3 messy real-world 
 | W4 | 3 | 17.2 | 5.8 (34%) | — | OK |
 | W5 | 3 | 22.4 | 7.5 (33%) | Hills (5m work / 55m tot) | OK |
 | W6 | 3 | 23.3 | 7.8 (33%) | Tempo (15m work / 55m tot) | OK |
-| W7 | 3 | 24.3 | 8.1 (33%) | Tempo (12m work / 58m tot) | OK |
-| W8 | 3 | 19.4 | 6.5 (34%) | — | OK |
+| W7 | 3 | 24.3 | 8.1 (33%) | Fartlek (12m work / 58m tot) | OK |
+| W8 | 3 | 18.9 | 6.3 (33%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Beginner — Half marathon (26 km/wk, 3d)
@@ -40,8 +40,8 @@ Generated across 15 scenarios (12 standard matrix personas + 3 messy real-world 
 | W4 | 3 | 20.3 | 6.8 (33%) | — | OK |
 | W5 | 3 | 26.5 | 9.0 (34%) | Hills (5m work / 65m tot) | OK |
 | W6 | 3 | 27.6 | 9.3 (34%) | Tempo (15m work / 66m tot) | OK |
-| W7 | 3 | 28.8 | 9.7 (34%) | Tempo (12m work / 70m tot) | OK |
-| W8 | 3 | 23.0 | 7.7 (33%) | — | OK |
+| W7 | 3 | 28.8 | 9.7 (34%) | Fartlek (12m work / 68m tot) | OK |
+| W8 | 3 | 22.4 | 7.5 (33%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Beginner — Marathon (32 km/wk, 4d)
@@ -54,21 +54,21 @@ Generated across 15 scenarios (12 standard matrix personas + 3 messy real-world 
 | W4 | 4 | 25.3 | 7.5 (30%) | — | OK |
 | W5 | 4 | 33.3 | 11.3 (34%) | Hills (5m work / 62m tot) | OK |
 | W6 | 4 | 35.0 | 12.1 (35%) | Tempo (15m work / 62m tot) | OK |
-| W7 | 4 | 36.7 | 12.9 (35%) | Tempo (12m work / 65m tot) | OK |
-| W8 | 4 | 29.3 | 8.7 (30%) | — | OK |
+| W7 | 4 | 28.0 | 7.8 (28%) | Tempo (12m work / 52m tot) | OK |
+| W8 | 4 | 21.0 | 5.8 (28%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Intermediate — Improve 5K (38 km/wk, 4d)
 - **Pace Zones:** Easy 5:55–6:29 /km | Tempo 5:09–5:25 /km | Thr 4:57–5:09 /km | Int 4:32–4:47 /km
 | Wk | Sessions | Total km | Long run km (% wk) | Quality workout (work min) | Spacing |
 |---|---|---|---|---|---|
-| W1 | 4 | 34.2 | 10.2 (30%) | Intervals (0m work / 53m tot) | OK |
-| W2 | 4 | 36.1 | 10.8 (30%) | Threshold (0m work / 57m tot) | OK |
-| W3 | 4 | 38.2 | 11.4 (30%) | Intervals (0m work / 60m tot) | OK |
+| W1 | 4 | 34.2 | 10.2 (30%) | Fartlek (15m work / 54m tot) | OK |
+| W2 | 4 | 36.1 | 10.8 (30%) | Hills (8m work / 60m tot) | OK |
+| W3 | 4 | 38.2 | 11.4 (30%) | Threshold (0m work / 61m tot) | OK |
 | W4 | 4 | 30.5 | 9.1 (30%) | — | OK |
-| W5 | 4 | 40.5 | 12.1 (30%) | Fartlek (18m work / 64m tot) | OK |
-| W6 | 4 | 42.8 | 12.8 (30%) | Hills (8m work / 72m tot) | OK |
-| W7 | 4 | 45.3 | 13.5 (30%) | Threshold (15m work / 74m tot) | OK |
+| W5 | 4 | 40.5 | 12.1 (30%) | Intervals (0m work / 64m tot) | OK |
+| W6 | 4 | 42.8 | 12.8 (30%) | Hills (12m work / 72m tot) | OK |
+| W7 | 4 | 45.3 | 13.5 (30%) | Intervals (0m work / 72m tot) | OK |
 | W8 | 4 | 35.3 | 9.8 (28%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
@@ -76,28 +76,28 @@ Generated across 15 scenarios (12 standard matrix personas + 3 messy real-world 
 - **Pace Zones:** Easy 5:55–6:29 /km | Tempo 5:09–5:25 /km | Thr 4:57–5:09 /km | Int 4:32–4:47 /km
 | Wk | Sessions | Total km | Long run km (% wk) | Quality workout (work min) | Spacing |
 |---|---|---|---|---|---|
-| W1 | 4 | 37.8 | 11.3 (30%) | Threshold (0m work / 60m tot) | OK |
-| W2 | 4 | 39.9 | 11.9 (30%) | Intervals (0m work / 64m tot) | OK |
-| W3 | 4 | 42.3 | 12.6 (30%) | Tempo (24m work / 67m tot) | OK |
+| W1 | 4 | 37.8 | 11.3 (30%) | Tempo (20m work / 60m tot) | OK |
+| W2 | 4 | 39.9 | 11.9 (30%) | Fartlek (18m work / 64m tot) | OK |
+| W3 | 4 | 42.3 | 12.6 (30%) | Threshold (0m work / 68m tot) | OK |
 | W4 | 4 | 33.8 | 10.1 (30%) | — | OK |
 | W5 | 4 | 44.7 | 13.4 (30%) | Tempo (24m work / 72m tot) | OK |
-| W6 | 4 | 47.3 | 14.1 (30%) | Hills (12m work / 82m tot) | OK |
-| W7 | 4 | 50.1 | 15.0 (30%) | Threshold (15m work / 82m tot) | OK |
-| W8 | 4 | 40.0 | 12.0 (30%) | — | OK |
+| W6 | 4 | 47.3 | 14.1 (30%) | Intervals (0m work / 77m tot) | OK |
+| W7 | 4 | 50.1 | 15.0 (30%) | Threshold (20m work / 80m tot) | OK |
+| W8 | 4 | 39.0 | 10.9 (28%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Intermediate — Half marathon (48 km/wk, 5d)
 - **Pace Zones:** Easy 5:55–6:29 /km | Tempo 5:09–5:25 /km | Thr 4:57–5:09 /km | Int 4:32–4:47 /km
 | Wk | Sessions | Total km | Long run km (% wk) | Quality workout (work min) | Spacing |
 |---|---|---|---|---|---|
-| W1 | 5 | 43.2 | 14.6 (34%) | Threshold (0m work / 48m tot) | OK |
-| W2 | 5 | 45.9 | 15.6 (34%) | Tempo (24m work / 55m tot) | OK |
-| W3 | 5 | 48.7 | 16.5 (34%) | Tempo (28m work / 58m tot) | OK |
+| W1 | 5 | 43.2 | 14.6 (34%) | Tempo (24m work / 48m tot) | OK |
+| W2 | 5 | 45.9 | 15.6 (34%) | Fartlek (18m work / 55m tot) | OK |
+| W3 | 5 | 48.7 | 16.5 (34%) | Threshold (0m work / 58m tot) | OK |
 | W4 | 5 | 38.9 | 11.6 (30%) | — | OK |
-| W5 | 5 | 51.8 | 17.6 (34%) | Hills (10m work / 67m tot) | OK |
-| W6 | 5 | 55.0 | 18.7 (34%) | Threshold (25m work / 66m tot) | OK |
-| W7 | 5 | 58.5 | 19.8 (34%) | Threshold (0m work / 71m tot) | OK |
-| W8 | 5 | 46.8 | 14.0 (30%) | — | OK |
+| W5 | 5 | 51.8 | 17.6 (34%) | Tempo (30m work / 62m tot) | OK |
+| W6 | 5 | 55.0 | 18.7 (34%) | Tempo (30m work / 66m tot) | OK |
+| W7 | 5 | 58.5 | 19.8 (34%) | Threshold (25m work / 70m tot) | OK |
+| W8 | 5 | 45.6 | 12.7 (28%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Intermediate — Marathon (55 km/wk, 5d)
@@ -108,23 +108,23 @@ Generated across 15 scenarios (12 standard matrix personas + 3 messy real-world 
 | W2 | 5 | 52.6 | 17.8 (34%) | Tempo (30m work / 63m tot) | OK |
 | W3 | 5 | 55.8 | 18.9 (34%) | Threshold (0m work / 66m tot) | OK |
 | W4 | 5 | 44.6 | 13.3 (30%) | — | OK |
-| W5 | 5 | 59.3 | 20.1 (34%) | Hills (10m work / 78m tot) | OK |
-| W6 | 5 | 63.1 | 21.8 (35%) | Tempo (30m work / 76m tot) | OK |
-| W7 | 5 | 67.0 | 23.5 (35%) | Tempo (18m work / 82m tot) | OK |
-| W8 | 5 | 53.6 | 16.0 (30%) | — | OK |
+| W5 | 5 | 59.3 | 20.1 (34%) | Tempo (28m work / 72m tot) | OK |
+| W6 | 5 | 63.1 | 21.8 (35%) | Tempo (36m work / 75m tot) | OK |
+| W7 | 5 | 50.4 | 14.1 (28%) | Threshold (15m work / 68m tot) | OK |
+| W8 | 5 | 37.8 | 10.5 (28%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Advanced — Improve 5K (60 km/wk, 5d)
 - **Pace Zones:** Easy 4:58–5:26 /km | Tempo 4:19–4:32 /km | Thr 4:09–4:19 /km | Int 3:48–4:00 /km
 | Wk | Sessions | Total km | Long run km (% wk) | Quality workout (work min) | Spacing |
 |---|---|---|---|---|---|
-| W1 | 5 | 54.0 | 16.2 (30%) | Intervals (0m work / 52m tot) | OK |
-| W2 | 5 | 57.7 | 17.3 (30%) | Threshold (0m work / 62m tot) | OK |
-| W3 | 5 | 61.8 | 18.5 (30%) | Intervals (0m work / 66m tot) | OK |
+| W1 | 5 | 54.0 | 16.2 (30%) | Fartlek (18m work / 53m tot) | OK |
+| W2 | 5 | 57.7 | 17.3 (30%) | Hills (8m work / 67m tot) | OK |
+| W3 | 5 | 61.8 | 18.5 (30%) | Threshold (0m work / 67m tot) | OK |
 | W4 | 5 | 49.4 | 14.8 (30%) | — | OK |
-| W5 | 5 | 66.1 | 19.8 (30%) | Intervals (0m work / 71m tot) | OK |
-| W6 | 5 | 70.8 | 20.2 (29%) | Hills (8m work / 83m tot) | OK |
-| W7 | 5 | 75.8 | 20.2 (27%) | Threshold (15m work / 82m tot) | OK |
+| W5 | 5 | 66.1 | 19.8 (30%) | Intervals (0m work / 70m tot) | OK |
+| W6 | 5 | 70.8 | 20.2 (29%) | Hills (12m work / 84m tot) | OK |
+| W7 | 5 | 75.8 | 20.2 (27%) | Intervals (0m work / 80m tot) | OK |
 | W8 | 5 | 59.1 | 16.5 (28%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
@@ -132,70 +132,70 @@ Generated across 15 scenarios (12 standard matrix personas + 3 messy real-world 
 - **Pace Zones:** Easy 4:58–5:26 /km | Tempo 4:18–4:31 /km | Thr 4:08–4:18 /km | Int 3:47–3:59 /km
 | Wk | Sessions | Total km | Long run km (% wk) | Quality workout (work min) | Spacing |
 |---|---|---|---|---|---|
-| W1 | 5 | 61.2 | 18.3 (30%) | Threshold (0m work / 60m tot) | OK |
-| W2 | 5 | 65.4 | 19.6 (30%) | Intervals (0m work / 70m tot) | OK |
-| W3 | 5 | 70.0 | 21.0 (30%) | Intervals (0m work / 76m tot) | OK |
+| W1 | 5 | 61.2 | 18.3 (30%) | Tempo (24m work / 61m tot) | OK |
+| W2 | 5 | 65.4 | 19.6 (30%) | Fartlek (18m work / 72m tot) | OK |
+| W3 | 5 | 70.0 | 21.0 (30%) | Threshold (0m work / 75m tot) | OK |
 | W4 | 5 | 56.0 | 16.8 (30%) | — | OK |
 | W5 | 5 | 75.0 | 22.5 (30%) | Tempo (36m work / 80m tot) | OK |
-| W6 | 5 | 80.2 | 22.7 (28%) | Hills (12m work / 96m tot) | OK |
-| W7 | 5 | 85.0 | 22.7 (27%) | Threshold (15m work / 93m tot) | OK |
-| W8 | 5 | 68.0 | 20.4 (30%) | — | OK |
+| W6 | 5 | 80.2 | 22.7 (28%) | Intervals (0m work / 88m tot) | OK |
+| W7 | 5 | 85.0 | 22.7 (27%) | Threshold (32m work / 88m tot) | OK |
+| W8 | 5 | 66.3 | 18.5 (28%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Advanced — Half marathon (75 km/wk, 5d)
 - **Pace Zones:** Easy 4:58–5:26 /km | Tempo 4:17–4:30 /km | Thr 4:07–4:17 /km | Int 3:46–3:58 /km
 | Wk | Sessions | Total km | Long run km (% wk) | Quality workout (work min) | Spacing |
 |---|---|---|---|---|---|
-| W1 | 5 | 67.5 | 22.9 (34%) | Threshold (0m work / 63m tot) | OK |
-| W2 | 5 | 72.2 | 24.5 (34%) | Tempo (36m work / 72m tot) | OK |
-| W3 | 5 | 77.3 | 25.0 (32%) | Intervals (0m work / 82m tot) | OK |
+| W1 | 5 | 67.5 | 22.9 (34%) | Tempo (24m work / 64m tot) | OK |
+| W2 | 5 | 72.2 | 24.5 (34%) | Fartlek (18m work / 74m tot) | OK |
+| W3 | 5 | 77.3 | 25.0 (32%) | Threshold (0m work / 82m tot) | OK |
 | W4 | 5 | 61.8 | 18.5 (30%) | — | OK |
-| W5 | 5 | 82.7 | 25.0 (30%) | Tempo (28m work / 90m tot) | OK |
-| W6 | 5 | 88.5 | 25.0 (28%) | Hills (12m work / 106m tot) | OK |
-| W7 | 5 | 94.7 | 25.0 (26%) | Threshold (15m work / 103m tot) | OK |
-| W8 | 5 | 75.7 | 22.7 (30%) | — | OK |
+| W5 | 5 | 82.7 | 25.0 (30%) | Tempo (36m work / 88m tot) | OK |
+| W6 | 5 | 88.5 | 25.0 (28%) | Tempo (30m work / 100m tot) | OK |
+| W7 | 5 | 94.7 | 25.0 (26%) | Threshold (32m work / 98m tot) | OK |
+| W8 | 5 | 73.8 | 20.6 (28%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Advanced — Marathon (82 km/wk, 6d)
 - **Pace Zones:** Easy 4:58–5:26 /km | Tempo 4:18–4:31 /km | Thr 4:08–4:18 /km | Int 3:47–3:59 /km
 | Wk | Sessions | Total km | Long run km (% wk) | Quality workout (work min) | Spacing |
 |---|---|---|---|---|---|
-| W1 | 6 | 73.8 | 25.0 (34%) | Tempo (30m work / 57m tot) | OK |
-| W2 | 6 | 79.1 | 26.8 (34%) | Threshold (0m work / 66m tot) | OK |
-| W3 | 6 | 84.9 | 28.8 (34%) | Tempo (30m work / 73m tot) | OK |
+| W1 | 6 | 73.8 | 25.0 (34%) | Tempo (24m work / 58m tot) | OK |
+| W2 | 6 | 79.1 | 26.8 (34%) | Tempo (36m work / 65m tot) | OK |
+| W3 | 6 | 84.9 | 28.8 (34%) | Threshold (0m work / 73m tot) | OK |
 | W4 | 6 | 67.9 | 20.3 (30%) | — | OK |
-| W5 | 6 | 91.1 | 30.9 (34%) | Hills (10m work / 83m tot) | OK |
+| W5 | 6 | 91.1 | 30.9 (34%) | Tempo (28m work / 77m tot) | OK |
 | W6 | 6 | 97.7 | 33.2 (34%) | Tempo (36m work / 83m tot) | OK |
-| W7 | 6 | 104.8 | 34.0 (32%) | Threshold (15m work / 95m tot) | OK |
-| W8 | 6 | 83.8 | 25.1 (30%) | — | OK |
+| W7 | 6 | 78.1 | 21.8 (28%) | Threshold (15m work / 74m tot) | OK |
+| W8 | 6 | 58.6 | 16.4 (28%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Messy 1: Easy-heavy runner returning from dip (HM, 55 km/wk)
 - **Pace Zones:** Easy 6:19–6:55 /km | Tempo 5:30–5:46 /km | Thr 5:17–5:30 /km | Int 4:51–5:06 /km
 | Wk | Sessions | Total km | Long run km (% wk) | Quality workout (work min) | Spacing |
 |---|---|---|---|---|---|
-| W1 | 4 | 49.5 | 16.8 (34%) | Threshold (0m work / 76m tot) | OK |
-| W2 | 4 | 52.3 | 17.7 (34%) | Tempo (30m work / 84m tot) | OK |
-| W3 | 4 | 55.4 | 18.8 (34%) | Tempo (30m work / 90m tot) | OK |
+| W1 | 4 | 49.5 | 16.8 (34%) | Tempo (28m work / 75m tot) | OK |
+| W2 | 4 | 52.3 | 17.7 (34%) | Fartlek (21m work / 84m tot) | OK |
+| W3 | 4 | 55.4 | 18.8 (34%) | Threshold (0m work / 91m tot) | OK |
 | W4 | 4 | 44.3 | 13.2 (30%) | — | OK |
-| W5 | 4 | 58.6 | 19.9 (34%) | Hills (12m work / 102m tot) | OK |
-| W6 | 4 | 62.0 | 21.0 (34%) | Threshold (28m work / 100m tot) | OK |
-| W7 | 4 | 65.6 | 22.0 (34%) | Threshold (0m work / 108m tot) | OK |
-| W8 | 4 | 52.4 | 15.7 (30%) | — | OK |
+| W5 | 4 | 58.6 | 19.9 (34%) | Tempo (36m work / 94m tot) | OK |
+| W6 | 4 | 62.0 | 21.0 (34%) | Tempo (30m work / 100m tot) | OK |
+| W7 | 4 | 65.6 | 22.0 (34%) | Threshold (28m work / 106m tot) | OK |
+| W8 | 4 | 51.1 | 14.3 (28%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Messy 2: Double-run + GPS spike outlier (10K, 45 km/wk)
 - **Pace Zones:** Easy 6:10–6:44 /km | Tempo 5:22–5:38 /km | Thr 5:09–5:22 /km | Int 4:43–4:58 /km
 | Wk | Sessions | Total km | Long run km (% wk) | Quality workout (work min) | Spacing |
 |---|---|---|---|---|---|
-| W1 | 4 | 40.5 | 12.1 (30%) | Threshold (0m work / 68m tot) | OK |
-| W2 | 4 | 42.8 | 12.8 (30%) | Intervals (0m work / 70m tot) | OK |
-| W3 | 4 | 45.3 | 13.5 (30%) | Tempo (24m work / 76m tot) | OK |
+| W1 | 4 | 40.5 | 12.1 (30%) | Tempo (24m work / 67m tot) | OK |
+| W2 | 4 | 42.8 | 12.8 (30%) | Fartlek (18m work / 71m tot) | OK |
+| W3 | 4 | 45.3 | 13.5 (30%) | Threshold (0m work / 75m tot) | OK |
 | W4 | 4 | 36.2 | 10.8 (30%) | — | OK |
-| W5 | 4 | 47.9 | 14.3 (30%) | Tempo (28m work / 79m tot) | OK |
-| W6 | 4 | 50.7 | 15.2 (30%) | Hills (12m work / 90m tot) | OK |
-| W7 | 4 | 53.6 | 16.0 (30%) | Threshold (15m work / 91m tot) | OK |
-| W8 | 4 | 42.8 | 12.8 (30%) | — | OK |
+| W5 | 4 | 47.9 | 14.3 (30%) | Tempo (24m work / 80m tot) | OK |
+| W6 | 4 | 50.7 | 15.2 (30%) | Intervals (0m work / 84m tot) | OK |
+| W7 | 4 | 53.6 | 16.0 (30%) | Threshold (25m work / 89m tot) | OK |
+| W8 | 4 | 41.8 | 11.7 (28%) | — | OK |
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Messy 3: Zero-history beginner (5K, 0 km prior)

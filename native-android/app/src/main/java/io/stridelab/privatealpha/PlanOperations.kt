@@ -16,8 +16,8 @@ internal object PlanOperations {
         Engine15MileageTargetIntegrity.requireReviewedBeforeApproval(plan)
         Engine15SessionLocks.validateSaved(plan)
         Engine15Availability.requireReady(plan)
-        val approved=others.filter { it.id!=plan.id&&it.status=="approved" }
-        if(approved.any { other->other.sessions.any { existing->plan.sessions.any { session->conflict(session,existing,plan.policyId,other.policyId) } } })throw PlanConstraint("This plan conflicts with an approved plan. Pause the existing plan or change the dates first.")
+        val approved=others.filter { it.id!=plan.id && it.owner==plan.owner && it.status=="approved" }
+        if(approved.any { other->other.sessions.any { existing->existing.status in setOf("planned","in_progress") && plan.sessions.any { session->session.status in setOf("planned","in_progress") && PlanScheduleValidation.acrossPlansConflict(session,existing,plan.policyId,other.policyId) } } })throw PlanConstraint("This plan conflicts with an approved plan. Change the overlapping workout dates before activating.")
         if(PlanScheduleValidation.isMultiPolicy(plan.policyId)&&approved.filter { PlanScheduleValidation.isMultiPolicy(it.policyId) }.any { other->
                 (plan.sessions.map { it.date }.toSet() intersect other.sessions.map { it.date }.toSet()).any { date->
                     (plan.sessions.filter { it.date==date }+other.sessions.filter { it.date==date }).sumOf { it.effectiveMinutes } > minOf(plan.request.dailyMinutes,other.request.dailyMinutes)
@@ -42,7 +42,7 @@ internal object PlanOperations {
         if(date.dayOfWeek.value !in plan.request.days)throw PlanConstraint("That is not an available training day. Edit your availability in a new reviewed plan instead.")
         if(s.kind=="long" && date.dayOfWeek.value!=plan.request.longDay)throw PlanConstraint("This plan has one preferred long-run day. Move this run to that weekday or review a new plan.")
         val moved=s.copy(date=date,status=if(s.status=="unassigned")"planned" else s.status)
-        val approved=otherPlans.filter { it.id!=plan.id&&it.status=="approved" }
+        val approved=otherPlans.filter { it.id!=plan.id&&it.owner==plan.owner&&it.status=="approved" }
         val sameDayExisting=plan.sessions.filter { it.id!=sessionId&&it.date==date&&it.status !in setOf("missed","skipped","unassigned") }
         if(PlanScheduleValidation.isMultiPolicy(plan.policyId) && sameDayExisting.size>=2)
             throw PlanConstraint("A day can contain at most two sessions.")
@@ -50,7 +50,7 @@ internal object PlanOperations {
             .any { existing->conflict(moved,existing,plan.policyId,plan.policyId) }
         val conflictsWithApprovedPlan=approved.any { other->
             other.sessions.filter { it.status !in setOf("missed","skipped","unassigned") }
-                .any { existing->conflict(moved,existing,plan.policyId,other.policyId) }
+                .any { existing->PlanScheduleValidation.acrossPlansConflict(moved,existing,plan.policyId,other.policyId) }
         }
         if(conflictsWithinPlan||conflictsWithApprovedPlan)throw PlanConstraint("This move conflicts with another workout or its recovery spacing. Choose a different date.")
         if(PlanScheduleValidation.isMultiPolicy(plan.policyId)&&sameDayExisting.sumOf { it.effectiveMinutes }+moved.effectiveMinutes>plan.request.dailyMinutes)throw PlanConstraint("This move would exceed the ${plan.request.dailyMinutes}-minute daily time budget.")

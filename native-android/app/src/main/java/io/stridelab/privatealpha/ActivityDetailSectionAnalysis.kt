@@ -18,18 +18,19 @@ internal object ActivityDetailSectionAnalysis {
         val slowest = paced.maxBy { it.second }
         val difference = (slowest.second - fastest.second).roundToInt()
         val evidence = mutableListOf(
-            "Your quickest split was number ${fastest.first.index + 1} at ${ActivityRecord.duration(fastest.second)}/km.",
-            "Split ${slowest.first.index + 1} was your slowest at ${ActivityRecord.duration(slowest.second)}/km.",
-            "There were ${difference} seconds per kilometer between those two splits."
+            "Slowest: split ${slowest.first.index + 1} at ${ActivityRecord.duration(slowest.second)}/km.",
+            "Pace spread: $difference sec/km."
         )
         // Half comparisons only make sense for near-equal, full-kilometer laps.
         val fullKilometers = paced.filter { (lap, _) ->
             lap.distance?.let { it.isFinite() && abs(it - 1000.0) <= 50.0 } == true
         }
+        var splitComparison: Pair<Double, Double>? = null
         if (fullKilometers.size >= 4) {
             val halfSize = fullKilometers.size / 2
             val first = fullKilometers.take(halfSize).map { it.second }.average()
             val last = fullKilometers.takeLast(halfSize).map { it.second }.average()
+            splitComparison = first to last
             val differenceSeconds = abs(first - last)
             evidence.add(
                 "First versus last ${halfSize} full-kilometer splits: " +
@@ -38,20 +39,33 @@ internal object ActivityDetailSectionAnalysis {
                     else if (last < first) "Later splits were faster on average."
                     else "Later splits were slower on average.")
             )
-        } else {
-            evidence.add("The split distances may differ, so I’d use the individual laps to review the run.")
         }
         val splitHeartRates = laps.mapNotNull { it.hr?.takeIf { hr -> hr.isFinite() && hr > 0.0 } }
         if (splitHeartRates.size >= 2) {
             evidence.add("Recorded lap-average heart rates ranged from " +
                 "${splitHeartRates.min().roundToInt()} to ${splitHeartRates.max().roundToInt()} bpm.")
         }
+        val halves = splitComparison
+        if (halves != null) {
+            val (first, last) = halves
+            val change = last - first
+            if (abs(change).roundToInt() >= 3) {
+                val direction = if (change < 0) "faster" else "slower"
+                return ActivityInsightPresentation(
+                    if (change < 0) "Faster second half" else "Slower second half",
+                    "Your later full-kilometer splits averaged ${abs(change).roundToInt()} sec/km $direction " +
+                        "(${ActivityRecord.duration(first)} → ${ActivityRecord.duration(last)} /km).",
+                    emptyList(), hasComparison = false
+                )
+            }
+        }
         return ActivityInsightPresentation(
-            headline = if (difference < 3) "You held a steady pace across these splits"
-                else "Your pace varied across the splits",
-            summary = "Split ${fastest.first.index + 1} was the fastest recorded at " +
-                "${ActivityRecord.duration(fastest.second)}/km. " +
-                "Use the lap distances to see which splits make a fair comparison.",
+            headline = if (difference < 3) "Steady across the splits"
+                else "Pace varied across splits",
+            summary = "Split ${fastest.first.index + 1} was fastest at " +
+                "${ActivityRecord.duration(fastest.second)}/km, " +
+                if (difference < 3) "just $difference sec/km from your slowest."
+                else "$difference sec/km faster than your slowest.",
             evidence = evidence, hasComparison = false
         )
     }
@@ -61,78 +75,52 @@ internal object ActivityDetailSectionAnalysis {
         validSamples: List<Pair<ActivitySample, Double>>
     ): ActivityInsightPresentation? {
         if (validSamples.size < 2) return null
-        val values = validSamples.map { it.second }
+        val values = coachingChartValues(title, validSamples.map { it.second })
+        if (values.size < 2) return null
         val low = values.min()
         val high = values.max()
-        val average = values.average()
         val quarter = (values.size / 4).coerceAtLeast(1)
         val early = values.take(quarter).average()
         val late = values.takeLast(quarter).average()
         if (title == "Heart rate" && values.size >= 4) {
             val change = late - early
-            val finding = CoachingFinding(
-                observation = when {
-                    abs(change) < 5 -> "Heart rate was similar early and late"
-                    change > 0 -> "Heart rate was higher late in the run"
-                    else -> "Heart rate was lower late in the run"
+            return ActivityInsightPresentation(
+                headline = when {
+                    abs(change) < 5 -> "Heart rate stayed steady"
+                    change > 0 -> "Heart rate rose late"
+                    else -> "Heart rate eased late"
                 },
-                interpretation = "The early readings averaged ${early.roundToInt()} bpm and the late readings averaged ${late.roundToInt()} bpm. " +
-                    if (abs(change) < 5) "That’s a small difference between those portions."
-                    else "Check whether the pace or terrain changed around the same time.",
-                evidence = listOf("Early and late use the first and last quarters of the saved heart-rate readings.",
-                    "Across the recording, the readings averaged ${average.roundToInt()} bpm."),
-                recommendation = "On your next easy run, compare heart rate at a similar pace on similar terrain.",
-                confidence = "Heart rate alone can’t show whether effort stayed the same or establish cardiac drift. Gaps and pauses can affect this comparison."
+                summary = "Your heart rate averaged ${early.roundToInt()} bpm early and " +
+                    "${late.roundToInt()} bpm late.",
+                evidence = emptyList(),
+                hasComparison = false
             )
-            return ActivityInsightPresentation(finding.observation,
-                finding.interpretation + " " + finding.recommendation,
-                finding.evidence + finding.confidence, hasComparison = false)
         }
-        val name = when (title) {
-            "Pace" -> "pace"
-            "Heart rate" -> "heart rate"
-            "Elevation" -> "elevation"
-            "Cadence" -> "cadence"
-            else -> return null
-        }
+        if (title !in setOf("Pace", "Heart rate", "Elevation", "Cadence")) return null
         fun display(value: Double): String = when (title) {
             "Pace" -> ActivityRecord.duration(value) + "/km"
             "Heart rate" -> "${value.roundToInt()} bpm"
             "Elevation" -> "${value.roundToInt()} m"
             else -> "${value.roundToInt()} spm"
         }
-        val evidence = mutableListOf(
-            "The $name readings went from ${display(low)} to ${display(high)}.",
-            "Early readings averaged ${display(early)}. Late readings averaged " +
-                "${display(late)}.",
-            "The average uses ${values.size} saved readings. " +
-                "It leaves out gaps in the recording."
-        )
-        evidence.add(when (title) {
-            "Pace" -> "If your pace changed, check where it happened. A hill, a turn, or a planned recovery can explain the change."
-            "Heart rate" -> "Check where your heart rate changed against the pace and hills. These readings alone do not establish cardiac drift."
-            "Elevation" -> "Look for where the climbs fell in the run. The lowest and highest points don’t tell you how much you climbed overall."
-            else -> "Check whether your step rate changed when your pace changed. There’s no target step rate to chase here."
-        })
         val headline = when (title) {
             "Pace" -> when {
                 abs(late - early) < 8 -> "Similar pace early and late"
-                late > early -> "Your pace was slower late in the run"
-                else -> "Your pace was quicker late in the run"
+                late > early -> "Pace slowed late"
+                else -> "Pace picked up late"
             }
-            "Heart rate" -> "Too little heart-rate data to compare"
-            "Elevation" -> "See where the route climbed and dropped"
-            else -> if (abs(late - early) < 5) "Step rate was similar early and late"
-                else "Your step rate changed as the run went on"
+            "Heart rate" -> "Limited heart rate data"
+            "Elevation" -> "Climbs shaped the route"
+            else -> if (abs(late - early) < 5) "Step rate stayed steady"
+                else "Step rate changed"
         }
         val summary = when (title) {
-            "Pace" -> "Early and late readings averaged ${display(early)} and ${display(late)}. " +
-                "Check the route and any planned recoveries before treating the change as a pacing issue."
-            "Heart rate" -> "There are only a few readings. Use how the run felt as your main guide."
-            "Elevation" -> "Use the climbs to put slower splits in context. On an easy run, keeping effort steady matters more than holding pace uphill."
-            else -> "Compare step rate with pace on similar terrain. If the pace changed too, there’s no reason to chase a different step rate from this chart alone."
+            "Pace" -> "You averaged ${display(early)} early and ${display(late)} late, showing ${if (abs(late - early) < 8) "a steady pace" else "a change in pace"}."
+            "Heart rate" -> "There wasn’t enough heart rate data to compare the start and finish."
+            "Elevation" -> "The route ranged from ${display(low)} to ${display(high)}, so uphill stretches may have called for a slower pace."
+            else -> "You averaged ${display(early)} early and ${display(late)} late, with a typical step rate near ${display(values.average())}."
         }
-        return ActivityInsightPresentation(headline, summary, evidence, hasComparison = false)
+        return ActivityInsightPresentation(headline, summary, emptyList(), hasComparison = false)
     }
 }
 
@@ -155,4 +143,19 @@ internal fun findLinkedCompletedActivityRun(
         .take(2)
         .toList()
     return matches.singleOrNull()
+}
+
+/** Filter presentation statistics without modifying the recording or chart cursor. */
+internal fun coachingChartValues(title: String, values: List<Double>): List<Double> {
+    val plausible = values.filter {
+        it.isFinite() && when (title) {
+            "Pace" -> it in 120.0..900.0
+            "Cadence" -> it in 60.0..260.0
+            "Heart rate" -> it > 0.0
+            else -> true
+        }
+    }
+    if (plausible.size < 3 || title !in setOf("Pace", "Cadence")) return plausible
+    val median = plausible.sorted()[plausible.size / 2]
+    return plausible.filter { it in (median * .65)..(median * 1.5) }
 }
