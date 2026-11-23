@@ -15,11 +15,15 @@ internal object WorkoutExecutionCheckpoint {
 JSONObject().put("budget", it.budgetMs).put("remaining", it.rawRemaining(nowMs))
                 .put("running", it.deadlineMs != null)
         }
+        val outcome = execution.outcome
         return JSONObject().put("schemaVersion", 1).put("type", "player-execution").put("user_id", owner)
             .put("executionId", execution.executionId).put("planId", execution.planId)
             .put("sessionId", execution.sessionId).put("finalizationId", execution.finalizationId)
             .put("revision", execution.revision).put("cursor", execution.cursor).put("openedAtMs", execution.openedAtMs)
-            .put("phase", execution.phase.name).put("status", execution.status.name)
+            .put("phase", execution.phase.name)
+            .put("status", if (execution.lifecycle == ExecutionLifecycle.FINISHED_NORMALLY) "COMPLETED" else execution.lifecycle.name)
+            .put("lifecycle", outcome.lifecycle.name).put("prescriptionOutcome", outcome.prescription.name)
+            .put("confirmedSets", outcome.confirmedSets).put("skippedSets", outcome.skippedSets)
             .put("timer", timer).put("wallAnchorMs", wallMs).put("monotonicAnchorMs", nowMs).put("bootCount", bootCount)
             .put("finalLog", execution.finalLog?.encode()).put("receipt", execution.receipt)
             .put("sets", JSONArray(execution.sets.map { step ->
@@ -56,10 +60,20 @@ JSONObject().put("budget", it.budgetMs).put("remaining", it.rawRemaining(nowMs))
         }
         val cursor = json.getInt("cursor")
         require(cursor in sets.indices)
-        return WorkoutExecution(json.getString("executionId"), planId, sessionId, json.getString("finalizationId"),
-            sets, cursor, PlayerPhase.valueOf(json.getString("phase")), ExecutionStatus.valueOf(json.getString("status")),
+        val lifecycle = when (val value = json.optString("lifecycle", json.optString("status"))) {
+            "COMPLETED" -> ExecutionLifecycle.FINISHED_NORMALLY
+            else -> ExecutionLifecycle.valueOf(value)
+        }
+        val execution = WorkoutExecution(json.getString("executionId"), planId, sessionId, json.getString("finalizationId"),
+            sets, cursor, PlayerPhase.valueOf(json.getString("phase")), lifecycle,
             timer, json.optJSONObject("finalLog")?.let(WorkoutLog::decode), json.getBoolean("receipt"),
             json.getLong("revision"), json.optionalLong("openedAtMs"))
+        if (json.has("prescriptionOutcome")) {
+            val outcome = execution.outcome
+            require(json.getString("prescriptionOutcome") == outcome.prescription.name &&
+                json.getInt("confirmedSets") == outcome.confirmedSets && json.getInt("skippedSets") == outcome.skippedSets)
+        }
+        return execution
     }
 
     private fun JSONObject.optionalLong(key: String) = if (isNull(key)) null else getLong(key)

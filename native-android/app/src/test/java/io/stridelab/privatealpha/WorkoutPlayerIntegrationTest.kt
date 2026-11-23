@@ -73,7 +73,7 @@ class WorkoutPlayerIntegrationTest {
         run.send(PlayerEvent.FinishEarly)
 
         val report = run.finish()
-        assertEquals(ExecutionStatus.FINISHED_EARLY, run.state.status)
+        assertEquals(ExecutionLifecycle.FINISHED_EARLY, run.state.lifecycle)
         assertEquals(listOf(SetRecord("push-up", 1, reps = 8), SetRecord("plank", 1, seconds = 20)), run.log.sets)
         assertEquals(1, report.insights.size)
         report.expect(DebriefCategory.EXECUTION, DebriefTone.NEUTRAL, "1 of the 2", "0:20", "1:00")
@@ -112,7 +112,7 @@ class WorkoutPlayerIntegrationTest {
         val abandoned = run.state
         run.send(PlayerEvent.FinalizeSession(at, 5, "", date))
         assertEquals(abandoned, run.state)
-        assertEquals(ExecutionStatus.ABANDONED, run.state.status)
+        assertEquals(ExecutionLifecycle.ABANDONED, run.state.lifecycle)
         assertNull(run.state.finalLog)
         assertNull(run.plan.sessions.single().log)
         assertNull(Engine15DebriefEngine.workout(run.plan, "session", listOf(run.plan), zone = ZoneOffset.UTC))

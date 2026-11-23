@@ -361,6 +361,13 @@ import kotlinx.coroutines.flow.drop
         bottomOverlayPadding=106.dp,
         hideHeader=false
     ) {
+        val executionOutcome = state.workoutExecutionOutcomes[plan.id to session.id]
+        if (executionOutcome?.prescription == PrescriptionOutcome.PARTIALLY_PERFORMED) item {
+            TracksideWorkoutNeutralCard(Modifier.testTag("workout-prescription-outcome")) {
+                Text("Partial · ${executionOutcome.confirmedSets} of ${executionOutcome.prescribedSets} sets",
+                    color = TracksidePalette.text, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
         if (crossDebrief != null) item { CoachDebriefCard(crossDebrief) }
         if (exportToWatch != null) item { RunningWorkoutFitExportButton(exportToWatch) }
         if(active && exercises.isNotEmpty()) item {

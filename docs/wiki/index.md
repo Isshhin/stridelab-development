@@ -16,7 +16,7 @@ Offline-first native Android running and multi-discipline training coach built a
 
 ## Repository Map (`F:\StrideLab\Current-App\stridelab-engine15-dev`, branch `dev`)
 - `native-android/app/src/main/java/io/stridelab/privatealpha/` — Active Kotlin/Compose app, Engine 1.5, Garmin/FIT pipeline, and UI
-- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`157` suites / `1,232` tests, including multi-plan Today, independent plan generation, running history estimates, workout checkpoint recovery, FIT and debriefs)
+- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`157` suites / `1,235` tests, including workout outcomes, multi-plan Today, independent plan generation, running history estimates, FIT and debriefs)
 - `native-android/app/src/androidTest/java/io/stridelab/privatealpha/` — Compose and instrumentation coverage for Activity Detail and guided execution. The five AMOLED player tests passed on the API 35 emulator at 360 dp and approximately 412 dp with font scales 1.0 and 1.3.
 - `docs/wiki/` — Persistent Obsidian-compatible LLM memory hub (this wiki)
 - `research/engine15/` — Generated Engine 1.5 coaching audit reports (e.g., `M28A_COACHING_AUDIT_20261121.md`)
@@ -30,6 +30,8 @@ Offline-first native Android running and multi-discipline training coach built a
 ## Workout Player Milestone
 - **Phases 0–3 complete:** Integration audit, durable local checkpoints, AMOLED player, and debrief evidence verification. The Phase 3 JVM suite restores serialized checkpoints with a fixed clock and checks that all five non-running debriefs use confirmed work only.
 - Two Phase 3 acceptance tests passed on the API 35 emulator: SQLite recovery after the plan save but before the completion receipt, and exactly one Coach's Debrief card for each completed discipline.
+- Local workout receipts track how a session ended and how many sets were performed. See [[architecture]] for recovery and [[screens]] for the partial-workout display.
+- Workout outcome verification passed 15 focused API 35 emulator tests. Three separate app processes also verified checkpoint recovery before save, finalization, and receipt recovery after save.
 
 ## Multi-Plan Today
 

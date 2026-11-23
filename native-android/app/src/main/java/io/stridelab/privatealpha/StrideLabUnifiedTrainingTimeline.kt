@@ -89,7 +89,7 @@ internal fun unifiedTrainingDays(
     for (plan in plans) {
         for (session in plan.sessions) {
             if (session.status == "unassigned") continue
-            val completed = session.status == "completed"
+            val completed = session.isMarkedComplete
             val upcoming = plan.id == activePlanId &&
                 plan.status == "approved" &&
                 session.date >= today &&
@@ -1030,7 +1030,7 @@ private fun TimelinePlannedCard(
         "cal" -> R.drawable.trackside_discipline_calisthenics
         else -> R.drawable.trackside_discipline_conditioning
     }
-    val recorded = session.status == "completed"
+    val recorded = session.isMarkedComplete
     val details = buildList {
         add(plannedDisciplineLabel(session))
         val reviewedTimeOnly = session.suggestion?.let { it.accepted && it.minutes < session.minutes } == true

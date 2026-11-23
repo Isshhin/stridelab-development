@@ -61,14 +61,59 @@ class WorkoutPlayerEngineTest {
         state = engine.reduce(state, PlayerEvent.EditPreviousSet(1, SetActual(seconds = 31, kg = 5.0, rir = 2)))
         state = engine.reduce(state, PlayerEvent.FinishEarly)
         state = engine.reduce(state, PlayerEvent.FinalizeSession(at, 5, "", date))
-        assertEquals(ExecutionStatus.FINISHED_EARLY, state.status)
+        assertEquals(ExecutionLifecycle.FINISHED_NORMALLY, state.lifecycle)
+        assertEquals(PrescriptionOutcome.PARTIALLY_PERFORMED, state.outcome.prescription)
         assertEquals(listOf(SetRecord("hold", 2, kg = 5.0, seconds = 31)), state.finalLog!!.sets)
         assertEquals(state, engine.reduce(state, PlayerEvent.FinalizeSession(at.plusSeconds(40), 8, "different")))
     }
 
+    @Test fun finishingTheQueueAndCompletingThePrescriptionAreIndependent() {
+        fun finish(skipLast: Boolean, early: Boolean): WorkoutExecution {
+            var state = engine.reduce(execution(), PlayerEvent.CompleteSet(SetActual(seconds = 45)))
+            state = engine.reduce(state, PlayerEvent.SkipRest)
+            state = when {
+                early -> engine.reduce(state, PlayerEvent.FinishEarly)
+                skipLast -> engine.reduce(state, PlayerEvent.SkipSet)
+                else -> engine.reduce(engine.reduce(state, PlayerEvent.CompleteSet(SetActual(seconds = 40))), PlayerEvent.SkipRest)
+            }
+            val final = engine.reduce(state, PlayerEvent.FinalizeSession(at, 5, "", date))
+            val restored = roundTrip(final, 100).copy(phase = PlayerPhase.Completed, receipt = true)
+            assertEquals(restored, engine.reduce(restored, PlayerEvent.FinalizeSession(at.plusSeconds(60), 8, "retry")))
+            return restored
+        }
+        assertEquals(WorkoutExecutionOutcome(ExecutionLifecycle.FINISHED_NORMALLY, PrescriptionOutcome.FULLY_PERFORMED, 2, 2, 0),
+            finish(skipLast = false, early = false).outcome)
+        assertEquals(WorkoutExecutionOutcome(ExecutionLifecycle.FINISHED_NORMALLY, PrescriptionOutcome.PARTIALLY_PERFORMED, 2, 1, 1),
+            finish(skipLast = true, early = false).outcome)
+        assertEquals(WorkoutExecutionOutcome(ExecutionLifecycle.FINISHED_EARLY, PrescriptionOutcome.PARTIALLY_PERFORMED, 2, 1, 0),
+            finish(skipLast = false, early = true).outcome)
+    }
+
+    @Test fun allSkippedLeavesOnlyALocalReceiptAndHistoricalCompletionIsUnknown() {
+        val skipped = engine.reduce(engine.reduce(execution(), PlayerEvent.SkipSet), PlayerEvent.SkipSet)
+        val finished = engine.reduce(skipped, PlayerEvent.FinalizeSession(at, null, ""))
+        assertEquals(WorkoutExecutionOutcome(ExecutionLifecycle.FINISHED_NORMALLY, PrescriptionOutcome.NO_WORK_PERFORMED, 2, 0, 2),
+            roundTrip(finished, 10).outcome)
+        assertNull(finished.finalLog)
+        assertTrue(finished.receipt)
+        val historical = session().copy(status = "completed", log = WorkoutLog(at))
+        assertTrue(historical.isMarkedComplete)
+        assertEquals(PrescriptionOutcome.UNKNOWN, TrainingState(plans = listOf(plan(historical)))
+            .prescriptionOutcome("plan", historical.id))
+    }
+
+    @Test fun oldCheckpointDecodesTheLegacyCompletionValueWithoutInventingPerformedSets() {
+        val state = engine.reduce(engine.reduce(execution(), PlayerEvent.SkipSet), PlayerEvent.SkipSet)
+        val finished = engine.reduce(state, PlayerEvent.FinalizeSession(at, null, ""))
+        val json = org.json.JSONObject(WorkoutExecutionCheckpoint.encode("owner", finished, now, wall))
+        listOf("lifecycle", "prescriptionOutcome", "confirmedSets", "skippedSets").forEach(json::remove)
+        assertEquals(finished.outcome,
+            WorkoutExecutionCheckpoint.decode(json.toString(), "owner", "plan", "session", now, wall).outcome)
+    }
+
     @Test fun abandonmentIsTerminalAndDoesNotCreateAWorkoutLog() {
         val state = engine.reduce(execution(), PlayerEvent.AbandonSession)
-        assertEquals(ExecutionStatus.ABANDONED, state.status)
+        assertEquals(ExecutionLifecycle.ABANDONED, state.lifecycle)
         assertEquals(PlayerPhase.Completed, state.phase)
         assertEquals(state, engine.reduce(state, PlayerEvent.FinalizeSession(at, null, "")))
         assertNull(state.finalLog)
@@ -80,7 +125,7 @@ class WorkoutPlayerEngineTest {
         assertEquals(35_000L, state.timer!!.remaining(now))
         state = engine.reduce(state, PlayerEvent.PauseTimer)
         state = roundTrip(state, 40_000, newBoot = true)
-        assertEquals(ExecutionStatus.PAUSED, state.status)
+        assertEquals(ExecutionLifecycle.PAUSED, state.lifecycle)
         assertEquals(35_000L, state.timer!!.remaining(now))
         state = engine.reduce(state, PlayerEvent.ResumeTimer)
         state = roundTrip(state, 5000, newBoot = true)

@@ -168,7 +168,7 @@ internal class TodaySchedule(val plans: List<PlanSnapshot>, history: List<Activi
         row.session.linkedActivityId?.let { canonicalById[it]?.id ?: it }
 
     fun isCompleted(row: TodayScheduledSession): Boolean {
-        val id = recordingId(row) ?: return row.session.status == "completed"
+        val id = recordingId(row) ?: return row.session.isMarkedComplete
         return claims[id]?.singleOrNull() == row.key
     }
 

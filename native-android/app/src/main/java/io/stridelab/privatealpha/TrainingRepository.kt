@@ -53,8 +53,12 @@ internal data class TrainingState(
     val planPreview: PlanSnapshot? = null,
     val todayPlanReady: Boolean = !initializing,
     val activitySummariesReady: Boolean = !initializing,
-    val groupedActivitySummaries: List<DisplayActivity>? = null
+    val groupedActivitySummaries: List<DisplayActivity>? = null,
+    val workoutExecutionOutcomes: Map<Pair<String, String>, WorkoutExecutionOutcome> = emptyMap()
 ) {
+    fun prescriptionOutcome(planId: String, sessionId: String): PrescriptionOutcome =
+        workoutExecutionOutcomes[planId to sessionId]?.prescription ?: PrescriptionOutcome.UNKNOWN
+
     val activeAthleteDiagnostic: AthleteDiagnosticSnapshot?
         get() {
             val activePlan = plans.firstOrNull { it.status == "approved" }
@@ -321,7 +325,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     private data class SecondaryCaches(
         val templates: List<SessionTemplate>, val shelf: LibraryShelf,
         val drafts: Map<Pair<String, String>, WorkoutEntryDraft>, val research: List<IndependentResearchDraft>,
-        val wellness: List<WellnessRecord>, val lastSync: Long?, val execution: ExecutionPersistenceBundle
+        val wellness: List<WellnessRecord>, val lastSync: Long?, val execution: ExecutionPersistenceBundle,
+        val workoutOutcomes: Map<Pair<String, String>, WorkoutExecutionOutcome>
     )
 
     private fun readSecondary(owner: String, account: String?, plans: List<PlanSnapshot>): SecondaryCaches {
@@ -376,7 +381,37 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             runCatching { JSONObject(it).getLong("completedAt") }.getOrNull()
         }
         return SecondaryCaches(templates, shelf, drafts, loadResearchDrafts(owner),
-            wellness, last, loadExecutionRecords(owner))
+            wellness, last, loadExecutionRecords(owner), readWorkoutOutcomes(owner, plans))
+    }
+
+    private fun readWorkoutOutcomes(owner: String, plans: List<PlanSnapshot>): Map<Pair<String, String>, WorkoutExecutionOutcome> {
+        val sessions = plans.filter { it.owner == owner }.flatMap { plan ->
+            plan.sessions.map { (plan.id to it.id) to it }
+        }.toMap()
+        return buildMap {
+            store.readableDatabase.query("records", arrayOf("record_id", "payload"),
+                "account=? AND kind=? AND record_id LIKE ?", arrayOf(owner, "workout", "player-exec-%"),
+                null, null, null).use { rows ->
+                while (rows.moveToNext()) {
+                    runCatching {
+                        val raw = rows.getString(1)
+                        val json = JSONObject(raw)
+                        val key = json.getString("planId") to json.getString("sessionId")
+                        val session = sessions[key] ?: return@runCatching
+                        require(rows.getString(0) == WorkoutExecutionCheckpoint.key(key.first, key.second))
+                        // The plan may have committed immediately before the receipt write.
+                        val storedLog = json.optJSONObject("finalLog")?.let(WorkoutLog::decode)
+                        val hasMatchingLog = session.isMarkedComplete && storedLog != null && storedLog == session.log
+                        val noWorkReceipt = json.optBoolean("receipt") && storedLog == null && session.log == null &&
+                            !session.isMarkedComplete
+                        if (hasMatchingLog || noWorkReceipt) {
+                            val saved = WorkoutExecutionCheckpoint.decode(raw, owner, key.first, key.second, 0, 0)
+                            put(key, saved.outcome)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun publishSecondary(cache: SecondaryCaches) {
@@ -386,7 +421,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             researchDrafts = cache.research, wellness = cache.wellness, lastSync = cache.lastSync,
             activityMatches = bundle.matches, executionAnalyses = bundle.analyses,
             athleteDiagnostics = bundle.diagnostics, pendingAdaptationProposals = bundle.pendingProposals,
-            adaptationRevisions = bundle.revisions, adaptationCooldowns = bundle.cooldowns
+            adaptationRevisions = bundle.revisions, adaptationCooldowns = bundle.cooldowns,
+            workoutExecutionOutcomes = cache.workoutOutcomes
         )
     }
 
@@ -538,7 +574,15 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         require(encoded.getString("id")==plan.id && encoded.getString("user_id")==owner)
         saveOwnedRecord(owner,"plan",plan.id,encoded.toString())
         val all=(mutable.value.plans.filterNot { it.id==plan.id }+plan).sortedByDescending { it.createdAt }
-        mutable.value=mutable.value.copy(plans=all,workoutDrafts=mutable.value.workoutDrafts.filterValues { validDraft(it,all) })
+        val previous = mutable.value.plans.find { it.id == plan.id }?.sessions.orEmpty().associateBy { it.id }
+        val current = plan.sessions.associateBy { it.id }
+        val outcomes = mutable.value.workoutExecutionOutcomes.filterKeys { (planId, sessionId) ->
+            planId != plan.id || (current[sessionId] != null &&
+                current[sessionId]?.log == previous[sessionId]?.log &&
+                current[sessionId]?.status == previous[sessionId]?.status)
+        }
+        mutable.value=mutable.value.copy(plans=all,workoutDrafts=mutable.value.workoutDrafts.filterValues { validDraft(it,all) },
+            workoutExecutionOutcomes = outcomes)
     }
     /**
      * Unlike a PlanSnapshot, a research review is saved only under kind=exercise
@@ -781,7 +825,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         staleDrafts.values.forEach { draft -> store.deleteRecord(activeOwner,"workout",draft.recordId) }
         mutable.value=mutable.value.copy(
             plans=mutable.value.plans.filterNot { it.id==plan.id },
-            workoutDrafts=mutable.value.workoutDrafts-staleDrafts.keys
+            workoutDrafts=mutable.value.workoutDrafts-staleDrafts.keys,
+            workoutExecutionOutcomes=mutable.value.workoutExecutionOutcomes.filterKeys { it.first != id }
         )
     }
     suspend fun moveSession(id:String,revision:Int,sessionId:String,date:java.time.LocalDate)=changePlan(id,revision) { plan->PlanOperations.move(plan,sessionId,date,mutable.value.plans) }
@@ -815,9 +860,12 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 val bootCount = runCatching {
                     android.provider.Settings.Global.getInt(appContext.contentResolver, android.provider.Settings.Global.BOOT_COUNT)
                 }.getOrNull()
-                val saved = store.get(owner, "workout", key)?.let {
+                val stored = store.get(owner, "workout", key)?.let {
                     WorkoutExecutionCheckpoint.decode(it.payload, owner, planId, sessionId, now, System.currentTimeMillis(), bootCount)
                 }
+                val restart = event == PlayerEvent.StartSession && stored?.finalLog == null &&
+                    stored?.phase == PlayerPhase.Completed && session.status in setOf("planned", "in_progress")
+                val saved = stored.takeUnless { restart }
                 if (saved?.receipt == true) return@withLock saved
                 if (saved?.finalLog == null && (!Engine1Engines.canManage(plan) ||
                         plan.status !in setOf("approved", "paused") || session.status !in setOf("planned", "in_progress"))) {
@@ -841,11 +889,15 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 } else baseline
                 val engine = WorkoutPlayerEngine(android.os.SystemClock::elapsedRealtime)
                 val input = if (saved == null && event == null) PlayerEvent.StartSession else event
-                val next = if (input != null && (expectedRevision == null || expectedRevision == before.revision))
+                val next = if (input != null && (restart || expectedRevision == null || expectedRevision == before.revision))
                     engine.reduce(before, input) else before
                 val finalLog = next.finalLog
                 if (finalLog == null) {
                     if (saved == null || next.revision != saved.revision) persist(next)
+                    if (restart) mutable.value = mutable.value.copy(
+                        workoutExecutionOutcomes = mutable.value.workoutExecutionOutcomes - (planId to sessionId)
+                    )
+                    if (next.receipt) publishWorkoutOutcome(next)
                     return@withLock next
                 }
 
@@ -856,10 +908,17 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 if (completed != plan) savePlan(completed.copy(revision = plan.revision + 1))
                 val receipt = next.copy(phase = PlayerPhase.Completed, receipt = true)
                 persist(receipt)
+                publishWorkoutOutcome(receipt)
                 if (completed != plan) reconcileActivityMatchesAndAnalysis()
                 receipt
             }
         }
+
+    private fun publishWorkoutOutcome(execution: WorkoutExecution) {
+        val key = execution.planId to execution.sessionId
+        val current = mutable.value
+        mutable.value = current.copy(workoutExecutionOutcomes = current.workoutExecutionOutcomes + (key to execution.outcome))
+    }
 
     suspend fun recordWorkout(id:String,revision:Int,sessionId:String,log:WorkoutLog,complete:Boolean)=changePlan(id,revision) { PlanOperations.record(it,sessionId,log,complete) }
     suspend fun saveRunResponse(id:String,revision:Int,sessionId:String,effort:Int?,difficulty:String?,discomfort:String?)=changePlan(id,revision) { plan ->

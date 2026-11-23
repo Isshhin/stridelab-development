@@ -4,7 +4,18 @@ import java.time.Instant
 import java.time.LocalDate
 
 internal enum class SetDisposition { PENDING, COMPLETED, SKIPPED, MODIFIED }
-internal enum class ExecutionStatus { IN_PROGRESS, PAUSED, FINISHED_EARLY, ABANDONED, COMPLETED }
+internal enum class ExecutionLifecycle { IN_PROGRESS, PAUSED, FINISHED_EARLY, ABANDONED, FINISHED_NORMALLY }
+internal enum class PrescriptionOutcome { FULLY_PERFORMED, PARTIALLY_PERFORMED, NO_WORK_PERFORMED, UNKNOWN }
+
+internal data class WorkoutExecutionOutcome(
+    val lifecycle: ExecutionLifecycle,
+    val prescription: PrescriptionOutcome,
+    val prescribedSets: Int,
+    val confirmedSets: Int,
+    val skippedSets: Int
+)
+
+internal val PlannedSession.isMarkedComplete: Boolean get() = status == "completed"
 internal enum class PlayerPhase { Ready, ActiveWork, Resting, Reviewing, Completed }
 
 internal data class SetActual(val reps: Int? = null, val kg: Double? = null, val seconds: Int? = null, val rir: Int? = null) {
@@ -24,6 +35,7 @@ internal data class ExecutionSet(
     val measuredWorkMs: Long? = null,
     val actualRestMs: Long? = null
 ) {
+    val isConfirmed get() = disposition == SetDisposition.COMPLETED || disposition == SetDisposition.MODIFIED
     fun confirmed(value: SetActual): ExecutionSet {
         require(if (target.seconds != null) (value.seconds ?: 0) > 0 else (value.reps ?: 0) > 0)
         val modified = value.reps != target.reps || value.seconds != target.seconds || value.kg != null
@@ -48,7 +60,7 @@ internal data class WorkoutExecution(
     val sets: List<ExecutionSet>,
     val cursor: Int = 0,
     val phase: PlayerPhase = PlayerPhase.Ready,
-    val status: ExecutionStatus = ExecutionStatus.IN_PROGRESS,
+    val lifecycle: ExecutionLifecycle = ExecutionLifecycle.IN_PROGRESS,
     val timer: PlayerTimer? = null,
     val finalLog: WorkoutLog? = null,
     val receipt: Boolean = false,
@@ -56,7 +68,17 @@ internal data class WorkoutExecution(
     val openedAtMs: Long? = null
 ) {
     val current get() = sets[cursor]
-    val canChangePrescription get() = status == ExecutionStatus.IN_PROGRESS && timer == null && finalLog == null &&
+    val outcome: WorkoutExecutionOutcome get() {
+        val confirmed = sets.count { it.isConfirmed }
+        val prescription = when {
+            confirmed == 0 -> PrescriptionOutcome.NO_WORK_PERFORMED
+            confirmed == sets.size -> PrescriptionOutcome.FULLY_PERFORMED
+            else -> PrescriptionOutcome.PARTIALLY_PERFORMED
+        }
+        return WorkoutExecutionOutcome(lifecycle, prescription, sets.size, confirmed,
+            sets.count { it.disposition == SetDisposition.SKIPPED })
+    }
+    val canChangePrescription get() = lifecycle == ExecutionLifecycle.IN_PROGRESS && timer == null && finalLog == null &&
         sets.all { it.disposition == SetDisposition.PENDING && it.measuredWorkMs == null }
 
     companion object {
@@ -133,11 +155,11 @@ internal class WorkoutPlayerEngine(private val clock: () -> Long) {
             }
             PlayerEvent.PauseTimer -> {
                 if (timer?.deadlineMs == null) return state
-                state.copy(timer = timer.copy(remainingMs = timer.remaining(now), deadlineMs = null), status = ExecutionStatus.PAUSED)
+                state.copy(timer = timer.copy(remainingMs = timer.remaining(now), deadlineMs = null), lifecycle = ExecutionLifecycle.PAUSED)
             }
             PlayerEvent.ResumeTimer -> {
                 if (timer == null || timer.deadlineMs != null || timer.remainingMs == 0L) return state
-                state.copy(timer = timer.copy(deadlineMs = now + timer.remainingMs), status = ExecutionStatus.IN_PROGRESS)
+                state.copy(timer = timer.copy(deadlineMs = now + timer.remainingMs), lifecycle = ExecutionLifecycle.IN_PROGRESS)
             }
             is PlayerEvent.CompleteSet -> {
                 val emomConfirmation = event.emom && state.phase == PlayerPhase.Resting && step.measuredWorkMs != null
@@ -165,7 +187,7 @@ internal class WorkoutPlayerEngine(private val clock: () -> Long) {
                 else {
                     if (state.timer != null && !(state.phase == PlayerPhase.Resting && state.cursor == event.index)) return state
                     state.replace(event.index, ExecutionSet(previous.target, previous.number)).copy(
-                        cursor = event.index, phase = PlayerPhase.ActiveWork, status = ExecutionStatus.IN_PROGRESS, timer = null)
+                        cursor = event.index, phase = PlayerPhase.ActiveWork, lifecycle = ExecutionLifecycle.IN_PROGRESS, timer = null)
                 }
             }
             PlayerEvent.EnterRest -> if (state.phase == PlayerPhase.ActiveWork && step.actual != null) enterRest(state, now) else state
@@ -196,33 +218,35 @@ internal class WorkoutPlayerEngine(private val clock: () -> Long) {
             }
             PlayerEvent.Review, PlayerEvent.FinishEarly -> captureRest(state, now).copy(
                 phase = PlayerPhase.Reviewing, timer = null,
-                status = if (event == PlayerEvent.FinishEarly) ExecutionStatus.FINISHED_EARLY else ExecutionStatus.IN_PROGRESS
+                lifecycle = if (event == PlayerEvent.FinishEarly && state.sets.any { it.disposition == SetDisposition.PENDING }) ExecutionLifecycle.FINISHED_EARLY else ExecutionLifecycle.IN_PROGRESS
             )
             PlayerEvent.Continue -> if (state.phase == PlayerPhase.Reviewing) {
                 val pending = state.sets.indexOfFirst { it.disposition == SetDisposition.PENDING }
-                if (pending < 0) state else state.copy(cursor = pending, phase = PlayerPhase.ActiveWork, status = ExecutionStatus.IN_PROGRESS)
+                if (pending < 0) state else state.copy(cursor = pending, phase = PlayerPhase.ActiveWork, lifecycle = ExecutionLifecycle.IN_PROGRESS)
             } else state
             PlayerEvent.ResetWork -> if (state.phase == PlayerPhase.ActiveWork)
-                state.copy(timer = null, status = ExecutionStatus.IN_PROGRESS) else state
+                state.copy(timer = null, lifecycle = ExecutionLifecycle.IN_PROGRESS) else state
             is PlayerEvent.Browse -> if (state.phase in setOf(PlayerPhase.Ready, PlayerPhase.ActiveWork)) {
                 val end = if (event.direction > 0) state.sets.indices.firstOrNull { it > state.cursor && state.sets[it].target.id != step.target.id }
                     else (state.cursor - 1 downTo 0).firstOrNull { state.sets[it].target.id != step.target.id }
                 val index = end ?: -1
-                if (index < 0 && event.direction > 0) state.copy(phase = PlayerPhase.Reviewing, timer = null, status = ExecutionStatus.IN_PROGRESS)
-                else if (index >= 0) state.copy(cursor = index, timer = null, status = ExecutionStatus.IN_PROGRESS) else state
+                if (index < 0 && event.direction > 0) state.copy(phase = PlayerPhase.Reviewing, timer = null, lifecycle = ExecutionLifecycle.IN_PROGRESS)
+                else if (index >= 0) state.copy(cursor = index, timer = null, lifecycle = ExecutionLifecycle.IN_PROGRESS) else state
             } else state
             PlayerEvent.AbandonSession -> captureRest(state, now).copy(phase = PlayerPhase.Completed,
-                status = ExecutionStatus.ABANDONED, timer = null)
+                lifecycle = ExecutionLifecycle.ABANDONED, timer = null)
             is PlayerEvent.FinalizeSession -> {
                 if (state.phase != PlayerPhase.Reviewing) return state
-                val rows = state.sets.mapNotNull { set ->
+                val rows = state.sets.filter { it.isConfirmed }.mapNotNull { set ->
                     set.actual?.let { SetRecord(set.target.id, set.number, it.reps, it.kg, it.seconds) }
                 }
-                require(rows.isNotEmpty())
-                val status = if (state.status == ExecutionStatus.FINISHED_EARLY || state.sets.any { it.disposition == SetDisposition.PENDING })
-                    ExecutionStatus.FINISHED_EARLY else ExecutionStatus.COMPLETED
-                val log = WorkoutLog(event.at, event.minutes, event.distanceKm, event.effort, rows, event.notes, event.performedOn)
-                state.copy(status = status, finalLog = log)
+                val lifecycle = if (state.lifecycle == ExecutionLifecycle.FINISHED_EARLY)
+                    ExecutionLifecycle.FINISHED_EARLY else ExecutionLifecycle.FINISHED_NORMALLY
+                val log = rows.takeIf { it.isNotEmpty() }?.let {
+                    WorkoutLog(event.at, event.minutes, event.distanceKm, event.effort, it, event.notes, event.performedOn)
+                }
+                state.copy(lifecycle = lifecycle, finalLog = log,
+                    phase = if (log == null) PlayerPhase.Completed else state.phase, receipt = log == null)
             }
             is PlayerEvent.Tick -> state
         }
@@ -231,7 +255,7 @@ internal class WorkoutPlayerEngine(private val clock: () -> Long) {
 
     private fun enterRest(state: WorkoutExecution, now: Long, remainingWork: Long = 0): WorkoutExecution {
         val duration = (state.current.target.rest * 1000L + remainingWork).coerceAtLeast(0)
-        return state.copy(phase = PlayerPhase.Resting, status = ExecutionStatus.IN_PROGRESS,
+        return state.copy(phase = PlayerPhase.Resting, lifecycle = ExecutionLifecycle.IN_PROGRESS,
             timer = PlayerTimer(duration, deadlineMs = now + duration))
     }
 
@@ -246,7 +270,7 @@ internal class WorkoutPlayerEngine(private val clock: () -> Long) {
             }.takeUnless { it < 0 }
         return state.copy(cursor = pending ?: state.cursor,
             phase = if (pending == null) PlayerPhase.Reviewing else PlayerPhase.ActiveWork,
-            status = ExecutionStatus.IN_PROGRESS, timer = null)
+            lifecycle = ExecutionLifecycle.IN_PROGRESS, timer = null)
     }
 
     private fun WorkoutExecution.replace(index: Int, value: ExecutionSet) =

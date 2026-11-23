@@ -3,8 +3,12 @@ package io.stridelab.privatealpha
 import android.os.SystemClock
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
@@ -17,6 +21,113 @@ class AmoledWorkoutPlayerTest {
     private val engine = WorkoutPlayerEngine(SystemClock::elapsedRealtime)
     private val date = LocalDate.now()
     private val logTime = Instant.parse("2026-11-23T08:00:00Z")
+
+    @Test fun partialReceiptSurvivesRestartAndUpdatesWorkoutTodayAndTraining() {
+        val phase = InstrumentationRegistry.getArguments().getString("outcomeRestartPhase")
+        val context = compose.activity.applicationContext
+        val database = "synthetic-player-outcomes.db"
+        val fixture = context.getSharedPreferences("synthetic-player-outcomes-fixture", 0)
+        val restoring = phase == "restore" || phase == "verifyReceipt"
+        if (!restoring) {
+            context.deleteDatabase(database)
+            fixture.edit().clear().commit()
+        } else {
+            check(fixture.getInt("pid", 0) != android.os.Process.myPid())
+            check(fixture.contains("pid"))
+        }
+        var repo = TrainingRepository(context, databaseName = database, preferencesName = "synthetic-player-outcomes")
+        fun waitForPlans() = runBlocking { repo.state.first { !it.initializing } }
+
+        try {
+            waitForPlans()
+            if (!restoring) runBlocking {
+                val request = PlanRequest(goal = "Strength for Runners", start = date, weeks = 1,
+                    days = setOf(date.dayOfWeek.value), runDays = 0, strengthDays = 1, timeBudgetEnabled = false)
+                check(repo.generatePlan(request))
+                val preview = requireNotNull(repo.state.value.planPreview)
+                check(repo.approvePlan(preview.id, preview.revision))
+                val plan = repo.state.value.plans.single()
+                val workout = plan.sessions.single()
+                var execution = requireNotNull(repo.executeWorkout(plan.id, workout.id, null, null))
+                suspend fun send(event: PlayerEvent) {
+                    execution = requireNotNull(repo.executeWorkout(plan.id, workout.id, execution.revision, event))
+                }
+                send(PlayerEvent.CompleteSet(SetActual(reps = execution.current.target.reps, seconds = execution.current.target.seconds)))
+                send(PlayerEvent.SkipRest)
+                repeat(execution.sets.size - 1) { send(PlayerEvent.SkipSet) }
+                assertEquals(PlayerPhase.Reviewing, execution.phase)
+                check(fixture.edit().putInt("pid", android.os.Process.myPid()).putString("execution", execution.executionId).commit())
+            }
+            if (phase == "seed") return
+            if (phase == null) {
+                repo.close()
+                repo = TrainingRepository(context, databaseName = database, preferencesName = "synthetic-player-outcomes")
+                waitForPlans()
+            }
+
+            val plan = repo.state.value.plans.single()
+            val workout = plan.sessions.single()
+            if (phase == "verifyReceipt") {
+                assertEquals(PrescriptionOutcome.PARTIALLY_PERFORMED, repo.state.value.prescriptionOutcome(plan.id, workout.id))
+                check(workout.isMarkedComplete)
+            }
+            val restored = runBlocking { requireNotNull(repo.executeWorkout(plan.id, workout.id, null, null)) }
+            assertEquals(fixture.getString("execution", null), restored.executionId)
+            assertEquals(1, restored.outcome.confirmedSets)
+            assertEquals(restored.sets.size - 1, restored.outcome.skippedSets)
+            compose.runOnUiThread {
+                compose.activity.setContent {
+                    val state = repo.state.collectAsState().value
+                    StrideTheme {
+                        NativeStrideContent(state, online = false,
+                            actions = NativeActions({}, { _, _ -> }, planning = PlanActions(executeWorkout = repo::executeWorkout)))
+                    }
+                }
+            }
+            compose.onNodeWithTag("today-workout-action").performClick()
+            if (phase != "verifyReceipt") {
+                compose.waitUntil(10_000) { compose.onAllNodesWithText("Save & View Debrief").fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithText("Save & View Debrief").performClick()
+            }
+            val partial = "Partial · 1 of ${restored.sets.size} sets"
+            compose.waitUntil(10_000) { compose.onAllNodesWithText(partial).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText(partial).assertExists()
+            compose.onNodeWithTag("coach-debrief").assertExists()
+
+            val current = repo.state.value
+            assertEquals(PrescriptionOutcome.PARTIALLY_PERFORMED, current.prescriptionOutcome(plan.id, workout.id))
+            val outcome = current.workoutExecutionOutcomes.getValue(plan.id to workout.id)
+            assertEquals(ExecutionLifecycle.FINISHED_NORMALLY, outcome.lifecycle)
+            val retry = runBlocking {
+                requireNotNull(repo.executeWorkout(plan.id, workout.id, restored.revision,
+                    PlayerEvent.FinalizeSession(Instant.now(), 8, "duplicate")))
+            }
+            assertEquals(outcome, retry.outcome)
+            assertEquals(current.plans, repo.state.value.plans)
+            context.openOrCreateDatabase(database, 0, null).use { db ->
+                for ((sql, expected) in listOf(
+                    "SELECT count(*) FROM records WHERE kind='workout' AND record_id LIKE 'player-exec-%'" to 1,
+                    "SELECT count(*) FROM records WHERE kind='plan'" to 1,
+                    "SELECT count(*) FROM outbox" to 0
+                )) db.rawQuery(sql, null).use { row -> check(row.moveToFirst()); assertEquals(expected, row.getInt(0)) }
+            }
+
+            compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+            compose.onNodeWithTag("nav-training").assertIsSelected()
+            val workoutTag = "timeline-planned-${workout.id}"
+            compose.onNodeWithTag("training-unified-timeline").performScrollToNode(hasTestTag(workoutTag))
+            compose.onNodeWithTag(workoutTag).assert(hasContentDescription("Completed", substring = true))
+            compose.onNodeWithTag("nav-home").performClick()
+            compose.onNodeWithText("DONE").assertExists()
+            if (phase == "restore") check(fixture.edit().putInt("pid", android.os.Process.myPid()).commit())
+        } finally {
+            repo.close()
+            if (phase != "seed" && phase != "restore") {
+                context.deleteDatabase(database)
+                fixture.edit().clear().commit()
+            }
+        }
+    }
 
     private fun session(discipline: String, target: ExercisePrescription, title: String = "Session") =
         PlannedSession("session", date, discipline, title, 20, null, "structured-$discipline", exercises = listOf(target))
@@ -80,7 +191,7 @@ class AmoledWorkoutPlayerTest {
         compose.onNodeWithText("12 / 24 contacts").assertExists()
         compose.onNodeWithContentDescription("Exit workout").performClick()
         compose.onNodeWithText("Finish Early").performClick()
-        compose.runOnIdle { assertEquals(ExecutionStatus.FINISHED_EARLY, state.value.status) }
+        compose.runOnIdle { assertEquals(ExecutionLifecycle.FINISHED_EARLY, state.value.lifecycle) }
         compose.onNodeWithText("Save & View Debrief").assertExists()
     }
 

@@ -177,6 +177,8 @@ class LocalPlanRepositoryTest {
         assertTrue(recoveredSave.receipt)
         assertEquals(saved.finalizationId, recoveredSave.finalizationId)
         assertEquals(saved.finalLog, recoveredSave.finalLog)
+        assertEquals(saved.outcome, recoveredSave.outcome)
+        assertEquals(PrescriptionOutcome.PARTIALLY_PERFORMED, repo.state.value.prescriptionOutcome(plan.id, session.id))
         assertEquals(committed, repo.state.value.plans.single())
         assertEquals(1, rawPlanCount(plan.owner))
         assertEquals(0, outboxCount(plan.owner))

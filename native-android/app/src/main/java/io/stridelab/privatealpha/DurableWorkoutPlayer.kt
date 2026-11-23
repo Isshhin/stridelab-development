@@ -168,7 +168,11 @@ internal fun WorkoutPlayer(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = if (resting) Arrangement.Center else Arrangement.spacedBy(12.dp)) {
                 when {
-                    finished -> Text(if (execution.status == ExecutionStatus.ABANDONED) "Workout abandoned" else "Workout saved",
+                    finished -> Text(when {
+                        execution.lifecycle == ExecutionLifecycle.ABANDONED -> "Workout abandoned"
+                        execution.finalLog == null -> "No work recorded"
+                        else -> "Workout saved"
+                    },
                         style = MaterialTheme.typography.headlineMedium)
                     reviewing -> {
                         val elapsed = remember(execution.executionId, execution.phase) { execution.openedAtMs?.let { (System.currentTimeMillis() - it).coerceAtLeast(0) / 1000 } }
@@ -280,8 +284,17 @@ internal fun WorkoutPlayer(
                 (error ?: saveError)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
             when {
+                finished && execution.finalLog == null -> {
+                    PlayerPrimary("Start again", !busy) { dispatch(PlayerEvent.StartSession) }
+                    TextButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                        Text("Back to Training", color = muted)
+                    }
+                }
                 finished -> PlayerPrimary("Back to Training", true, action = onBack)
-                reviewing -> PlayerPrimary("Save & View Debrief", !busy && execution.sets.any { it.actual != null }) {
+                reviewing -> PlayerPrimary(
+                    if (execution.outcome.confirmedSets > 0) "Save & View Debrief" else "Finish without logging",
+                    !busy
+                ) {
                     if (execution.finalLog != null) {
                         dispatch(PlayerEvent.FinalizeSession(Instant.now(), null, ""))
                     } else try {
