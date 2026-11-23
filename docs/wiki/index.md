@@ -1,7 +1,7 @@
 ---
 scope: project-index
 tags: [stridelab, wiki, index]
-last_updated: 2026-11-23
+last_updated: 2026-11-24
 ---
 
 # StrideLab Engineering Wiki
@@ -72,6 +72,8 @@ Offline-first native Android running and multi-discipline training coach built a
 - Checkpoint D adds unified completed history and progress to Training, plus editable running baseline suggestions with visible history coverage. See [[screens]] and [[architecture]].
 
 - Checkpoint D passed the four JDK 21 checks and 1,278 JVM tests. API 35 passed 12 smoke executions, 12 responsive executions, two process recovery phases, and 30 focused Training, Workout Player, and FIT compatibility checks. An expanded run had nine additional passes and 27 older fixture failures. All 27 failures reproduced on the Checkpoint C build.
+
+- **UI Modernization 1.0 (Phase 0 + Phase 1):** Pure AMOLED `#000000` canvas, `#121212` selective surfaces, hairline dividers, tabular numerals, `48.dp` touch targets, and zero-recomposition `180 ms`-delayed skeletons (`StrideLabUiPrimitives.kt`); lazy Freeform draft persistence, one-tap discard, bottom-sheet discipline picker, empty start + recent chips, non-blocking rest timer, flattened `Today` / `Training` / `Templates` / `Custom Planner`, and retirement of `freeform/evidence` UI (preserving `WorkoutEvidence` baseline suggestions). Verified via all 4 sequential JDK 21 builds (`166` suites / `1,278` JVM tests passed, `0` failed, `0` skipped), `20/20` targeted Compose UI tests across 6 suites on `emulator-5554` (`412.dp` `font_scale 1.0`), and `7/7` responsive checks each at `320.dp` + `font_scale 1.3` and `360.dp` + `font_scale 1.3`.
 
 ## Verification Commands (`native-android/`, JDK 21, run sequentially)
 ```powershell

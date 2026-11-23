@@ -125,7 +125,7 @@ class FreeformLoggerUiTest {
         node("training-add-workout").performClick()
         awaitNode("freeform-open-templates").performClick()
         awaitNode("workout-template-new").performClick()
-        node("workout-template-discipline-RUNNING").performClick()
+        awaitNode("workout-template-discipline-RUNNING").performScrollTo().performClick()
         awaitNode("workout-template-editor")
         field("workout-template-title").performScrollTo().performTextReplacement("Track warm-up")
         field("workout-template-distance").performScrollTo().performTextInput("5")
@@ -158,12 +158,78 @@ class FreeformLoggerUiTest {
         assertTrue(after.workouts.single().isComplete)
     }
 
+    @Test fun tappingDisciplineAndLeavingWithoutEditsCreatesZeroGhostDrafts() = reportUiFailure {
+        node("nav-training").performClick()
+        node("training-add-workout").performClick()
+        awaitNode("freeform-hub")
+        awaitNode("freeform-open-templates").assertIsDisplayed()
+        awaitNode("freeform-log").performClick()
+        awaitNode("freeform-discipline-sheet")
+        awaitNode("freeform-discipline-STRENGTH").performScrollTo().performClick()
+        awaitNode("freeform-empty-state").assertIsDisplayed()
+        awaitNode("freeform-add-exercise").assertIsDisplayed()
+        compose.onNodeWithText("Back squat", substring = true, ignoreCase = true).assertDoesNotExist()
+        awaitBack().performClick()
+        awaitNode("freeform-hub")
+        awaitNode("freeform-open-templates").assertIsDisplayed()
+        compose.onNodeWithText("In progress").assertDoesNotExist()
+        assertTrue(runBlocking { repo.freeformAccess().read(owner).workouts }.isEmpty())
+    }
+
+    @Test fun oneTapDiscardRemovesInProgressDraftFromWorkoutsHub() = reportUiFailure {
+        node("nav-training").performClick()
+        openNew(ManualDiscipline.STRENGTH)
+        addCustom("Goblet squat")
+        field("freeform-actual-0-quantity").performScrollTo().performTextInput("10")
+        closeKeyboard()
+        node("freeform-save-progress").performClick()
+        awaitNode("freeform-hub")
+        val draft = runBlocking { repo.freeformAccess().read(owner).workouts.single() }
+        awaitNode("freeform-resume").assertIsDisplayed()
+        awaitNode("freeform-discard-row-${draft.id}").performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithText("In progress").fetchSemanticsNodes().isEmpty()
+        }
+        assertTrue(runBlocking { repo.freeformAccess().read(owner).workouts }.isEmpty())
+    }
+
+    @Test fun quickAddRecentExerciseAndNonBlockingRestTimerWorkDuringSetLogging() = reportUiFailure {
+        node("nav-training").performClick()
+        openNew(ManualDiscipline.STRENGTH)
+        addCustom("Overhead press")
+        field("freeform-actual-0-quantity").performScrollTo().performTextInput("5")
+        closeKeyboard()
+        node("freeform-confirm-0").performScrollTo().performClick()
+        node("freeform-finish").performClick()
+        awaitNode("freeform-save-completed").performClick()
+        awaitNode("freeform-history-summary")
+        awaitBack().performClick()
+
+        openNew(ManualDiscipline.STRENGTH)
+        awaitNode("freeform-quick-add-Overhead press").performScrollTo().performClick()
+        awaitNode("freeform-set-0")
+        field("freeform-actual-0-quantity").performScrollTo().performTextInput("5")
+        field("freeform-actual-0-kg").performScrollTo().performTextInput("42.5")
+        closeKeyboard()
+        node("freeform-confirm-0").performScrollTo().performClick()
+        awaitNode("freeform-rest-timer").assertIsDisplayed()
+        node("freeform-add-set").performScrollTo().performClick()
+        field("freeform-actual-1-quantity").performScrollTo().performTextInput("6")
+        closeKeyboard()
+        assertEquals("6", runBlocking {
+            node("freeform-save-progress").performClick()
+            awaitNode("freeform-hub")
+            repo.freeformAccess().read(owner).workouts.first { !it.isComplete }
+                .exercises.single().sets[1].actual.quantity
+        })
+    }
+
     private fun openNew(discipline: ManualDiscipline) {
         node("training-add-workout").performClick()
         awaitNode("freeform-log").performClick()
+        awaitNode("freeform-discipline-sheet")
         val tag = "freeform-discipline-${discipline.name}"
-        node("freeform-hub").performScrollToNode(hasTestTag(tag))
-        node(tag).performClick()
+        awaitNode(tag).performScrollTo().performClick()
         awaitNode("freeform-editor")
     }
 

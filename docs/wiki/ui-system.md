@@ -1,7 +1,7 @@
 ---
 scope: ui-system
 tags: [stridelab, compose, design-system, amoled, components]
-last_updated: 2026-11-23
+last_updated: 2026-11-24
 ---
 
 # UI Design System (Jetpack Compose)
@@ -9,34 +9,30 @@ last_updated: 2026-11-23
 Back to [[index]] · Related: [[screens]] · [[architecture]]
 
 ## Dark AMOLED Theme & Color Tokens
-Defined across `StrideTheme` (`NativeMainActivity.kt`), `WorkoutDetailPalette` (`TracksideRunningStepCards.kt`), `TracksidePalette` (`TracksideUi.kt`), and `StrideLabVisualPalette` (`StrideLabVisualKit.kt`):
+Defined across `StrideLabSurfaceTokens` (`StrideLabUiPrimitives.kt`), `StrideTheme` (`NativeMainActivity.kt`), `WorkoutDetailPalette` (`TracksideRunningStepCards.kt`), `TracksidePalette` (`TracksideUi.kt`), `TodayAdaptivePalette` (`TodayAdaptiveDashboard.kt`), and `StrideLabVisualPalette` (`StrideLabVisualKit.kt`):
 
 | Token | Hex | Usage |
 | :--- | :--- | :--- |
-| Deep Background | `#0B0D0F` / `#0A0C0E` | Today warm near-black canvas (`TodayAdaptivePalette.bg`) / Workout Detail canvas (`Training`/`More` remain `#000000`) |
-| Card Surface | `#14181C` / `#161B20` | Elevated Today cards (`TodayDailyTrainingCard`, `TodayTrainingOverviewCard`, `TodayRecentActivitiesSection`) & Workout Detail cards |
-| Raised Control | `#1C2229` | Compact pill buttons (`− Easier`, `+ Harder`) and timeline dot rings |
-| Border / Hairline | `#232A31` / `#1E242B` | Standard `1.dp` card & pill borders (`#1E242B` for internal hairline dividers) |
-| Sparing Lime-Yellow | `#D8FB70` | Reserved strictly for active top segment (`All`/`• Running`), selected day circle, active bottom nav pill (`Today`), primary CTAs (`START WORKOUT`, `View Workout`, `View Analysis`, `See all`), and running GPS routes (zero decorative lime card borders) |
-| Discipline Accents | `#D8FB70` / `#A855F7` / `#2DD4BF` / `#FB923C` | Running / Strength / Calisthenics / Conditioning pills, icons, and session badges |
+| AMOLED Canvas | `#000000` | Primary background across Today, Training, Workouts Hub, Freeform Editor, Templates, and More |
+| Elevated Surface | `#121212` | Selective elevation for active set rows, modal bottom sheets, Today's hero card, and sticky footers |
+| Subtle Surface | `#181A1D` | Compact input fields, discipline sheet tiles, and subtle chips |
+| Hairline Divider | `#1F242B` | `1.dp` horizontal dividers (`StrideLabHairline`) replacing nested bordered cards |
+| Sparing Lime-Yellow | `#D8FB70` | Reserved strictly for active tabs/selections, primary CTAs, completed set checkmarks, active rest timer cues, adherence progress, and GPS trails |
+| Discipline Accents | `#D8FB70` / `#A855F7` / `#2DD4BF` / `#FB923C` | Running / Strength / Calisthenics / Conditioning bar/dot markers |
 | Warm-up / Easy / Recovery | `#4AD3DE` / `#45D4C8` / `#4ADBA8` | Warm-up, Recovery, Easy, and Cool-down bars, dots, and zone pills |
 | Threshold / Work Amber | `#F6D32D` / `#E0B416` | Work bars, `RepeatGroup` header gradient, `Z4 · Threshold / Hard` pills |
-| Text Hierarchy | `#F5F7FA` / `#9BA4B0` / `#8B9298` | Primary ink / secondary metrics & subtitles / muted uppercase headers (`THIS WEEK`) |
+| Text Hierarchy | `#F5F7FA` / `#A0A8B3` / `#6B737E` | Primary ink / secondary labels & metrics / muted captions & table headers |
 
-## Typography & `360.dp` Responsive Guards
-- **Typeface:** System `FontFamily.SansSerif` (Roboto) via `StrideTheme`.
-- **Hierarchy:** Screen titles `27–29.sp` Bold; hero metric values `20.sp` Bold; micro-headers `10–11.sp` SemiBold/Bold uppercase (`letterSpacing = 1.0–1.2.sp`).
-- **Clipping Prevention:** All 3-column hero metrics, zone pills, difficulty controls, and Today 3-column/multisport load legends enforce `maxLines = 1`, `softWrap = false`, `overflow = TextOverflow.Ellipsis`, and `Modifier.weight(1f)` for `360.dp` widths.
+## Shared UI Primitives, Tabular Numerals & Skeletons (`StrideLabUiPrimitives.kt`)
+- **Typography & Touch Targets:** System `SansSerif` via `StrideTheme`, tabular numerals (`TabularTextStyle` / `fontFeatureSettings = "tnum"`) on numeric metrics, calendar numbers, set rows, and countdowns, 8-point spacing rhythm, and `48.dp` minimum touch targets on primary actions and icon buttons.
+- **Flat List Primitives:** `StrideLabHairline`, `StrideLabSectionHeader`, and `StrideLabFlatRow` replace stacked bordered panels across hubs, timelines, Today metrics, and recent activities.
+- **Zero-Recomposition Neutral Skeletons:** `neutralSkeletonBrush` uses `drawWithCache` + `onDrawBehind` (neutral `#16181B`/`#23272E`, never lime-tinted), gated by `rememberDelayedSkeletonVisible` (`180 ms` delay) and static when `ANIMATOR_DURATION_SCALE == 0f`: `SkeletonText`, `SkeletonMetric`, `SkeletonWorkoutRow`, `SkeletonExerciseRow`, `SkeletonCalendar`, `SkeletonActivityRow`.
 
 ### Freeform Workout Logger
 
-- The Training workout hub uses the AMOLED palette and one primary empty-workout action. Drafts and the routine library have distinct rows. Workout backup is a secondary action.
-- Most disciplines use compact actual-entry rows with a shared metric header. Calisthenics retains extra room for hold, rep, and load inputs. Previous confirmed work and template targets have separate labels. Save draft and Finish workout share a single footer.
-
-- The scheduling screen uses the same cards and footer as the logger. Calendar dots indicate scheduled or logged work, and source labels distinguish entries in the selected day. Coached chart totals use coached prescriptions.
-
-- Workout history uses two segments, History and Progress. Source and discipline filters stay readable without color. The controls reflow at narrow widths. Frequency bars show their counts in text, and exercise comparisons label the dates of recorded sets.
-- Baseline suggestions sit below the editable running fields. A use button applies one distance, and coverage text explains which finished weeks contributed to the weekly average.
+- **Workouts Hub:** `Start empty workout` opens a `#121212` `ModalBottomSheet` 2×3 discipline grid so `Workout templates` remains visible above the fold. `In progress` draft rows expose a one-tap trailing `48.dp` discard icon.
+- **Flattened Logger:** Empty starts open to `+ Add exercise` plus quick-add chips for recent same-discipline exercises (never auto-inserting movements). Each exercise renders directly on `#000000` separated by `StrideLabHairline` with a compact tabular `Set | Prev | metrics | ✓` grid, `#121212` active-set focus, dimmed completed rows with `#D8FB70` checkmarks, and an unobtrusive non-blocking `FreeformRestTimerBar` above the footer.
+- **Custom Scheduling & Baseline Suggestions:** Scheduling and templates share the flat hairline layout and bottom-sheet discipline picker. `HistoryBaselineCard` provides confirmed weekly/longest run distance suggestions inside the Running builder.
 
 ## Shared Components
 - **Today P0 Components (`TodayAdaptiveDashboard.kt`, `StrideLabTodayScreen.kt`):**

@@ -1,7 +1,7 @@
 ---
 scope: screens
 tags: [stridelab, screens, navigation, ui-state, deprecations]
-last_updated: 2026-11-23
+last_updated: 2026-11-24
 ---
 
 # Screens, UI State & Removed Elements
@@ -27,10 +27,10 @@ Back to [[index]] · Related: [[ui-system]] · [[architecture]] · [[engine-rule
 - **Today (`StrideLabTodayScreen.kt`, `TodayAdaptiveDashboard.kt`):**
   - The top discipline filter applies to the Monday–Sunday strip, the selected day, and weekly adherence. Disciplines from approved plans are available immediately. Historical disciplines can still qualify from recorded activity.
   - Today keeps a separate row for each `(planId, sessionId)` across all approved plans. On a shared day, unfinished sessions appear first, with running first within each completion group. Physical totals count each canonical recording once. If multiple prescriptions claim it, neither earns adherence credit until the link is resolved.
-  - Follows the 3-section finalized P0 layout on `TodayAdaptivePalette.bg` (`#0B0D0F`):
-    1. `TodayDateContextHeader` + `TodayDailyTrainingCard` (`TodayOverviewCalculator.buildDailyTrainingState`) — verified planned and completed sessions, imported activities, rest days, or Companion training mode. GPS previews load independently through the thumbnail provider.
-    2. `TodayTrainingOverviewCard` (`TodayOverviewCalculator.computeWeeklyOverview`) — verified `Run km`, `Run hours` (`h:mm`), `Runs`, active non-running pills (`Strength`, `Calisthenics`, `Conditioning`), and conditional `Adherence` (omitted when no approved plan or 0 weekly sessions; never counts unlinked bonus runs).
-    3. `TodayRecentActivitiesSection` — Option 1 compact `#14181C` list (`See all` → `activities`), deduplicated across imported records and native confirmed logs, sorted descending (`limit = 5`), with `48×32 dp` `TodayCompactGpsThumbnail` when GPS samples are cached.
+  - Follows the 3-section finalized P0 layout on `TodayAdaptivePalette.bg` (`#000000`):
+    1. `TodayDateContextHeader` + `TodayDailyTrainingCard` (`TodayOverviewCalculator.buildDailyTrainingState`) — selective `#121212` card for verified planned/completed sessions, imported activities, rest days, or Companion training mode (with `180 ms` delayed neutral skeletons while cold-starting). GPS previews load independently through the thumbnail provider.
+    2. `TodayTrainingOverviewCard` (`TodayOverviewCalculator.computeWeeklyOverview`) — flattened `#000000` hairline-bounded summary with tabular `Run km`, `Run hours` (`h:mm`), `Runs`, active non-running pills (`Strength`, `Calisthenics`, `Conditioning`), and conditional `Adherence`.
+    3. `TodayRecentActivitiesSection` — flattened `#000000` rows separated by `StrideLabHairline` (`See all` → `activities`), deduplicated across imported records and native confirmed logs, sorted descending (`limit = 5`), with `48×32 dp` `TodayCompactGpsThumbnail` when GPS samples are cached.
   - The discipline bar, week strip and date header form the same shell during startup and in Local Mode. The card changes from loading to companion, scheduled or recorded content. Past empty no-plan dates show a compact status card.
   - A single recorded workout opens Activity Detail from the full card. The discipline, title and tabular metrics sit beside an 84×64 dp route preview.
   - Adds compact `.FIT` match confirmation cards on `All` and `Running`, plus the pending adaptation banner and review sheet on `All`; match and proposal actions go through `PlanActions`.
@@ -65,17 +65,11 @@ Back to [[index]] · Related: [[ui-system]] · [[architecture]] · [[engine-rule
 
 ### Freeform Workout Logger
 
-- **Training → Add Workout → Start empty workout** opens the discipline picker. Choose a movement from the bundled catalog or enter a custom name. Workouts in progress are listed on the same screen.
-- `freeform/edit/{id}` supports autosave, editable actuals, set confirmation, optional targets and rest, and a recorded-totals review before saving. Running captures date, distance, duration, optional effort, workout type, and notes.
-- Completed workouts open via `freeform/history/{kind}/{id}` and appear on their performed date in Training with a **Freeform** label. Legacy manual sessions retain a **Manual** label. **Workout backup** under Add Workout exports and restores an archive for the current profile.
-
-- **Workout templates** opens the searchable, discipline-filtered routine library. Create, edit, rename, duplicate, delete, or start a routine here. Completed Freeform detail offers **Save as template**.
-
-- **Workout templates → Schedule** opens a one-off or weekly schedule with an optional end date. Open a Custom calendar entry to start, resume, move, skip, or edit following repeats. Completed Custom workouts offer **Repeat workout**.
-- Training can jump to a date and uses source labels for Custom, Coached, Freeform, and Garmin imports. The all-dates agenda shows a bounded window of repeats. Recovery notes stay advisory.
-
-- **Training → Workout history** opens `freeform/evidence`. Filter History by source and discipline, then open the original detail. Progress shows frequency over four calendar weeks, discipline-specific recorded totals, and the latest and previous confirmed effort for an exercise.
-- **Where are you starting?** in the Running builder displays available history suggestions. The card states how many finished weeks have usable distance. Each suggestion can be applied individually, then edited using the existing controls.
+- **Training → Add Workout → Start empty workout** opens a `#121212` modal bottom sheet 2×3 discipline picker and navigates to `freeform/new/{discipline}`. Persistence is lazy: tapping a discipline and pressing Back with zero edits writes no draft (`In progress` rows include a one-tap discard button). Opening an empty workout shows `+ Add exercise` plus recent quick-add chips (never auto-inserting movements).
+- `freeform/new/{discipline}` and `freeform/edit/{id}` support lazy autosave, compact tabular actuals (`Set | Prev | metrics | ✓`), dimmed completed rows with `#D8FB70` checkmarks, optional targets/RIR/RPE, a non-blocking inline `FreeformRestTimerBar`, and recorded-totals review before saving. Running captures date, distance, duration, optional effort, workout type, and notes.
+- **Training** places the weekly calendar directly beneath the `Training` header with flat hairline-separated rows (`Coached`, `Custom`, `Freeform`, `Garmin`). Completed Freeform workouts open via `freeform/history/{kind}/{id}`.
+- **Workout templates** offers horizontal discipline filter chips, concise exercise previews, and a modal bottom sheet discipline picker. **Schedule** sets one-off or weekly schedules (`CustomOccurrenceScreen`).
+- The standalone `Workout history` screen (`freeform/evidence`) and `training-workout-history` button are retired; `WorkoutEvidence.kt` and `HistoryBaselineCard` remain active so Running Plan Builder ("Where are you starting?") and `Today` recent activities retain confirmed cross-source history.
 
 ## Deprecated & Removed Elements (Do Not Reintroduce)
 - **Concentric Weekly TSS Rings & Elevated Telemetry Feed on Today (`All`):** Replaced by the verified P0 3-section layout (`TodayDailyTrainingCard`, `TodayTrainingOverviewCard`, Option 1 `TodayRecentActivitiesSection`) to avoid fabricated multisport TSS scores, fake workout-to-activity adherence guessing, and heavy scrolling cards.

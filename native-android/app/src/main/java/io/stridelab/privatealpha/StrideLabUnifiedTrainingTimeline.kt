@@ -195,7 +195,6 @@ internal fun StrideLabUnifiedTrainingTimeline(
     onAddWorkout: (() -> Unit)? = null,
     onOpenManual: (String, Boolean) -> Unit = { _, _ -> },
     onOpenCustom: (CustomOccurrenceKey) -> Unit = {},
-    onOpenHistory: (() -> Unit)? = null,
     calendarFocus: LocalDate? = null,
     clearCalendarFocus: () -> Unit = {}
 ) {
@@ -352,13 +351,13 @@ internal fun StrideLabUnifiedTrainingTimeline(
         }
     }
 
-    val showCalendarActions = showCustom || onOpenHistory != null
     val todayIndex = visibleDays.indexOfFirst { it.date == today }.coerceAtLeast(0)
+    val showSkeleton = rememberDelayedSkeletonVisible(state.initializing)
     val scroll = rememberLazyListState()
     LaunchedEffect(agendaView, selectedPlan?.id, selectedTrack, weekOnlyFilter, focusedNoPlanDate) {
         if (!state.initializing) {
             if (agendaView && !weekOnlyFilter) {
-                scroll.scrollToItem(todayIndex + (if (hasActivePlans) 2 else 1))
+                scroll.scrollToItem(todayIndex + 1)
             }
             else scroll.scrollToItem(0)
         }
@@ -375,10 +374,10 @@ internal fun StrideLabUnifiedTrainingTimeline(
     val fullDayFmt = remember(locale) { DateTimeFormatter.ofPattern("EEEE, MMM d", locale) }
 
     Column(Modifier.fillMaxSize().background(TimelineStyle.background)) {
-        FlowRow(
-            modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 8.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 "Training",
@@ -387,31 +386,23 @@ internal fun StrideLabUnifiedTrainingTimeline(
                 lineHeight = 35.sp,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = (-0.6).sp,
-                modifier = Modifier.align(Alignment.CenterVertically).testTag("training-title")
+                modifier = Modifier.weight(1f).testTag("training-title")
             )
-            if (onAddWorkout != null) {
-                FreeformPrimary(
-                    "Add Workout", onAddWorkout,
-                    Modifier.align(Alignment.CenterVertically).testTag("training-add-workout")
-                )
-            }
-        }
-
-        if (showCalendarActions) {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (onOpenHistory != null) {
-                    TextButton(onClick = onOpenHistory, modifier = Modifier.testTag("training-workout-history")) {
-                        Text("Workout history", color = TimelineStyle.lime)
-                    }
-                }
                 if (showCustom) {
                     TextButton(
                         onClick = { pickCustomDate(context, if (hasActivePlans) focusedDate else noPlanWeekAnchor, ::focusCalendar) },
-                        modifier = Modifier.testTag("training-pick-date")
-                    ) { Text("Go to date", color = TimelineStyle.secondary) }
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("training-pick-date")
+                    ) { Text("Date", color = TimelineStyle.secondary) }
+                }
+                if (onAddWorkout != null) {
+                    FreeformPrimary(
+                        "Add Workout", onAddWorkout,
+                        Modifier.testTag("training-add-workout")
+                    )
                 }
             }
         }
@@ -426,16 +417,20 @@ internal fun StrideLabUnifiedTrainingTimeline(
                     .fillMaxSize()
                     .testTag("training-unified-timeline"),
                 contentPadding = PaddingValues(
-                    start = 18.dp, end = 18.dp, top = 8.dp, bottom = 116.dp
+                    start = 18.dp, end = 18.dp, top = 6.dp, bottom = 116.dp
                 ),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (hasActivePlans) item(key = "training-create-plan") {
-                    OutlinedButton(onClick = onBuild, modifier = Modifier.fillMaxWidth().testTag("training-create-plan")) {
-                        Text("Create another plan")
+                if (showSkeleton && !hasActivePlans) {
+                    item(key = "training-skeleton") {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SkeletonCalendar()
+                            SkeletonWorkoutRow()
+                            SkeletonWorkoutRow()
+                        }
                     }
                 }
-                if (!hasActivePlans) item(key = "training-no-plan-week-strip") {
+                if (!hasActivePlans && !showSkeleton) item(key = "training-no-plan-week-strip") {
                     TimelineNoPlanWeekStrip(
                         today = today,
                         weekAnchor = noPlanWeekAnchor,
@@ -640,14 +635,9 @@ internal fun StrideLabUnifiedTrainingTimeline(
                                     )
                                 }
                                 if (hasActivePlans && !day.hasEntries) {
-                                    Surface(
-                                        shape = RoundedCornerShape(15.dp),
-                                        color = TimelineStyle.card,
-                                        border = BorderStroke(1.dp, TimelineStyle.border),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
+                                    Column(modifier = Modifier.fillMaxWidth()) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
@@ -655,28 +645,34 @@ internal fun StrideLabUnifiedTrainingTimeline(
                                                 Text(
                                                     "Rest & recovery day",
                                                     color = TimelineStyle.ink,
-                                                    fontSize = 13.5.sp,
+                                                    fontSize = 14.sp,
                                                     fontWeight = FontWeight.Bold
                                                 )
                                                 Text(
                                                     "No logged activity or scheduled workout on this date.",
                                                     color = TimelineStyle.secondary,
-                                                    fontSize = 11.5.sp
+                                                    fontSize = 12.sp
                                                 )
                                             }
                                             if (!agendaView) {
-                                                TextButton(onClick = { agendaView = true; weekOnlyFilter = true }) {
-                                                    Text("View week ›", color = TimelineStyle.lime, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                                                TextButton(
+                                                    onClick = { agendaView = true; weekOnlyFilter = true },
+                                                    modifier = Modifier.heightIn(min = 48.dp)
+                                                ) {
+                                                    Text("View week ›", color = TimelineStyle.lime, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }
+                                        StrideLabHairline()
                                     }
                                 }
                             }
                         }
                         if ((day.date == today || focusedNoPlanDate == day.date) && !hasActivePlans && !state.initializing) {
                             if (day.hasEntries) {
-                                TextButton(onClick = onBuild) { Text("Create training plan", color = TimelineStyle.secondary) }
+                                TextButton(onClick = onBuild, modifier = Modifier.heightIn(min = 48.dp)) {
+                                    Text("Create training plan", color = TimelineStyle.secondary)
+                                }
                             } else {
                                 TimelinePromptCard(
                                     title = "Your training starts here.",
@@ -686,6 +682,15 @@ internal fun StrideLabUnifiedTrainingTimeline(
                                 )
                             }
                         }
+                    }
+                }
+                if (hasActivePlans) item(key = "training-create-plan") {
+                    OutlinedButton(
+                        onClick = onBuild,
+                        border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("training-create-plan")
+                    ) {
+                        Text("Create another plan", color = TimelineStyle.ink)
                     }
                 }
                 for (paused in pausedPlans) item(key = "manage-paused-${paused.id}") {
@@ -1056,11 +1061,10 @@ private fun TimelineRecordedCard(
     val (primary, secondary) = timelineRecordedMetrics(activity)
     val gps = if (activityUsesStationaryDetail(activity)) null
         else rememberActivityThumbnail(activity.id, cachedDetail)
-    Surface(
-        onClick = onClick,
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 76.dp)
+            .clickable(onClick = onClick)
             .testTag("timeline-recorded-${activity.id}")
             .semantics {
                 contentDescription = buildString {
@@ -1073,75 +1077,70 @@ private fun TimelineRecordedCard(
                     }
                     append(", recorded activity")
                 }
-            },
-        shape = RoundedCornerShape(16.dp),
-        color = TimelineStyle.card,
-        border = BorderStroke(1.dp, accent.copy(alpha = 0.40f))
+            }
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Min),
-            verticalAlignment = Alignment.CenterVertically
+                .heightIn(min = 64.dp)
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
                 Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
+                    .width(3.dp)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(2.dp))
                     .background(accent)
             )
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 13.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.Start,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.Start,
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
+                Text(
+                    if (activity.source.equals("garmin", ignoreCase = true)) "Garmin · ${activity.title}" else activity.title,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TimelineStyle.secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    primary,
+                    color = TimelineStyle.ink,
+                    fontSize = 18.sp,
+                    lineHeight = 22.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.3).sp,
+                    style = TabularTextStyle,
+                    textAlign = TextAlign.Start,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (secondary.isNotEmpty()) {
                     Text(
-                        if (activity.source.equals("garmin", ignoreCase = true)) "Imported · ${activity.title}" else activity.title,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        secondary,
                         color = TimelineStyle.secondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        primary,
-                        color = TimelineStyle.ink,
-                        fontSize = 20.sp,
-                        lineHeight = 23.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = (-0.4).sp,
+                        fontSize = 12.sp,
+                        lineHeight = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        style = TabularTextStyle,
                         textAlign = TextAlign.Start,
                         maxLines = 1,
+                        softWrap = false,
                         overflow = TextOverflow.Ellipsis
                     )
-                    if (secondary.isNotEmpty()) {
-                        Text(
-                            secondary,
-                            color = TimelineStyle.secondary,
-                            fontSize = 11.5.sp,
-                            lineHeight = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Start,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
                 }
-                if (gps != null) {
-                    Box(Modifier.size(width = 48.dp, height = 44.dp)) {
-                        TodayCompactGpsThumbnail(gps, modifier = Modifier.fillMaxSize())
-                    }
+            }
+            if (gps != null) {
+                Box(Modifier.size(width = 48.dp, height = 44.dp)) {
+                    TodayCompactGpsThumbnail(gps, modifier = Modifier.fillMaxSize())
                 }
             }
         }
+        StrideLabHairline()
     }
 }
 
@@ -1198,37 +1197,35 @@ private fun TimelinePlannedCard(
         if (hasDraft) add("Entry draft")
     }.joinToString(" · ")
 
-    Surface(
-        onClick = onClick,
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 76.dp)
+            .clickable(onClick = onClick)
             .testTag("timeline-planned-${session.id}")
             .semantics {
                 contentDescription = "${session.effectiveTitle}, $details"
-            },
-        shape = RoundedCornerShape(16.dp),
-        color = TimelineStyle.card,
-        border = BorderStroke(1.dp, TimelineStyle.border)
+            }
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Min),
-            verticalAlignment = Alignment.CenterVertically
+                .heightIn(min = 64.dp)
+                .padding(vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
                 Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
+                    .width(3.dp)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(2.dp))
                     .background(accent)
             )
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .testTag("timeline-session-$planId-${session.id}")
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                    .testTag("timeline-session-$planId-${session.id}"),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -1261,16 +1258,17 @@ private fun TimelinePlannedCard(
                         Text(
                             session.effectiveTitle,
                             color = TimelineStyle.ink,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             details,
                             color = TimelineStyle.secondary,
-                            fontSize = 11.5.sp,
-                            lineHeight = 15.sp,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                            style = TabularTextStyle,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -1284,7 +1282,7 @@ private fun TimelinePlannedCard(
                     if (blocks.isNotEmpty()) {
                         WorkoutStructureBarChart(
                             blocks = blocks,
-                            height = 16.dp,
+                            height = 14.dp,
                             interactive = false,
                             tag = "timeline-mini-bars-${session.id}"
                         )
@@ -1292,5 +1290,6 @@ private fun TimelinePlannedCard(
                 }
             }
         }
+        StrideLabHairline()
     }
 }

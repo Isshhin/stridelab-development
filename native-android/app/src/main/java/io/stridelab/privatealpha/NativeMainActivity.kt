@@ -266,7 +266,7 @@ private fun NavHostController.openActivity(id: String) {
     }
     val visibleActivities = remember(groupedActivities) { groupedActivities.map { it.primary } }
     val evidenceDate = LocalDate.now()
-    val evidence = if (route == "freeform/evidence" || route == "builder/{discipline}") {
+    val evidence = if (route == "builder/{discipline}") {
         key(freeformOwner, state.loginGeneration) {
             val rows by produceState<List<WorkoutEvidence>?>(
                 null, state.plans, freeformBoard, groupedActivities, state.initializing, freeformReadError
@@ -282,7 +282,6 @@ private fun NavHostController.openActivity(id: String) {
             rows
         }
     } else null
-    val openEvidence: () -> Unit = { nav.navigate("freeform/evidence") { launchSingleTop = true } }
     // A genuinely floating dock must not participate in Scaffold's bottomBar:
     // the overlay is positioned above the system gesture area independently
     // of the scrolling screen. Detail/builder flows continue to hide it.
@@ -441,8 +440,12 @@ private fun NavHostController.openActivity(id: String) {
                                 owner = freeformOwner, board = freeformBoard, readError = freeformReadError,
                                 access = freeformAccess, back = { nav.popBackStack() }, retry = { freeformReload++ },
                                 update = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
+                                removeDraft = { id -> freeformBoard = freeformBoard?.without(id) },
                                 restored = { freeformBoard = it },
                                 openTemplates = { nav.navigate("freeform/templates") },
+                                startEmpty = { discipline ->
+                                    nav.navigate("freeform/new/${discipline.name}") { launchSingleTop = true }
+                                },
                                 openDraft = { id ->
                                     nav.navigate("freeform/edit/${android.net.Uri.encode(id)}") { launchSingleTop = true }
                                 }
@@ -585,6 +588,32 @@ private fun NavHostController.openActivity(id: String) {
                         }
                     }
                 }
+                composable("freeform/new/{discipline}") { destination ->
+                    val disciplineName = destination.arguments?.getString("discipline")
+                    val discipline = ManualDiscipline.entries.firstOrNull { it.name == disciplineName }
+                    val board = freeformBoard
+                    if (discipline != null && freeformOwner != null && freeformAccess != null && board != null) {
+                        key(freeformOwner, state.loginGeneration, discipline) {
+                            val initial = remember(freeformOwner, discipline) {
+                                FreeformWorkout.start(freeformOwner, discipline, LocalDate.now(), System.currentTimeMillis())
+                            }
+                            FreeformEditor(
+                                initial = initial, board = board, access = freeformAccess, persisted = false,
+                                update = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
+                                remove = { freeformBoard = freeformBoard?.without(it) },
+                                leave = { nav.popBackStack() },
+                                saved = { completedId ->
+                                    nav.navigate("freeform/history/freeform/${android.net.Uri.encode(completedId)}") {
+                                        popUpTo("training") { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
+                        }
+                    } else {
+                        FreeformHistoryDetail(null, null, board == null && freeformReadError == null) { nav.popBackStack() }
+                    }
+                }
                 composable("freeform/edit/{id}") { destination ->
                     val id = destination.arguments?.getString("id")
                     val board = freeformBoard
@@ -592,7 +621,7 @@ private fun NavHostController.openActivity(id: String) {
                     if (workout != null && !workout.isComplete && freeformAccess != null) {
                         key(freeformOwner, state.loginGeneration) {
                             FreeformEditor(
-                                initial = workout, board = board, access = freeformAccess,
+                                initial = workout, board = board, access = freeformAccess, persisted = true,
                                 update = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
                                 remove = { freeformBoard = freeformBoard?.without(it) },
                                 leave = { nav.popBackStack() },
@@ -606,25 +635,6 @@ private fun NavHostController.openActivity(id: String) {
                         }
                     } else {
                         FreeformHistoryDetail(workout, null, board == null && freeformReadError == null) { nav.popBackStack() }
-                    }
-                }
-                composable("freeform/evidence") {
-                    key(freeformOwner, state.loginGeneration) {
-                        WorkoutEvidenceScreen(
-                            rows = evidence.orEmpty(), loading = evidence == null,
-                            manualHistoryError = freeformReadError, retry = { freeformReload++ },
-                            today = evidenceDate, back = { nav.popBackStack() }
-                        ) { link ->
-                            when (link) {
-                                is WorkoutEvidenceLink.Manual -> openFreeformHistory(link.id, link.legacy)
-                                is WorkoutEvidenceLink.Imported -> nav.openActivity(link.id)
-                                is WorkoutEvidenceLink.Coached -> {
-                                    val plan = android.net.Uri.encode(link.planId)
-                                    val session = android.net.Uri.encode(link.sessionId)
-                                    nav.navigate("workout/$plan/$session") { launchSingleTop = true }
-                                }
-                            }
-                        }
                     }
                 }
                 composable("freeform/history/{kind}/{id}") { destination ->
@@ -895,7 +905,7 @@ private fun NavHostController.openActivity(id: String) {
                             { id -> nav.openActivity(id) },
                             { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
                             manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory,
-                            onOpenCustom = openCustomWorkout, onOpenHistory = openEvidence, calendarFocus = customCalendarFocus,
+                            onOpenCustom = openCustomWorkout, calendarFocus = customCalendarFocus,
                             clearCalendarFocus = { customCalendarFocus = null }
                         )
                     }
@@ -944,7 +954,7 @@ private fun NavHostController.openActivity(id: String) {
                         { id -> nav.openActivity(id) },
                         { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
                         manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory,
-                        onOpenCustom = openCustomWorkout, onOpenHistory = openEvidence, calendarFocus = customCalendarFocus,
+                        onOpenCustom = openCustomWorkout, calendarFocus = customCalendarFocus,
                         clearCalendarFocus = { customCalendarFocus = null }
                     )
                 }

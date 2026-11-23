@@ -32,14 +32,14 @@ import java.util.Locale
  */
 internal object StrideLabVisualPalette {
     val amoledBlack = Color(0xFF000000)
-    val canvas = Color(0xFF090B0D)
-    val surface = Color(0xFF101214)
-    val surfaceRaised = Color(0xFF16191E)
-    val border = Color(0xFF22262D)
-    val borderSubtle = Color(0xFF1B1F25)
-    val ink = Color(0xFFF7F7F5)
-    val secondary = Color(0xFFA0A7B2)
-    val muted = Color(0xFF707885)
+    val canvas = Color(0xFF000000)
+    val surface = Color(0xFF121212)
+    val surfaceRaised = Color(0xFF181A1D)
+    val border = Color(0xFF1F242B)
+    val borderSubtle = Color(0xFF191D23)
+    val ink = Color(0xFFF5F7FA)
+    val secondary = Color(0xFFA0A8B3)
+    val muted = Color(0xFF6B737E)
 
     // Signature brand + semantic intensity palette
     val lime = Color(0xFFD8FB70)

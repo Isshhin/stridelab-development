@@ -405,6 +405,7 @@ internal fun StrideLabTodayScreen(
                 }
             }
             item(key = "today-hero") {
+                val showHeroSkeleton = rememberDelayedSkeletonVisible(!state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion)
                 if (isPastDate && !evidence.hasApprovedPlan && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion && state.todayPlanReady) {
                     TodayCompactEmptyDay(online = online)
                 } else if (!state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion) {
@@ -416,14 +417,18 @@ internal fun StrideLabTodayScreen(
                     ) {
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
                                 text = "Loading training day...",
-                                color = TodayAdaptivePalette.text,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold
+                                color = TodayAdaptivePalette.textSecondary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
                             )
+                            if (showHeroSkeleton) {
+                                SkeletonText(widthFraction = 0.65f, height = 18.dp, reducedMotion = reduceMotion)
+                                SkeletonText(widthFraction = 0.45f, height = 13.dp, reducedMotion = reduceMotion)
+                            }
                         }
                     }
                 } else {
@@ -455,14 +460,29 @@ internal fun StrideLabTodayScreen(
                         discipline = filter
                     )
                 }
-                if (selectedPage == "all" && state.activitySummariesReady) item(key = "today-recent-activities") {
-                    TodayRecentActivitiesSection(
-                        rows = recentActivities,
-                        cachedDetails = state.details,
-                        onSeeAll = onOpenActivity,
-                        onOpenActivityDetail = onOpenActivityDetail,
-                        onOpenWorkout = onOpenWorkout
-                    )
+                if (selectedPage == "all") {
+                    if (state.activitySummariesReady) {
+                        item(key = "today-recent-activities") {
+                            TodayRecentActivitiesSection(
+                                rows = recentActivities,
+                                cachedDetails = state.details,
+                                onSeeAll = onOpenActivity,
+                                onOpenActivityDetail = onOpenActivityDetail,
+                                onOpenWorkout = onOpenWorkout
+                            )
+                        }
+                    } else {
+                        item(key = "today-recent-skeleton") {
+                            val showRecentSkeleton = rememberDelayedSkeletonVisible(true)
+                            if (showRecentSkeleton) {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    SkeletonText(widthFraction = 0.4f, height = 15.dp, reducedMotion = reduceMotion)
+                                    SkeletonActivityRow(reducedMotion = reduceMotion)
+                                    SkeletonActivityRow(reducedMotion = reduceMotion)
+                                }
+                            }
+                        }
+                    }
                 }
             }
             if (selectedPage != "all") {
