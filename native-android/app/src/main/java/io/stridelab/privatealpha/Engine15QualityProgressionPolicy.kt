@@ -1,5 +1,8 @@
 package io.stridelab.privatealpha
 
+import java.time.Instant
+import java.time.ZoneOffset
+
 import kotlin.math.roundToInt
 
 internal enum class Engine15WorkoutArchetype(
@@ -332,21 +335,23 @@ internal object Engine15QualityProgressionPolicy {
 
     /**
      * Computes the 50/50 Auto-Detected Workout + Historical Fitness quality work anchor (in seconds).
-     * Ensures fit runners always receive meaningful, non-junk quality workouts matched to both
-     * their recently detected workouts and their volume/pace capacity.
+     * Seeds new plans from recent volume and provisional quality evidence.
+     * Saved plans replay the persisted anchor without reading today’s history.
      */
     fun computeAdaptiveExposureAnchorSeconds(
         request: PlanRequest,
         family: IndependentQualityFamily,
         activities: List<ActivityRecord> = emptyList(),
         plans: List<PlanSnapshot> = emptyList(),
-        detections: List<Engine15DetectedWorkout> = emptyList()
+        detections: List<Engine15DetectedWorkout> = emptyList(),
+        now: Instant = Instant.now()
     ): Int {
-        val zones = Engine15PaceZoneEstimator.estimate(request, activities = activities)
+        val cutoff = now.minusSeconds(56L * 86_400)
+        val recentActivities = activities.filter { it.startedAt in cutoff..now }
+        val zones = Engine15PaceZoneEstimator.estimate(request, activities = recentActivities)
         val effectiveWeeklyKm = maxOf(
             request.weeklyKm,
-            request.targetWeeklyKm?.times(0.85) ?: 0.0,
-            automaticRunningBaseline(activities, plans = plans)?.weeklyKm ?: 0.0
+            automaticRunningBaseline(recentActivities, now = now, plans = plans)?.weeklyKm ?: 0.0
         ).coerceIn(12.0, 120.0)
         val sessionsPerWeek = request.qualityCount.coerceIn(1, 2)
 
@@ -401,16 +406,31 @@ internal object Engine15QualityProgressionPolicy {
         }
         val fitnessCapacitySec = maxOf(rawFitnessWorkSec, meaningfulFloorSec).coerceIn(300, 2400)
 
-        // 2. 50% Weight: Auto-Detected Recent Workouts (lap heuristics + plan links + pace-detected quality runs)
-        val lapOrLinkedDurations = detections.filter { det ->
-            det.kind == ActivityWorkoutKind.QUALITY_RUN &&
-                det.candidateWorkSegmentsSeconds.isNotEmpty()
-        }.map { it.candidateWorkSegmentsSeconds.sum() }
-            .filter { it in 300..3600 }
+        // Prefer repeated same-family work evidence over a whole-run pace proxy.
+        val dates = cutoff.atOffset(ZoneOffset.UTC).toLocalDate()..now.atOffset(ZoneOffset.UTC).toLocalDate()
+        val recentDetections = detections.filter { it.performedOn in dates }
+        val coveredIds = recentDetections.flatMap { it.mergedSourceIds + it.activityId }.toSet()
+        val countedIds = mutableSetOf<String>()
+        val lapOrLinkedDurations = recentDetections.asSequence()
+            .filter { it.kind == ActivityWorkoutKind.QUALITY_RUN &&
+                it.qualitySubtype?.name == family.name &&
+                it.confidence != Engine15DetectionConfidence.AMBIGUOUS_CONFLICT }
+            .sortedWith(compareByDescending<Engine15DetectedWorkout> { it.performedOn }.thenBy { it.activityId })
+            .mapNotNull { detection ->
+                val workSeconds = detection.candidateWorkSegmentsSeconds.sum().takeIf { it in 300..3600 }
+                    ?: return@mapNotNull null
+                val ids = detection.mergedSourceIds + detection.activityId
+                val duplicate = ids.any { it in countedIds }
+                countedIds.addAll(ids)
+                workSeconds.takeUnless { duplicate }
+            }.take(4).toList()
 
         val easyPace = zones.easy.midpointSecondsPerKm
-        val paceDetectedDurations = ActivityDisplayConsolidation.visible(activities)
+        val paceDetectedDurations = ActivityDisplayConsolidation.groups(recentActivities)
+            .filter { group -> group.primary.id !in coveredIds && group.additionalSources.none { it.id in coveredIds } }
+            .map { it.primary }
             .filter { DashboardSummary.isRun(it) }
+            .sortedByDescending { it.startedAt }
             .mapNotNull { run ->
                 val distM = run.distanceM?.takeIf { it.isFinite() && it >= 4_000.0 } ?: return@mapNotNull null
                 val durS = run.durationS?.takeIf { it.isFinite() && it >= 900.0 } ?: return@mapNotNull null
@@ -421,7 +441,6 @@ internal object Engine15QualityProgressionPolicy {
                 } else null
             }
 
-        val allDetectedWork = (lapOrLinkedDurations + paceDetectedDurations).sortedDescending().take(4)
         // When an athlete has ZERO recent quality efforts detected (e.g., purely easy-mileage base),
         // don't drop straight into max-ceiling 40-min quality in Week 1 — introduce at controlled fitness dose.
         val unverifiedCapSec = when (family) {
@@ -432,10 +451,11 @@ internal object Engine15QualityProgressionPolicy {
             IndependentQualityFamily.FARTLEK -> if (sessionsPerWeek == 2) 14 * 60 else 18 * 60
             IndependentQualityFamily.HILLS -> if (sessionsPerWeek == 2) 9 * 60 else 12 * 60
         }
-        val detectedWorkSec = if (allDetectedWork.isNotEmpty()) {
-            allDetectedWork.average().roundToInt()
-        } else {
-            minOf(fitnessCapacitySec, unverifiedCapSec)
+        val detectedWorkSec = when {
+            lapOrLinkedDurations.size >= 2 -> lapOrLinkedDurations.average().roundToInt()
+            paceDetectedDurations.isNotEmpty() -> paceDetectedDurations.take(4).average().roundToInt()
+                .coerceAtMost(unverifiedCapSec)
+            else -> minOf(fitnessCapacitySec, unverifiedCapSec)
         }
 
         // 3. 50 / 50 Blend + Week-1 Progressive Headroom (~78% of peak capacity, bounded safely by experience)
@@ -449,7 +469,13 @@ internal object Engine15QualityProgressionPolicy {
             sessionsPerWeek == 2 -> 20 * 60
             else -> 32 * 60
         }
-        return maxOf(minOf(progressiveStartSec, w1ExperienceCeiling), meaningfulFloorSec).coerceIn(300, 2400)
+        val proposedEntry = maxOf(minOf(progressiveStartSec, w1ExperienceCeiling), meaningfulFloorSec)
+        val experienceAdjustedEntry = if (request.experience == 1 || request.returning) {
+            // Keep one rung of headroom for runners with less experience or returning from a break.
+            val entryRungSeconds = ladder(family, request.experience).first().workSeconds
+            minOf(proposedEntry, maxOf(entryRungSeconds, (proposedEntry * 0.85).roundToInt()))
+        } else proposedEntry
+        return experienceAdjustedEntry.coerceIn(300, 2400)
     }
 
     internal fun qualityFamilyRotation(

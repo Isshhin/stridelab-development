@@ -16,7 +16,7 @@ Offline-first native Android running and multi-discipline training coach built a
 
 ## Repository Map (`F:\StrideLab\Current-App\stridelab-engine15-dev`, branch `dev`)
 - `native-android/app/src/main/java/io/stridelab/privatealpha/` — Active Kotlin/Compose app, Engine 1.5, Garmin/FIT pipeline, and UI
-- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`157` suites / `1,235` tests, including workout outcomes, multi-plan Today, independent plan generation, running history estimates, FIT and debriefs)
+- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`158` suites / `1,243` tests, including workout outcomes, multi-plan Today, full running plans, running history estimates, FIT and debriefs)
 - `native-android/app/src/androidTest/java/io/stridelab/privatealpha/` — Compose and instrumentation coverage for Activity Detail and guided execution. The five AMOLED player tests passed on the API 35 emulator at 360 dp and approximately 412 dp with font scales 1.0 and 1.3.
 - `docs/wiki/` — Persistent Obsidian-compatible LLM memory hub (this wiki)
 - `research/engine15/` — Generated Engine 1.5 coaching audit reports (e.g., `M28A_COACHING_AUDIT_20261121.md`)
@@ -37,6 +37,10 @@ Offline-first native Android running and multi-discipline training coach built a
 
 - The week strip, selected day, and weekly adherence share the same discipline filter across all approved plans. Session identity and recording deduplication are independent. See [[screens]].
 - All eight `TracksideTodayTest` cases passed on the API 35 Pixel 9 emulator, including concurrent Running and Strength plans on the same date.
+
+## Running Prescription Validation
+
+- The M28A audit reports distance reps in meters with a labeled work time estimate. The full-plan JVM fixtures cover 8-week beginner, 16-week intermediate, and 12-week advanced 10K plans, plus Garmin FIT decoding of the benchmark workouts. See [[engine-rules]] for quality entry and phase rules.
 
 ## Verification Commands (`native-android/`, JDK 21, run sequentially)
 ```powershell

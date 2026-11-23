@@ -170,7 +170,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                         family = selectedFamily,
                         activities = activities,
                         plans = existingPlans.orEmpty(),
-                        detections = detections
+                        detections = detections,
+                        now = now
                     )
                 val zones = Engine15PaceZoneEstimator.estimate(resolvedRequest, activities = activities)
 

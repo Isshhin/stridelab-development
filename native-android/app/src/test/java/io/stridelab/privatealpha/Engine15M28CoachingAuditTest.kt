@@ -216,7 +216,8 @@ class Engine15M28CoachingAuditTest {
         val sb = StringBuilder()
         sb.appendLine("# M28A — Engine 1.5 Systematic Coaching Audit")
         sb.appendLine()
-        sb.appendLine("Generated across 15 scenarios (12 standard matrix personas + 3 messy real-world histories).")
+        sb.appendLine("Generated across 15 synthetic scenarios (12 standard matrix personas + 3 uneven history fixtures).")
+        sb.appendLine("Work uses prescribed meters or time. Parenthesized work time for distance reps is estimated at the midpoint of their pace targets.")
         sb.appendLine()
 
         var totalFindings = 0
@@ -285,10 +286,10 @@ class Engine15M28CoachingAuditTest {
             }.toSortedMap()
 
             val weeklyKms = mutableListOf<Double>()
-            val qualityWorkMins = mutableListOf<Int>()
+            val qualityWorkSeconds = mutableListOf<Int>()
             val flags = mutableListOf<String>()
 
-            sb.appendLine("| Wk | Sessions | Total km | Long run km (% wk) | Quality workout (work min) | Spacing |")
+            sb.appendLine("| Wk | Sessions | Total km | Long run km (% wk) | Quality workout (prescribed work; estimated work time for distance reps) | Spacing |")
             sb.appendLine("|---|---|---|---|---|---|")
 
             var prevWeekKm: Double? = null
@@ -301,12 +302,34 @@ class Engine15M28CoachingAuditTest {
 
                 val qualSessions = wkSessions.filter { it.quality }
                 val qualDesc = if (qualSessions.isEmpty()) "—" else qualSessions.joinToString("; ") { q ->
-                    val workSec = q.runningPrescription?.mixedSegments
-                        ?.filter { it.purpose == "WORK" }
-                        ?.sumOf { it.seconds ?: 0 } ?: 0
-                    val workMin = workSec / 60
-                    qualityWorkMins += workMin
-                    "${q.runningPrescription?.family ?: q.title} (${workMin}m work / ${q.minutes}m tot)"
+                    val rx = requireNotNull(q.runningPrescription)
+                    val work = rx.mixedSegments ?: rx.segments.map {
+                        RunningStepV2(it.purpose, it.effort, meters = it.meters,
+                            targetPaceMinSecPerKm = it.targetPaceMinSecPerKm,
+                            targetPaceMaxSecPerKm = it.targetPaceMaxSecPerKm)
+                    }
+                    val workSteps = work.filter { it.purpose == "WORK" }
+                    val timedSeconds = workSteps.sumOf { it.seconds ?: 0 }
+                    val distanceMeters = workSteps.sumOf { it.meters ?: 0 }
+                    val estimatedSeconds = timedSeconds + workSteps.filter { it.meters != null }.sumOf { step ->
+                        val pace = if (step.targetPaceMinSecPerKm != null && step.targetPaceMaxSecPerKm != null) {
+                            (step.targetPaceMinSecPerKm + step.targetPaceMaxSecPerKm) / 2.0
+                        } else when (rx.family) {
+                            "Threshold" -> zones.threshold.midpointSecondsPerKm
+                            "Intervals" -> zones.intervals.midpointSecondsPerKm
+                            else -> zones.tempo.midpointSecondsPerKm
+                        }
+                        kotlin.math.round(step.meters!! * pace / 1000.0).toInt()
+                    }
+                    if (estimatedSeconds <= 0) flags += "Wk $wk: quality work omitted from report"
+                    qualityWorkSeconds += estimatedSeconds
+                    val dose = listOfNotNull(
+                        distanceMeters.takeIf { it > 0 }?.let { "${it} m" },
+                        timedSeconds.takeIf { it > 0 }?.let { "%d:%02d".format(Locale.US, it / 60, it % 60) }
+                    ).joinToString(" + ")
+                    val estimate = if (distanceMeters > 0) " (~%d:%02d)".format(Locale.US,
+                        estimatedSeconds / 60, estimatedSeconds % 60) else ""
+                    "${rx.family ?: q.title} ($dose work$estimate / ${q.minutes}m tot)"
                 }
 
                 val hardDates = wkSessions.filter { it.quality || it.kind == "long" }.map { it.date }.sorted()
@@ -335,14 +358,14 @@ class Engine15M28CoachingAuditTest {
                 )
             }
 
-            if (sc.request.qualityCount > 0 && qualityWorkMins.isEmpty()) {
+            if (sc.request.qualityCount > 0 && qualityWorkSeconds.isEmpty()) {
                 flags += "Requested qualityCount=${sc.request.qualityCount}, but 0 quality sessions generated (silently dropped to aerobic)"
-            } else if (qualityWorkMins.size >= 4 && qualityWorkMins.distinct().size == 1) {
-                flags += "Quality work dose is completely FLAT (${qualityWorkMins.first()}m every single week)"
+            } else if (qualityWorkSeconds.size >= 4 && qualityWorkSeconds.distinct().size == 1) {
+                flags += "Quality work dose is completely FLAT (${qualityWorkSeconds.first()}s every single week)"
             }
 
-            if (sc.request.experience == 0 && qualityWorkMins.isNotEmpty() && qualityWorkMins.first() > 20) {
-                flags += "Beginner W1 quality work dose too high (${qualityWorkMins.first()}m > 20m)"
+            if (sc.request.experience == 0 && qualityWorkSeconds.firstOrNull()?.let { it > 20 * 60 } == true) {
+                flags += "Beginner W1 quality work dose too high (${qualityWorkSeconds.first()}s > 20m)"
             }
 
             if (weeklyKms.size >= 8) {
