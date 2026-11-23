@@ -15,6 +15,55 @@ class TodayAdaptiveLoadTest {
     private val zone = ZoneOffset.UTC
     private val now = monday.plusDays(6).atTime(20, 0).toInstant(zone)
 
+    private fun activePlan(id: String, session: PlannedSession) = PlanSnapshot(
+        id, "owner", ENGINE15_VERSION, ENGINE15_INDEPENDENT_RUNNING_POLICY,
+        Instant.EPOCH, PlanRequest(start = monday), listOf(session), emptyList(), status = "approved"
+    )
+
+    @Test fun independentPlansAggregateAndFilterWithoutCollidingOnSessionIdentity() {
+        val str = PlannedSession("same", monday, "str", "Training", 35, null, "strength", status = "completed")
+        val run = PlannedSession("same", monday, "run", "Training", 35, 6.0, "easy")
+        val plans = listOf(activePlan("strength", str), activePlan("running", run))
+        fun weekly(filter: TodayDiscipline?) = TodayOverviewCalculator.computeWeeklyOverview(
+            monday, emptyList(), emptyList(), plans, now, zone, discipline = filter
+        ).adherence!!
+        assertEquals(2, weekly(null).plannedSessions)
+        assertEquals(1, weekly(null).completedSessions)
+        assertEquals(1, weekly(TodayDiscipline.RUNNING).plannedSessions)
+        assertEquals(0, weekly(TodayDiscipline.RUNNING).completedSessions)
+        assertEquals(1, weekly(TodayDiscipline.STRENGTH).completedSessions)
+        val day = TodayOverviewCalculator.buildDailyTrainingState(
+            monday, emptyList(), emptyList(), emptyList(), plans
+        ) as TodayDailyTrainingState.Sessions
+        assertEquals(listOf("running" to "same", "strength" to "same"),
+            day.items.filterIsInstance<TodayDailySessionItem.Planned>().map { it.key })
+    }
+
+    @Test fun canonicalRecordingGetsPhysicalCreditOnceAndAmbiguousClaimsGetNeitherPrescriptionCredit() {
+        val old = runAct("legacy", 0, 6.0, 35.0)
+        val canonical = old.copy(id = "garmin-${"a".repeat(64)}")
+        val history = listOf(old, canonical)
+        val run = PlannedSession("same", monday, "run", "Run", 35, 6.0, "easy",
+            status = "completed", linkedActivityId = old.id,
+            log = WorkoutLog(now, minutes = 35.0, distanceKm = 6.0, performedOn = monday))
+        val first = activePlan("running", run)
+        val second = activePlan("another", run.copy(linkedActivityId = canonical.id))
+        fun weekly(plans: List<PlanSnapshot>) = TodayOverviewCalculator.computeWeeklyOverview(
+            monday, history, history, plans, now, zone
+        )
+        assertEquals(1, weekly(listOf(first)).adherence!!.completedSessions)
+        val overview = weekly(listOf(first, second))
+        assertEquals(1, overview.runCount)
+        assertEquals(6.0, overview.runKm, 0.0)
+        assertEquals(2, overview.adherence!!.plannedSessions)
+        assertEquals(0, overview.adherence.completedSessions)
+        val day = TodayOverviewCalculator.buildDailyTrainingState(
+            monday, history, emptyList(), history, listOf(first, second)
+        ) as TodayDailyTrainingState.Sessions
+        assertEquals(2, day.items.filterIsInstance<TodayDailySessionItem.Planned>().size)
+        assertEquals(canonical.id, day.items.filterIsInstance<TodayDailySessionItem.Recorded>().single().activity.id)
+    }
+
     private fun runAct(id: String, dayOffset: Long, distKm: Double, durMin: Double, hr: Double = 148.0) =
         ActivityRecord(
             id = id,
@@ -118,7 +167,6 @@ class TodayAdaptiveLoadTest {
 
         val emptyDayState = TodayOverviewCalculator.buildDailyTrainingState(
             date = monday.plusDays(5),
-            approvedPlan = null,
             recordedOnDate = emptyList(),
             confirmedOnDate = emptyList(),
             rawHistory = activities,
@@ -128,7 +176,6 @@ class TodayAdaptiveLoadTest {
 
         val activeDayState = TodayOverviewCalculator.buildDailyTrainingState(
             date = monday.plusDays(1),
-            approvedPlan = null,
             recordedOnDate = listOf(activities[2]),
             confirmedOnDate = emptyList(),
             rawHistory = activities,
@@ -158,7 +205,6 @@ class TodayAdaptiveLoadTest {
 
         val mondayState = TodayOverviewCalculator.buildDailyTrainingState(
             date = monday,
-            approvedPlan = plan,
             recordedOnDate = emptyList(),
             confirmedOnDate = listOf(ConfirmedWorkout("p1", "s-str", monday, "str", 2400.0, null)),
             rawHistory = emptyList(),
@@ -172,7 +218,6 @@ class TodayAdaptiveLoadTest {
 
         val tuesdayRest = TodayOverviewCalculator.buildDailyTrainingState(
             date = monday.plusDays(1),
-            approvedPlan = plan,
             recordedOnDate = emptyList(),
             confirmedOnDate = emptyList(),
             rawHistory = emptyList(),

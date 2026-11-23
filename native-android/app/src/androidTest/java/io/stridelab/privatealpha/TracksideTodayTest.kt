@@ -9,6 +9,7 @@ import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -18,6 +19,47 @@ import java.time.LocalDate
 /** Exercises the Today's saved-data presentation without external login or network access. */
 class TracksideTodayTest {
     @get:Rule val compose = createAndroidComposeRule<NativeMainActivity>()
+
+    @Test fun concurrentPlansShareTheDayAndFollowDisciplineFilters() {
+        val monday = TodayDisciplineAnalytics.monday(LocalDate.now())
+        fun plan(id: String, discipline: String, title: String, extraDay: Long) = PlanSnapshot(
+            id, "local-test", ENGINE15_VERSION, ENGINE15_INDEPENDENT_RUNNING_POLICY,
+            java.time.Instant.EPOCH, PlanRequest(start = monday),
+            listOf(
+                PlannedSession("shared-id", monday, discipline, title, 35, null, "easy"),
+                PlannedSession("extra", monday.plusDays(extraDay), discipline, "$title extra", 35, null, "easy")
+            ), emptyList(), status = "approved"
+        )
+        val state = TrainingState(initializing = false, plans = listOf(
+            plan("strength-plan", "str", "Strength session", 2),
+            plan("running-plan", "run", "Running session", 1)
+        ))
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    StrideLabTodayScreen(state, emptyList(), false,
+                        onOpenTraining = {}, onOpenActivity = {}, onOpenWorkout = { _, _ -> },
+                        onOpenActivityDetail = {}, onOpenMore = {}, onSignIn = {})
+                }
+            }
+        }
+        compose.onNodeWithTag("today-day-0").performClick()
+        compose.onNodeWithText("Running session").assertExists()
+        compose.onNodeWithText("Strength session").assertExists()
+        compose.onNodeWithTag("today-page-strength").performClick()
+        compose.onNodeWithTag("today-day-0").assertIsSelected()
+        compose.onNodeWithText("Strength session").assertExists()
+        compose.onNodeWithText("Running session").assertDoesNotExist()
+        compose.onNodeWithTag("today-day-1").assert(androidx.compose.ui.test.hasContentDescription(
+            ", planned", substring = true
+        ).not())
+        compose.onNodeWithTag("today-page-running").performClick()
+        compose.onNodeWithText("Running session").assertExists()
+        compose.onNodeWithText("Strength session").assertDoesNotExist()
+        compose.onNodeWithTag("today-day-1").assert(androidx.compose.ui.test.hasContentDescription(
+            ", planned", substring = true
+        ))
+    }
 
     @Test fun companionCopyAndActionCoverAllTrainingDisciplines() {
         var opened = 0

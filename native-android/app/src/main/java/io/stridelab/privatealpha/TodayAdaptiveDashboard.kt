@@ -81,7 +81,8 @@ internal sealed interface TodayDailySessionItem {
         val linkedActivity: ActivityRecord?,
         val isQualityWorkout: Boolean
     ) : TodayDailySessionItem {
-        override val stableKey: String get() = "planned-${planId}-${session.id}"
+        val key = planId to session.id
+        override val stableKey: String get() = "planned-${planId.length}:$planId${session.id}"
     }
 
     data class Recorded(
@@ -144,15 +145,51 @@ internal data class TodayRecentRow(
     val isRun: Boolean
 )
 
+internal data class TodayScheduledSession(val planId: String, val session: PlannedSession) {
+    val key = planId to session.id
+    val discipline = TodayDiscipline.fromLog(session.discipline)
+}
+
+internal class TodaySchedule(val plans: List<PlanSnapshot>, history: List<ActivityRecord>) {
+    val hasApprovedPlan = plans.any { it.status == "approved" }
+    val sessions = plans.filter { it.status == "approved" }.flatMap { plan ->
+        plan.sessions.filter { it.status != "unassigned" }.map { TodayScheduledSession(plan.id, it) }
+    }.distinctBy { it.key }
+    private val canonicalById = ActivityDisplayConsolidation.groups(history).flatMap { group ->
+        (listOf(group.primary) + group.additionalSources).map { it.id to group.primary }
+    }.toMap()
+    private val claims = sessions.mapNotNull { row -> recordingId(row)?.let { it to row.key } }
+        .groupBy({ it.first }, { it.second })
+    private val linkedKeys = plans.flatMap { plan ->
+        plan.sessions.filter { it.linkedActivityId != null }.map { plan.id to it.id }
+    }.toSet()
+
+    private fun recordingId(row: TodayScheduledSession): String? =
+        row.session.linkedActivityId?.let { canonicalById[it]?.id ?: it }
+
+    fun isCompleted(row: TodayScheduledSession): Boolean {
+        val id = recordingId(row) ?: return row.session.status == "completed"
+        return claims[id]?.singleOrNull() == row.key
+    }
+
+    fun linkedActivity(row: TodayScheduledSession): ActivityRecord? =
+        row.session.linkedActivityId?.takeIf { isCompleted(row) }?.let(canonicalById::get)
+
+    fun recordings(visible: List<ActivityRecord>): List<ActivityRecord> =
+        visible.map { canonicalById[it.id] ?: it }.distinctBy { it.id }
+
+    fun isNativeLog(log: ConfirmedWorkout): Boolean = (log.planId to log.sessionId) !in linkedKeys
+
+    fun confirmed(history: List<ActivityRecord>, now: Instant): List<ConfirmedWorkout> =
+        DashboardSummary.confirmedWorkouts(plans, history, now).filter(::isNativeLog)
+}
+
 internal object TodayOverviewCalculator {
     private val nonRunningOrder = listOf(
         TodayDiscipline.STRENGTH,
         TodayDiscipline.CALISTHENICS,
         TodayDiscipline.CONDITIONING
     )
-
-    fun isSessionVerifiedCompleted(session: PlannedSession): Boolean =
-        session.status == "completed" || session.linkedActivityId != null
 
     fun formatRunHoursMinutes(seconds: Double): String {
         if (!seconds.isFinite() || seconds <= 0.0) return "0:00"
@@ -168,15 +205,18 @@ internal object TodayOverviewCalculator {
         rawHistory: List<ActivityRecord>,
         plans: List<PlanSnapshot>,
         now: Instant = Instant.now(),
-        zone: ZoneId = ZoneId.systemDefault()
+        zone: ZoneId = ZoneId.systemDefault(),
+        discipline: TodayDiscipline? = null,
+        schedule: TodaySchedule = TodaySchedule(plans, rawHistory + visibleActivities)
     ): TodayTrainingOverview {
         val start = TodayDisciplineAnalytics.monday(weekStart)
         val end = start.plusDays(6)
-        val weekActivities = visibleActivities.filter {
-            !it.startedAt.isAfter(now) && it.startedAt.atZone(zone).toLocalDate() in start..end
+        val weekActivities = schedule.recordings(visibleActivities).filter {
+            !it.startedAt.isAfter(now) && it.startedAt.atZone(zone).toLocalDate() in start..end &&
+                (discipline == null || TodayDiscipline.fromActivity(it.type) == discipline)
         }
-        val confirmed = DashboardSummary.confirmedWorkouts(plans, rawHistory, now)
-            .filter { it.date in start..end }
+        val confirmed = schedule.confirmed(rawHistory, now)
+            .filter { it.date in start..end && (discipline == null || TodayDiscipline.fromLog(it.discipline) == discipline) }
 
         val runActs = weekActivities.filter(DashboardSummary::isRun)
         val runLogs = confirmed.filter {
@@ -197,24 +237,21 @@ internal object TodayOverviewCalculator {
             if (count > 0) TodayDisciplineChip(discipline, count) else null
         }
 
-        val approvedPlan = plans.firstOrNull { it.status == "approved" }
-        val plannedInWeek = approvedPlan?.sessions
-            ?.filter { it.date in start..end && it.status != "unassigned" }
-            .orEmpty()
+        val plannedInWeek = schedule.sessions.filter {
+            it.session.date in start..end && (discipline == null || it.discipline == discipline)
+        }
 
-        val adherence = if (approvedPlan != null && plannedInWeek.isNotEmpty()) {
-            val historyById = rawHistory.associateBy { it.id }
-            val completedCount = plannedInWeek.count(::isSessionVerifiedCompleted)
-            val plannedRuns = plannedInWeek.filter {
-                TodayDiscipline.fromLog(it.discipline) == TodayDiscipline.RUNNING
-            }
+        val adherence = if (plannedInWeek.isNotEmpty()) {
+            val completedCount = plannedInWeek.count(schedule::isCompleted)
+            val plannedRuns = plannedInWeek.filter { it.discipline == TodayDiscipline.RUNNING }
             val plannedRunKm = plannedRuns
-                .mapNotNull { it.distanceKm?.takeIf { d -> d.isFinite() && d > 0.0 } }
+                .mapNotNull { it.session.distanceKm?.takeIf { d -> d.isFinite() && d > 0.0 } }
                 .sum()
             val completedPlannedRunKm = plannedRuns
-                .filter(::isSessionVerifiedCompleted)
-                .sumOf { session ->
-                    val linked = session.linkedActivityId?.let { historyById[it] }
+                .filter(schedule::isCompleted)
+                .sumOf { row ->
+                    val session = row.session
+                    val linked = schedule.linkedActivity(row)
                     when {
                         linked?.distanceM != null && linked.distanceM.isFinite() && linked.distanceM > 0.0 ->
                             linked.distanceM / 1000.0
@@ -248,45 +285,45 @@ internal object TodayOverviewCalculator {
 
     fun buildDailyTrainingState(
         date: LocalDate,
-        approvedPlan: PlanSnapshot?,
         recordedOnDate: List<ActivityRecord>,
         confirmedOnDate: List<ConfirmedWorkout>,
         rawHistory: List<ActivityRecord>,
-        plans: List<PlanSnapshot>
+        plans: List<PlanSnapshot>,
+        disciplineFilter: TodayDiscipline? = null,
+        schedule: TodaySchedule = TodaySchedule(plans, rawHistory + recordedOnDate)
     ): TodayDailyTrainingState {
-        val historyById = rawHistory.associateBy { it.id }
         val sessionsByKey = plans.flatMap { p -> p.sessions.map { (p.id to it.id) to it } }.toMap()
-        val scheduled = approvedPlan?.sessions
-            ?.filter { it.date == date && it.status != "unassigned" }
-            .orEmpty()
+        val scheduled = schedule.sessions.filter {
+            it.session.date == date && (disciplineFilter == null || it.discipline == disciplineFilter)
+        }
 
         val items = mutableListOf<TodayDailySessionItem>()
         val linkedActivityIdsOnDate = mutableSetOf<String>()
         val representedSessions = mutableSetOf<Pair<String, String>>()
 
-        if (approvedPlan != null) {
-            scheduled.forEach { session ->
-                val linked = session.linkedActivityId?.let { historyById[it] }
-                session.linkedActivityId?.let { linkedActivityIdsOnDate += it }
-                representedSessions += (approvedPlan.id to session.id)
-                val discipline = TodayDiscipline.fromLog(session.discipline) ?: TodayDiscipline.RUNNING
-                val isQuality = session.quality ||
-                    (session.runningPrescription?.role == "QUALITY") ||
-                    (session.runningPrescription?.segments?.any { it.purpose == "WORK" } == true) ||
-                    (session.runningPrescription?.mixedSegments?.any { it.purpose == "WORK" || it.purpose == "REPEAT" } == true)
-                items += TodayDailySessionItem.Planned(
-                    planId = approvedPlan.id,
-                    session = session,
-                    discipline = discipline,
-                    isCompleted = isSessionVerifiedCompleted(session),
-                    linkedActivity = linked,
-                    isQualityWorkout = isQuality
-                )
-            }
+        scheduled.forEach { row ->
+            val session = row.session
+            val linked = schedule.linkedActivity(row)
+            linked?.let { linkedActivityIdsOnDate += it.id }
+            representedSessions += row.key
+            val discipline = TodayDiscipline.fromLog(session.discipline) ?: TodayDiscipline.RUNNING
+            val isQuality = session.quality ||
+                (session.runningPrescription?.role == "QUALITY") ||
+                (session.runningPrescription?.segments?.any { it.purpose == "WORK" } == true) ||
+                (session.runningPrescription?.mixedSegments?.any { it.purpose == "WORK" || it.purpose == "REPEAT" } == true)
+            items += TodayDailySessionItem.Planned(
+                planId = row.planId,
+                session = session,
+                discipline = discipline,
+                isCompleted = schedule.isCompleted(row),
+                linkedActivity = linked,
+                isQualityWorkout = isQuality
+            )
         }
 
-        recordedOnDate.forEach { act ->
-            if (act.id !in linkedActivityIdsOnDate) {
+        schedule.recordings(recordedOnDate).forEach { act ->
+            if (act.id !in linkedActivityIdsOnDate &&
+                (disciplineFilter == null || TodayDiscipline.fromActivity(act.type) == disciplineFilter)) {
                 items += TodayDailySessionItem.Recorded(
                     activity = act,
                     discipline = TodayDiscipline.fromActivity(act.type)
@@ -295,7 +332,8 @@ internal object TodayOverviewCalculator {
         }
 
         confirmedOnDate.forEach { conf ->
-            if ((conf.planId to conf.sessionId) !in representedSessions) {
+            if ((conf.planId to conf.sessionId) !in representedSessions && schedule.isNativeLog(conf) &&
+                (disciplineFilter == null || TodayDiscipline.fromLog(conf.discipline) == disciplineFilter)) {
                 val discipline = TodayDiscipline.fromLog(conf.discipline) ?: TodayDiscipline.RUNNING
                 items += TodayDailySessionItem.ConfirmedLog(
                     workout = conf,
@@ -307,10 +345,12 @@ internal object TodayOverviewCalculator {
 
         return when {
             items.isNotEmpty() -> TodayDailyTrainingState.Sessions(
-                items = items,
-                hasActivePlan = approvedPlan != null
+                items = items.sortedWith(compareBy<TodayDailySessionItem> {
+                    it !is TodayDailySessionItem.Planned || it.isCompleted
+                }.thenBy { it.discipline != TodayDiscipline.RUNNING }.thenBy { it.stableKey }),
+                hasActivePlan = schedule.hasApprovedPlan
             )
-            approvedPlan != null -> TodayDailyTrainingState.RestDay
+            schedule.hasApprovedPlan -> TodayDailyTrainingState.RestDay
             else -> TodayDailyTrainingState.NoPlanCompanion
         }
     }
@@ -323,10 +363,11 @@ internal object TodayOverviewCalculator {
         now: Instant = Instant.now(),
         zone: ZoneId = ZoneId.systemDefault()
     ): List<TodayRecentRow> {
+        val evidence = TodaySchedule(plans, rawHistory + visibleActivities)
         val sessionsByKey = plans.flatMap { p -> p.sessions.map { (p.id to it.id) to it } }.toMap()
         val rows = mutableListOf<TodayRecentRow>()
 
-        visibleActivities.asSequence()
+        evidence.recordings(visibleActivities).asSequence()
             .filter { !it.startedAt.isAfter(now) }
             .distinctBy { it.id }
             .sortedWith(compareByDescending<ActivityRecord> { it.startedAt }.thenBy { it.id })
@@ -369,7 +410,7 @@ internal object TodayOverviewCalculator {
                 )
             }
 
-        DashboardSummary.confirmedWorkouts(plans, rawHistory, now).forEach { conf ->
+        evidence.confirmed(rawHistory, now).forEach { conf ->
             val disc = TodayDiscipline.fromLog(conf.discipline) ?: TodayDiscipline.RUNNING
             val session = sessionsByKey[conf.planId to conf.sessionId]
             val isRun = disc == TodayDiscipline.RUNNING
@@ -721,7 +762,11 @@ private fun PlannedDailySessionRow(
                     color = if (item.isCompleted) TodayAdaptivePalette.doneBadgeBg else accent
                 ) {
                     Text(
-                        text = if (item.isCompleted) "DONE" else "PLAN",
+                        text = when {
+                            item.isCompleted -> "DONE"
+                            session.linkedActivityId != null -> "LINK CONFLICT"
+                            else -> "PLAN"
+                        },
                         color = if (item.isCompleted) TodayAdaptivePalette.doneBadgeText else TodayAdaptivePalette.bg,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -988,7 +1033,8 @@ private fun TodaySessionIntensityBars(
 internal fun TodayTrainingOverviewCard(
     overview: TodayTrainingOverview,
     weekLabel: String = "THIS WEEK",
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    discipline: TodayDiscipline? = null
 ) {
     Surface(
         modifier = modifier
@@ -1028,7 +1074,7 @@ internal fun TodayTrainingOverviewCard(
                 )
             }
 
-            Row(
+            if (discipline == null || discipline == TodayDiscipline.RUNNING) Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {

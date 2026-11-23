@@ -107,8 +107,9 @@ private data class TodayDayMarker(val completed: Boolean, val pending: Boolean)
 private fun todayWeekMarkers(
     start: LocalDate,
     visible: List<ActivityRecord>,
-    rawHistory: List<ActivityRecord>,
-    plans: List<PlanSnapshot>
+    logs: List<ConfirmedWorkout>,
+    sessions: List<TodayScheduledSession>,
+    evidence: TodaySchedule
 ): Map<LocalDate, TodayDayMarker> {
     val end = start.plusDays(6)
     val zone = ZoneId.systemDefault()
@@ -117,18 +118,17 @@ private fun todayWeekMarkers(
         .filter { !it.startedAt.isAfter(now) }
         .map { it.startedAt.atZone(zone).toLocalDate() }
         .filter { it in start..end }.toSet() +
-        DashboardSummary.confirmedWorkouts(plans, rawHistory, now)
-            .map { it.date }.filter { it in start..end }
-    val scheduled = plans.filter { it.status == "approved" }
-        .flatMap { it.sessions }.filter { it.date in start..end && it.status != "unassigned" }
+        logs.map { it.date }.filter { it in start..end }
+    val scheduled = sessions.filter { it.session.date in start..end }
     return (0L..6L).associate { offset ->
         val day = start.plusDays(offset)
         day to TodayDayMarker(
             completed = day in recordedDays || scheduled.any {
-                it.date == day && it.status == "completed"
+                it.session.date == day && evidence.isCompleted(it)
             },
             pending = scheduled.any {
-                it.date == day && it.status in setOf("planned", "in_progress")
+                it.session.date == day && !evidence.isCompleted(it) &&
+                    it.session.status !in setOf("skipped", "missed")
             }
         )
     }
@@ -221,53 +221,40 @@ internal fun StrideLabTodayScreen(
     val hasLocalGarmin = state.localGarminIds.isNotEmpty()
     val safePlans = state.plans
     val hasHistory = state.account != null || hasLocalGarmin || safePlans.isNotEmpty()
-    val plan = safePlans.firstOrNull { it.status == "approved" }
+
     val safeActivities = if (hasHistory) visibleActivities else emptyList()
     val safeHistory = if (hasHistory) state.activities else emptyList()
-    // Tabs and charts remain presentation-only. Eligibility depends on actual
-    // distinct training dates, not prescriptions or daily login streaks.
+    val evidence = remember(safePlans, safeHistory, safeActivities) {
+        TodaySchedule(safePlans, safeHistory + safeActivities)
+    }
     var chosenPage by rememberSaveable(state.account ?: state.localPlanOwner,hasHistory) { mutableStateOf("all") }
-    val eligiblePages = remember(todayDate, safeHistory, safePlans) {
-        TodayDisciplineAnalytics.available(
-            safeHistory, safePlans, Instant.now(), ZoneId.systemDefault()
-        )
+    val eligiblePages = remember(todayDate, safeHistory, evidence) {
+        (TodayDisciplineAnalytics.available(safeHistory, safePlans, Instant.now(), ZoneId.systemDefault()) +
+            evidence.sessions.mapNotNull { it.discipline }).distinct().sortedBy { it.ordinal }
     }
     val selectedPage = chosenPage.takeIf { page ->
         page == "all" || eligiblePages.any { it.key == page }
     } ?: "all"
-    // The all-page remains unmodified. Discipline calendar markers describe
-    // only that discipline, including approved future workouts.
-    val calendarActivities = remember(selectedPage, safeActivities) {
-        if (selectedPage == "all") safeActivities else safeActivities.filter {
-            TodayDiscipline.fromActivity(it.type)?.key == selectedPage
-        }
+    val filter = eligiblePages.firstOrNull { it.key == selectedPage }
+    val calendarActivities = remember(filter, safeActivities, evidence) {
+        evidence.recordings(safeActivities).filter { filter == null || TodayDiscipline.fromActivity(it.type) == filter }
     }
-    val calendarHistory = remember(selectedPage, safeHistory) {
-        if (selectedPage == "all") safeHistory else safeHistory.filter {
-            TodayDiscipline.fromActivity(it.type)?.key == selectedPage
-        }
+    val calendarLogs = remember(filter, safeHistory, evidence) {
+        evidence.confirmed(safeHistory, Instant.now()).filter { filter == null || TodayDiscipline.fromLog(it.discipline) == filter }
     }
-    val calendarPlans = remember(selectedPage, safePlans) {
-        if (selectedPage == "all") safePlans else safePlans.map { plan ->
-            plan.copy(sessions = plan.sessions.filter {
-                TodayDiscipline.fromLog(it.discipline)?.key == selectedPage
-            })
-        }
+    val calendarSessions = remember(filter, evidence) {
+        evidence.sessions.filter { filter == null || it.discipline == filter }
     }
-    val recordedOnDate = remember(date, todayDate, safeActivities) {
-        if (date.isAfter(todayDate)) emptyList() else safeActivities.filter {
+    val recordedOnDate = remember(date, todayDate, calendarActivities) {
+        if (date.isAfter(todayDate)) emptyList() else calendarActivities.filter {
             !it.startedAt.isAfter(Instant.now()) &&
                 it.startedAt.atZone(ZoneId.systemDefault()).toLocalDate() == date
-        }.sortedWith(compareBy<ActivityRecord>({ it.startedAt }, { it.id }))
+        }
     }
-    val confirmedOnDate = remember(date, todayDate, safePlans, safeHistory) {
-        if (date.isAfter(todayDate)) emptyList() else
-            DashboardSummary.confirmedWorkouts(safePlans, safeHistory, Instant.now())
-                .filter { it.date == date }
+    val confirmedOnDate = remember(date, todayDate, calendarLogs) {
+        if (date.isAfter(todayDate)) emptyList() else calendarLogs.filter { it.date == date }
     }
-    // Preserve persisted session order rather than sorting arbitrary IDs.
-    val schedule = plan?.sessions?.filter { it.date == date && it.status != "unassigned" }
-        ?: emptyList()
+    val schedule = calendarSessions.filter { it.session.date == date }.map { it.session }
     // A completed day uses recorded styling only when the evidence is saved.
     // If a second session is still planned today, keep its actionable hero.
     val hasUnfinishedWorkout = schedule.any { it.status in setOf("planned", "in_progress") }
@@ -287,7 +274,7 @@ internal fun StrideLabTodayScreen(
         showRecorded && confirmedOnDate.isNotEmpty() ->
             todayDisciplineColor(confirmedOnDate.first().discipline)
         showRecorded -> TodayLook.teal
-        plan == null -> TodayLook.lime
+        !evidence.hasApprovedPlan -> TodayLook.lime
         schedule.size > 1 ->
             if (schedule.map { todayHeroDiscipline(it.discipline) }.distinct().size == 1)
                 todayDisciplineColor(schedule.first().discipline)
@@ -307,17 +294,18 @@ internal fun StrideLabTodayScreen(
         ),
         label = "today-notch"
     )
-    val weeklyOverview = remember(weekStart, safeActivities, safeHistory, safePlans) {
-        TodayOverviewCalculator.computeWeeklyOverview(weekStart, safeActivities, safeHistory, safePlans)
+    val weeklyOverview = remember(weekStart, safeActivities, safeHistory, evidence, filter) {
+        TodayOverviewCalculator.computeWeeklyOverview(weekStart, safeActivities, safeHistory, safePlans, discipline = filter, schedule = evidence)
     }
-    val dailyTrainingState = remember(date, plan, recordedOnDate, confirmedOnDate, safeHistory, safePlans) {
+    val dailyTrainingState = remember(date, recordedOnDate, confirmedOnDate, evidence, filter) {
         TodayOverviewCalculator.buildDailyTrainingState(
             date = date,
-            approvedPlan = plan,
             recordedOnDate = recordedOnDate,
             confirmedOnDate = confirmedOnDate,
             rawHistory = safeHistory,
-            plans = safePlans
+            plans = safePlans,
+            disciplineFilter = filter,
+            schedule = evidence
         )
     }
     val recentActivities = remember(state.activitySummariesReady, safeActivities, safeHistory, safePlans) {
@@ -373,25 +361,24 @@ internal fun StrideLabTodayScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            if (selectedPage == "all") {
-                item(key = "today-calendar") {
-                    TodayWeekCalendar(
-                        date = date,
-                        accent = animatedTone.value,
-                        selectionFractionState = notchPosition,
-                        visibleActivities = calendarActivities,
-                        rawHistory = calendarHistory,
-                        plans = calendarPlans,
-                        reduceMotion = reduceMotion,
-                        onSelect = { selectedDay = it.toEpochDay() },
-                        onPrevious = { selectedDay = date.minusWeeks(1).toEpochDay() },
-                        onNext = { selectedDay = date.plusWeeks(1).toEpochDay() }
-                    )
-                }
-                item(key = "today-date-context") {
-                    TodayDateContextHeader(date, todayDate, { selectedDay = todayDate.toEpochDay() },
-                        modifier = Modifier.testTag("today-date-header"))
-                }
+            item(key = "today-calendar") {
+                TodayWeekCalendar(
+                    date = date,
+                    accent = animatedTone.value,
+                    selectionFractionState = notchPosition,
+                    visibleActivities = calendarActivities,
+                    logs = calendarLogs,
+                    sessions = calendarSessions,
+                    evidence = evidence,
+                    reduceMotion = reduceMotion,
+                    onSelect = { selectedDay = it.toEpochDay() },
+                    onPrevious = { selectedDay = date.minusWeeks(1).toEpochDay() },
+                    onNext = { selectedDay = date.plusWeeks(1).toEpochDay() }
+                )
+            }
+            item(key = "today-date-context") {
+                TodayDateContextHeader(date, todayDate, { selectedDay = todayDate.toEpochDay() },
+                    modifier = Modifier.testTag("today-date-header"))
             }
             if ((selectedPage == "all" || selectedPage == TodayDiscipline.RUNNING.key) &&
                 state.activityMatches.values.any { it.matchStatus == ActivityMatchStatus.NEEDS_CONFIRMATION }) {
@@ -417,68 +404,68 @@ internal fun StrideLabTodayScreen(
                     }
                 }
             }
-            if (selectedPage == "all") {
-                item(key = "today-hero") {
-                    if (isPastDate && plan == null && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion && state.todayPlanReady) {
-                        TodayCompactEmptyDay(online = online)
-                    } else if (!state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion) {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().testTag("today-hero"),
-                            shape = RoundedCornerShape(18.dp),
-                            color = TodayAdaptivePalette.card,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, TodayAdaptivePalette.border)
+            item(key = "today-hero") {
+                if (isPastDate && !evidence.hasApprovedPlan && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion && state.todayPlanReady) {
+                    TodayCompactEmptyDay(online = online)
+                } else if (!state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().testTag("today-hero"),
+                        shape = RoundedCornerShape(18.dp),
+                        color = TodayAdaptivePalette.card,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, TodayAdaptivePalette.border)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    text = "Loading training day...",
-                                    color = TodayAdaptivePalette.text,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
+                            Text(
+                                text = "Loading training day...",
+                                color = TodayAdaptivePalette.text,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
-                    } else {
-                        TodayDailyTrainingCard(
-                            selectedDate = date,
-                            todayDate = todayDate,
-                            dailyState = dailyTrainingState,
-                            cachedDetails = state.details,
-                            hasPrimaryHeroTag = true,
-                            onOpenWorkout = onOpenWorkout,
-                            onOpenActivityDetail = onOpenActivityDetail,
-                            onOpenTraining = onOpenTraining
-                        )
                     }
+                } else {
+                    TodayDailyTrainingCard(
+                        selectedDate = date,
+                        todayDate = todayDate,
+                        dailyState = dailyTrainingState,
+                        cachedDetails = state.details,
+                        hasPrimaryHeroTag = true,
+                        onOpenWorkout = onOpenWorkout,
+                        onOpenActivityDetail = onOpenActivityDetail,
+                        onOpenTraining = onOpenTraining
+                    )
                 }
-                if (hasHistory) {
-                    val currentWeekStart = todayDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                    val weekLabel = if (weekStart == currentWeekStart) {
-                        "THIS WEEK"
-                    } else {
-                        val weekEnd = weekStart.plusDays(6)
-                        val fmt = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
-                        "${weekStart.format(fmt)}–${weekEnd.format(fmt)}".uppercase(Locale.ENGLISH)
-                    }
-                    item(key = "today-training-overview") {
-                        TodayTrainingOverviewCard(
-                            overview = weeklyOverview,
-                            weekLabel = weekLabel
-                        )
-                    }
-                    if (state.activitySummariesReady) item(key = "today-recent-activities") {
-                        TodayRecentActivitiesSection(
-                            rows = recentActivities,
-                            cachedDetails = state.details,
-                            onSeeAll = onOpenActivity,
-                            onOpenActivityDetail = onOpenActivityDetail,
-                            onOpenWorkout = onOpenWorkout
-                        )
-                    }
+            }
+            if (hasHistory) {
+                val currentWeekStart = todayDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                val weekLabel = if (weekStart == currentWeekStart) {
+                    "THIS WEEK"
+                } else {
+                    val weekEnd = weekStart.plusDays(6)
+                    val fmt = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
+                    "${weekStart.format(fmt)}–${weekEnd.format(fmt)}".uppercase(Locale.ENGLISH)
                 }
-            } else {
+                item(key = "today-training-overview") {
+                    TodayTrainingOverviewCard(
+                        overview = weeklyOverview,
+                        weekLabel = weekLabel,
+                        discipline = filter
+                    )
+                }
+                if (selectedPage == "all" && state.activitySummariesReady) item(key = "today-recent-activities") {
+                    TodayRecentActivitiesSection(
+                        rows = recentActivities,
+                        cachedDetails = state.details,
+                        onSeeAll = onOpenActivity,
+                        onOpenActivityDetail = onOpenActivityDetail,
+                        onOpenWorkout = onOpenWorkout
+                    )
+                }
+            }
+            if (selectedPage != "all") {
             item(key = "today-discipline-visuals") {
                 var dragSum by remember(selectedPage) { mutableFloatStateOf(0f) }
                 AnimatedContent(
@@ -668,8 +655,9 @@ private fun TodayWeekCalendar(
     accent: Color,
     selectionFractionState: State<Float>,
     visibleActivities: List<ActivityRecord>,
-    rawHistory: List<ActivityRecord>,
-    plans: List<PlanSnapshot>,
+    logs: List<ConfirmedWorkout>,
+    sessions: List<TodayScheduledSession>,
+    evidence: TodaySchedule,
     reduceMotion: Boolean,
     onSelect: (LocalDate) -> Unit,
     onPrevious: () -> Unit,
@@ -760,8 +748,8 @@ private fun TodayWeekCalendar(
         ) { visibleMonday ->
             // Both outgoing and incoming weeks use their own saved markers
             // throughout the slide; none temporarily inherit another week's dots.
-            val markers = remember(visibleMonday, visibleActivities, rawHistory, plans) {
-                todayWeekMarkers(visibleMonday, visibleActivities, rawHistory, plans)
+            val markers = remember(visibleMonday, visibleActivities, logs, sessions, evidence) {
+                todayWeekMarkers(visibleMonday, visibleActivities, logs, sessions, evidence)
             }
             BoxWithConstraints(
                 Modifier.fillMaxWidth()

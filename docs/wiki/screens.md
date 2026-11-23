@@ -24,7 +24,8 @@ Back to [[index]] · Related: [[ui-system]] · [[architecture]] · [[engine-rule
 ## Key Screens & `UiState` Contracts
 - **Shared App State (`TrainingState` in `TrainingRepository.kt`):** Holds `initializing`, `account`, `localGarminOwner`, `localPlanOwner`, `activities`, `plans`, `workoutDrafts`, `wellness`, `details`, `busy`, `message`.
 - **Today (`StrideLabTodayScreen.kt`, `TodayAdaptiveDashboard.kt`):**
-  - Preserves top `All` / `• Running` segmented toggle (`TodayDisciplineTabs`), Monday–Sunday swipeable week strip (`today-week-swipe`) with solid vs. outlined day markers, and `TracksideFloatingNavigation` (`112.dp` bottom clearance).
+  - The top discipline filter applies to the Monday–Sunday strip, the selected day, and weekly adherence. Disciplines from approved plans are available immediately. Historical disciplines can still qualify from recorded activity.
+  - Today keeps a separate row for each `(planId, sessionId)` across all approved plans. On a shared day, unfinished sessions appear first, with running first within each completion group. Physical totals count each canonical recording once. If multiple prescriptions claim it, neither earns adherence credit until the link is resolved.
   - Follows the 3-section finalized P0 layout on `TodayAdaptivePalette.bg` (`#0B0D0F`):
     1. `TodayDateContextHeader` + `TodayDailyTrainingCard` (`TodayOverviewCalculator.buildDailyTrainingState`) — verified planned and completed sessions, imported activities, rest days, or Companion training mode. GPS previews load independently through the thumbnail provider.
     2. `TodayTrainingOverviewCard` (`TodayOverviewCalculator.computeWeeklyOverview`) — verified `Run km`, `Run hours` (`h:mm`), `Runs`, active non-running pills (`Strength`, `Calisthenics`, `Conditioning`), and conditional `Adherence` (omitted when no approved plan or 0 weekly sessions; never counts unlinked bonus runs).
