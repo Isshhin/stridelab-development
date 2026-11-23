@@ -35,7 +35,7 @@ Defined across `StrideTheme` (`NativeMainActivity.kt`), `WorkoutDetailPalette` (
 
 - The scheduling screen uses the same cards and footer as the logger. Calendar dots indicate scheduled or logged work, and source labels distinguish entries in the selected day. Coached chart totals use coached prescriptions.
 
-- Workout history uses two segments, History and Progress. Source filters and labels stay readable without color. Frequency bars show their counts in text, and exercise comparisons label the dates of recorded sets.
+- Workout history uses two segments, History and Progress. Source and discipline filters stay readable without color. The controls reflow at narrow widths. Frequency bars show their counts in text, and exercise comparisons label the dates of recorded sets.
 - Baseline suggestions sit below the editable running fields. A use button applies one distance, and coverage text explains which finished weeks contributed to the weekly average.
 
 ## Shared Components

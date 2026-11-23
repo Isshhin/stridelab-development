@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.util.Locale
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun WorkoutEvidenceScreen(
     rows: List<WorkoutEvidence>,
@@ -62,11 +63,14 @@ internal fun WorkoutEvidenceScreen(
                 item { Text("Loading workouts…", color = freeformPalette.secondary) }
             } else if (view == "history") {
                 item {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(Modifier.weight(1f)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box {
                             OutlinedButton(onClick = { chooseSource = true },
-                                modifier = Modifier.fillMaxWidth().testTag("workout-evidence-source")) {
-                                Text(source?.label ?: "All sources")
+                                modifier = Modifier.testTag("workout-evidence-source")) {
+                                Text(source?.label ?: "Source")
                             }
                             DropdownMenu(expanded = chooseSource, onDismissRequest = { chooseSource = false }) {
                                 (listOf<WorkoutEvidenceSource?>(null) + WorkoutEvidenceSource.entries).forEach {
@@ -75,10 +79,10 @@ internal fun WorkoutEvidenceScreen(
                                 }
                             }
                         }
-                        Box(Modifier.weight(1f)) {
+                        Box {
                             OutlinedButton(onClick = { chooseDiscipline = true },
-                                modifier = Modifier.fillMaxWidth().testTag("workout-evidence-discipline")) {
-                                Text(discipline?.label ?: "All disciplines")
+                                modifier = Modifier.testTag("workout-evidence-discipline")) {
+                                Text(discipline?.label ?: "Discipline")
                             }
                             DropdownMenu(expanded = chooseDiscipline, onDismissRequest = { chooseDiscipline = false }) {
                                 (listOf<ManualDiscipline?>(null) + ManualDiscipline.entries).forEach {
