@@ -5,16 +5,21 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -31,14 +36,179 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.Locale
+
+internal enum class PickerScope(val label: String) {
+    DISCIPLINE("Discipline"),
+    RECENT("Recent"),
+    ALL("All")
+}
+
+internal data class PickerExerciseOption(
+    val id: String?,
+    val name: String,
+    val subtitle: String,
+    val categories: List<String>
+)
+
+internal object FreeformExerciseCatalog {
+    private val builtinPlyometrics = listOf(
+        builtin("plyo-pogo-hops", "Pogo hops", "Plyometrics · Ankle stiffness"),
+        builtin("plyo-box-jump", "Box jump", "Plyometrics · Lower power"),
+        builtin("plyo-broad-jump", "Broad jump", "Plyometrics · Horizontal power"),
+        builtin("plyo-depth-drop", "Depth drop", "Plyometrics · Landing mechanics"),
+        builtin("plyo-single-leg-hop", "Single-leg hop", "Plyometrics · Unilateral reactivity"),
+        builtin("plyo-split-squat-jump", "Split squat jump", "Plyometrics · Explosive stride"),
+        builtin("plyo-skater-hops", "Skater hops", "Plyometrics · Lateral reactive"),
+        builtin("plyo-bounds", "Alternate leg bounds", "Plyometrics · Running power"),
+        builtin("plyo-a-skip", "A-skip", "Plyometrics · Coordination & stiffness"),
+        builtin("plyo-tuck-jump", "Tuck jump", "Plyometrics · Vertical elastic")
+    )
+
+    private val builtinIsometrics = listOf(
+        builtin("iso-wall-sit", "Wall sit", "Isometrics · Quad endurance"),
+        builtin("iso-calf-hold", "Single-leg calf isometric hold", "Isometrics · Achilles & soleus"),
+        builtin("iso-split-squat-hold", "Split squat isometric hold", "Isometrics · Single-leg stability"),
+        builtin("iso-glute-bridge-hold", "Glute bridge isometric hold", "Isometrics · Posterior chain"),
+        builtin("iso-forearm-plank", "Forearm plank", "Isometrics · Core bracing"),
+        builtin("iso-side-plank", "Side plank", "Isometrics · Lateral trunk"),
+        builtin("iso-dead-hang", "Dead hang", "Isometrics · Grip & shoulder"),
+        builtin("iso-hamstring-hold", "Hamstring bridge isometric hold", "Isometrics · Hamstring tendon"),
+        builtin("iso-hollow-hold", "Hollow body hold", "Isometrics · Anterior core")
+    )
+
+    private fun builtin(id: String, name: String, subtitle: String): ExerciseLibraryRecordV2 =
+        ExerciseLibraryRecordV2(
+            id = id,
+            name = name,
+            kind = "exercise",
+            categories = listOf(if (id.startsWith("plyo-")) "plyometrics" else "isometrics"),
+            movementPatterns = listOf(subtitle),
+            primaryMuscles = emptyList(),
+            secondaryMuscles = emptyList(),
+            equipmentOptions = listOf(emptySet()),
+            setupNotes = emptyList(),
+            difficulty = "all",
+            prerequisites = emptySet(),
+            prerequisiteNotes = emptyList(),
+            regressions = emptyList(),
+            progressions = emptyList(),
+            alternatives = emptyList(),
+            technique = emptyList(),
+            easier = "",
+            harder = "",
+            caveats = emptyList(),
+            provenance = emptyList(),
+            media = ExerciseMediaV2(
+                status = "none",
+                bundledFile = null,
+                author = null,
+                license = null,
+                licenseUrl = null,
+                verificationUrls = emptyList(),
+                reason = "built-in",
+                fit = ""
+            )
+        )
+
+    fun augment(records: List<ExerciseLibraryRecordV2>): List<ExerciseLibraryRecordV2> {
+        val byName = records.mapTo(HashSet()) { it.name.trim().lowercase(Locale.ROOT) }
+        val additions = (builtinPlyometrics + builtinIsometrics).filter {
+            it.name.lowercase(Locale.ROOT) !in byName
+        }
+        return records + additions
+    }
+
+    fun matchesDiscipline(record: ExerciseLibraryRecordV2, discipline: ManualDiscipline): Boolean {
+        val cats = record.categories.map { it.lowercase(Locale.ROOT) }.toSet()
+        val n = record.name.lowercase(Locale.ROOT)
+        return when (discipline) {
+            ManualDiscipline.STRENGTH -> "strength_gym" in cats || "bodyweight" in cats
+            ManualDiscipline.CALISTHENICS -> "calisthenics" in cats || "bodyweight" in cats
+            ManualDiscipline.CONDITIONING -> "conditioning" in cats
+            ManualDiscipline.PLYOMETRICS -> "plyometrics" in cats || "plyometric" in cats ||
+                n.contains("jump") || n.contains("hop") || n.contains("bound") || n.contains("skip")
+            ManualDiscipline.ISOMETRICS -> "isometrics" in cats || "isometric" in cats ||
+                n.contains("hold") || n.contains("plank") || n.contains("wall sit") || n.contains("hang")
+            ManualDiscipline.RUNNING -> "running" in cats
+        }
+    }
+
+    private fun subtitleFor(record: ExerciseLibraryRecordV2, fallbackDiscipline: ManualDiscipline): String {
+        val primary = record.movementPatterns.firstOrNull()?.takeIf { it.isNotBlank() }
+        if (primary != null && primary.contains("·")) return primary
+        val cat = when {
+            "plyometrics" in record.categories -> "Plyometrics"
+            "isometrics" in record.categories -> "Isometrics"
+            "strength_gym" in record.categories -> "Strength"
+            "calisthenics" in record.categories -> "Calisthenics"
+            "conditioning" in record.categories -> "Conditioning"
+            "running" in record.categories -> "Running"
+            "mobility" in record.categories -> "Mobility"
+            "bodyweight" in record.categories -> "Bodyweight"
+            else -> fallbackDiscipline.label
+        }
+        return listOfNotNull(cat, primary?.replace('_', ' ')?.replaceFirstChar { it.uppercase(Locale.ROOT) })
+            .joinToString(" · ")
+    }
+
+    fun filter(
+        catalog: List<ExerciseLibraryRecordV2>,
+        discipline: ManualDiscipline,
+        scope: PickerScope,
+        query: String,
+        recentNames: List<String>
+    ): List<PickerExerciseOption> {
+        val search = query.trim()
+        val augmented = augment(catalog)
+        if (scope == PickerScope.RECENT) {
+            return recentNames
+                .filter { search.isBlank() || it.contains(search, ignoreCase = true) }
+                .map { name ->
+                    val found = augmented.firstOrNull { it.name.equals(name, ignoreCase = true) }
+                    PickerExerciseOption(
+                        id = found?.id,
+                        name = name,
+                        subtitle = found?.let { subtitleFor(it, discipline) } ?: "${discipline.label} · Recent",
+                        categories = found?.categories.orEmpty()
+                    )
+                }
+        }
+
+        val filtered = augmented.asSequence()
+            .filter { record ->
+                (scope == PickerScope.ALL || matchesDiscipline(record, discipline)) &&
+                    (search.isBlank() || record.name.contains(search, ignoreCase = true))
+            }
+            .sortedWith(
+                compareByDescending<ExerciseLibraryRecordV2> { matchesDiscipline(it, discipline) }
+                    .thenByDescending { it.id.startsWith("plyo-") || it.id.startsWith("iso-") }
+                    .thenBy { it.name.lowercase(Locale.ROOT) }
+            )
+            .take(80)
+            .map { record ->
+                PickerExerciseOption(
+                    id = record.id,
+                    name = record.name,
+                    subtitle = subtitleFor(record, discipline),
+                    categories = record.categories
+                )
+            }
+            .toList()
+
+        return filtered
+    }
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -70,6 +240,7 @@ internal fun FreeformEditor(
     var restRunning by rememberSaveable(initial.id) { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
+    val persistMutex = remember(initial.id) { Mutex() }
 
     val recentExercises = remember(board.workouts, draft.discipline, draft.exercises) {
         val existingNames = draft.exercises.map { it.name.trim().lowercase(Locale.ROOT) }.toSet()
@@ -79,7 +250,7 @@ internal fun FreeformEditor(
             .map { it.name.trim() }
             .filter { it.isNotEmpty() && it.lowercase(Locale.ROOT) !in existingNames }
             .distinctBy { it.lowercase(Locale.ROOT) }
-            .take(5)
+            .take(8)
             .toList()
     }
 
@@ -92,16 +263,16 @@ internal fun FreeformEditor(
         }
     }
 
-    suspend fun persistDraft(candidate: FreeformWorkout): FreeformWorkout {
-        return if (!isPersisted) {
-            access.start(candidate).also { stored ->
+    suspend fun persistDraft(candidate: FreeformWorkout): FreeformWorkout = persistMutex.withLock {
+        when {
+            !isPersisted -> access.start(candidate).also { stored ->
                 isPersisted = true
                 persistedAt = stored.modifiedAt
             }
-        } else {
-            access.save(candidate).also { stored ->
+            candidate.modifiedAt > persistedAt -> access.save(candidate).also { stored ->
                 persistedAt = maxOf(persistedAt, stored.modifiedAt)
             }
+            else -> candidate
         }
     }
 
@@ -233,8 +404,8 @@ internal fun FreeformEditor(
                             working = true
                             error = null
                             freeformAttempt {
-                                val target = if (!isPersisted) persistDraft(draft) else draft
-                                access.finish(target)
+                                val target = persistDraft(draft)
+                                persistMutex.withLock { access.finish(target) }
                             }.onSuccess {
                                 update(it)
                                 saved(it.id)
@@ -356,15 +527,14 @@ internal fun FreeformEditor(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    recentExercises.forEach { name ->
+                                    recentExercises.take(5).forEach { name ->
                                         Surface(
                                             onClick = {
                                                 edit(draft.copy(exercises = draft.exercises + FreeformExercise(name = name)))
                                             },
                                             enabled = !working,
                                             shape = RoundedCornerShape(10.dp),
-                                            color = StrideLabSurfaceTokens.surfaceSubtle,
-                                            border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline),
+                                            color = Color(0xFF161616),
                                             modifier = Modifier
                                                 .heightIn(min = 48.dp)
                                                 .testTag("freeform-quick-add-$name")
@@ -410,17 +580,24 @@ internal fun FreeformEditor(
                         )
                     }
                     item(key = "freeform-add-exercise-btn") {
-                        OutlinedButton(
+                        Surface(
                             onClick = { picker = true },
                             enabled = draft.exercises.size < 30 && !working,
-                            border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline),
                             shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFF161616),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 48.dp)
                                 .testTag("freeform-add-exercise")
                         ) {
-                            Text("+ Add exercise", color = StrideLabSurfaceTokens.lime, fontWeight = FontWeight.SemiBold)
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    "+ Add exercise",
+                                    color = StrideLabSurfaceTokens.lime,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -588,7 +765,11 @@ internal fun FreeformEditor(
     }
 
     if (picker) {
-        FreeformExercisePicker(draft.discipline, close = { picker = false }) { exercise ->
+        FreeformExercisePicker(
+            discipline = draft.discipline,
+            recentExerciseNames = recentExercises,
+            close = { picker = false }
+        ) { exercise ->
             edit(draft.copy(exercises = draft.exercises + exercise))
             picker = false
         }
@@ -726,7 +907,6 @@ internal fun FreeformExercisePanel(
     onSetConfirmed: () -> Unit = {}
 ) {
     var menu by remember { mutableStateOf(false) }
-    var showNotes by rememberSaveable(exercise.id) { mutableStateOf(exercise.notes.isNotBlank()) }
     var confirmDelete by rememberSaveable(exercise.id) { mutableStateOf(false) }
     var showFormat by remember { mutableStateOf(false) }
     val conditioning = discipline == ManualDiscipline.CONDITIONING
@@ -773,10 +953,6 @@ internal fun FreeformExercisePanel(
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text("Move up") }, enabled = hasPrevious, onClick = { menu = false; move(-1) })
                     DropdownMenuItem(text = { Text("Move down") }, enabled = hasNext, onClick = { menu = false; move(1) })
-                    DropdownMenuItem(
-                        text = { Text(if (showNotes) "Hide notes" else "Exercise notes") },
-                        onClick = { menu = false; showNotes = !showNotes }
-                    )
                     DropdownMenuItem(text = { Text("Remove exercise") }, onClick = {
                         menu = false
                         confirmDelete = true
@@ -785,26 +961,43 @@ internal fun FreeformExercisePanel(
             }
         }
 
-        if (showNotes) {
-            FreeformField(
-                "Exercise notes",
-                exercise.notes,
-                { change(exercise.copy(notes = it)) },
-                Modifier.fillMaxWidth(),
-                "freeform-exercise-notes",
-                limit = 1000,
-                lines = 2
+        // Inline borderless exercise note field
+        if (!authoring) {
+            BasicTextField(
+                value = exercise.notes,
+                onValueChange = { if (it.length <= 1000) change(exercise.copy(notes = it)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("freeform-exercise-notes"),
+                singleLine = true,
+                cursorBrush = SolidColor(StrideLabSurfaceTokens.lime),
+                textStyle = MaterialTheme.typography.bodySmall.copy(color = StrideLabSurfaceTokens.inkSecondary),
+                decorationBox = { inner ->
+                    Box(Modifier.padding(vertical = 2.dp)) {
+                        if (exercise.notes.isEmpty()) {
+                            Text(
+                                "Add notes...",
+                                color = StrideLabSurfaceTokens.inkMuted,
+                                fontSize = 12.5.sp
+                            )
+                        }
+                        inner()
+                    }
+                }
             )
         }
 
         if (conditioning) {
             Box {
-                OutlinedButton(
+                Surface(
                     onClick = { showFormat = true },
-                    border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline),
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF161616),
                     modifier = Modifier.heightIn(min = 48.dp)
                 ) {
-                    Text("Format · ${exercise.format.label}", color = StrideLabSurfaceTokens.ink)
+                    Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                        Text("Format · ${exercise.format.label}", color = StrideLabSurfaceTokens.ink, fontSize = 13.sp)
+                    }
                 }
                 DropdownMenu(expanded = showFormat, onDismissRequest = { showFormat = false }) {
                     ConditioningFormat.entries.forEach { mode ->
@@ -838,32 +1031,42 @@ internal fun FreeformExercisePanel(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    if (conditioning) "Rd" else "Set",
-                    Modifier.width(26.dp),
+                    if (conditioning) "RD" else "SET",
+                    Modifier.width(36.dp),
                     color = StrideLabSurfaceTokens.inkMuted,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
                 )
                 Text(
-                    "Prev",
-                    Modifier.width(56.dp),
+                    "PREV",
+                    Modifier.width(54.dp),
                     color = StrideLabSurfaceTokens.inkMuted,
-                    fontSize = 11.sp,
+                    fontSize = 10.5.sp,
                     fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
                     maxLines = 1
                 )
                 measureInputs(discipline).forEach { metric ->
                     Text(
-                        metric.label,
+                        metric.headerLabel,
                         Modifier.weight(1f),
                         color = StrideLabSurfaceTokens.inkMuted,
-                        fontSize = 11.sp,
+                        fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Spacer(Modifier.width(96.dp))
+                Text(
+                    "✓",
+                    Modifier.width(48.dp),
+                    color = StrideLabSurfaceTokens.inkMuted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
             }
         }
 
@@ -872,6 +1075,7 @@ internal fun FreeformExercisePanel(
                 FreeformSetRow(
                     set = set,
                     index = index,
+                    canRemove = exercise.sets.size > 1,
                     isNextActive = !set.completed && index == firstUncompletedIndex,
                     discipline = discipline,
                     format = exercise.format,
@@ -883,13 +1087,7 @@ internal fun FreeformExercisePanel(
                         change(exercise.copy(sets = exercise.sets.toMutableList().apply { set(index, next) }))
                         if (becameCompleted) onSetConfirmed()
                     },
-                    duplicate = {
-                        change(exercise.copy(sets = exercise.sets.toMutableList().apply {
-                            add(index + 1, set.duplicate())
-                        }))
-                    },
                     remove = { change(exercise.copy(sets = exercise.sets.filterNot { it.id == set.id })) },
-                    canAdd = exercise.sets.size < 30,
                     authoring = authoring,
                     compact = compact
                 )
@@ -898,33 +1096,36 @@ internal fun FreeformExercisePanel(
 
         if (exercise.sets.size < 30) {
             val unit = if (conditioning) "round" else "set"
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(
-                    onClick = { change(exercise.copy(sets = exercise.sets + FreeformSet())) },
-                    modifier = Modifier
-                        .weight(1f)
-                        .heightIn(min = 48.dp)
-                        .testTag("freeform-add-set")
-                ) {
-                    Text("+ Add $unit", color = StrideLabSurfaceTokens.lime, fontWeight = FontWeight.SemiBold)
-                }
-                if (exercise.sets.isNotEmpty()) {
-                    TextButton(
-                        onClick = { change(exercise.copy(sets = exercise.sets + exercise.sets.last().duplicate())) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 48.dp)
-                            .testTag("freeform-duplicate-last")
-                    ) {
-                        Text("Duplicate last", color = StrideLabSurfaceTokens.inkSecondary)
+            Surface(
+                onClick = {
+                    val last = exercise.sets.lastOrNull()
+                    val nextSet = if (last != null) {
+                        last.duplicate()
+                    } else if (previous != null) {
+                        FreeformSet(actual = previous)
+                    } else {
+                        FreeformSet()
                     }
+                    change(exercise.copy(sets = exercise.sets + nextSet))
+                },
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFF161616),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .testTag("freeform-add-set")
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        "+ Add $unit",
+                        color = StrideLabSurfaceTokens.ink,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
+        Spacer(Modifier.height(2.dp))
         StrideLabHairline()
     }
 
@@ -943,18 +1144,18 @@ internal fun FreeformExercisePanel(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FreeformSetRow(
     set: FreeformSet,
     index: Int,
+    canRemove: Boolean,
     isNextActive: Boolean,
     discipline: ManualDiscipline,
     format: ConditioningFormat,
     previousHint: String,
     edit: (FreeformSet) -> Unit,
-    duplicate: () -> Unit,
     remove: () -> Unit,
-    canAdd: Boolean,
     authoring: Boolean,
     compact: Boolean
 ) {
@@ -1009,42 +1210,104 @@ private fun FreeformSetRow(
 
     val rowBg = if (isNextActive) StrideLabSurfaceTokens.surfaceElevated else Color.Transparent
     val rowAlpha = if (set.completed) 0.65f else 1f
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart && canRemove) {
+                remove()
+                true
+            } else {
+                false
+            }
+        }
+    )
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(rowBg)
-            .padding(horizontal = 4.dp, vertical = 4.dp)
-            .testTag("freeform-set-$index"),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = canRemove,
+        backgroundContent = {
+            if (canRemove) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF3A151B))
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = "Remove $unit ${index + 1}",
+                        tint = freeformPalette.highCoral
+                    )
+                }
+            }
+        }
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .background(rowBg)
+                .padding(horizontal = 4.dp, vertical = 4.dp)
+                .testTag("freeform-set-$index"),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
             Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .graphicsLayer { alpha = rowAlpha },
+                Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Text(
-                    text = if (compact) "${index + 1}" else "$unit ${index + 1}",
-                    modifier = if (compact) Modifier.width(26.dp) else Modifier.weight(1f),
-                    color = if (isNextActive) StrideLabSurfaceTokens.lime else StrideLabSurfaceTokens.ink,
-                    style = MaterialTheme.typography.titleSmall.tabular(),
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier
+                        .let { if (compact) it.width(36.dp) else it.weight(0.35f) }
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { options = true }
+                        .testTag("freeform-set-menu-$index")
+                        .graphicsLayer { alpha = rowAlpha },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (compact) "${index + 1}" else "$unit ${index + 1}",
+                        color = if (isNextActive) StrideLabSurfaceTokens.lime else StrideLabSurfaceTokens.ink,
+                        style = MaterialTheme.typography.titleSmall.tabular(),
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    DropdownMenu(expanded = options, onDismissRequest = { options = false }) {
+                        DropdownMenuItem(
+                            text = { Text(if (expanded) "Hide RIR / RPE & details" else "RIR / RPE, target & notes") },
+                            onClick = { options = false; expanded = !expanded }
+                        )
+                        if (canRemove) {
+                            DropdownMenuItem(
+                                text = { Text("Remove ${unit.lowercase()}") },
+                                onClick = { options = false; remove() }
+                            )
+                        }
+                    }
+                }
+
                 if (compact) {
                     Text(
                         text = previousHint.ifBlank { "—" },
-                        modifier = Modifier.width(56.dp),
+                        modifier = Modifier
+                            .width(54.dp)
+                            .graphicsLayer { alpha = rowAlpha },
                         color = StrideLabSurfaceTokens.inkMuted,
                         fontSize = 11.5.sp,
                         style = TabularTextStyle,
+                        textAlign = TextAlign.Center,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        Modifier
+                            .weight(1f)
+                            .graphicsLayer { alpha = rowAlpha },
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         measureInputs(discipline).forEach { metric ->
                             CompactSetInput(
                                 value = metric.get(set.actual),
@@ -1058,174 +1321,150 @@ private fun FreeformSetRow(
                             }
                         }
                     }
+                } else {
+                    Spacer(Modifier.weight(0.65f))
                 }
-            }
 
-            IconButton(
-                onClick = {
-                    if (set.completed || set.validActual(discipline, format)) {
-                        setError = false
-                        edit(set.copy(completed = !set.completed))
-                    } else {
-                        setError = true
-                    }
-                },
-                modifier = Modifier
-                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                    .testTag("freeform-confirm-$index")
-            ) {
-                val label = if (set.completed) "Unconfirm $unit ${index + 1}" else "Confirm $unit ${index + 1}"
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (set.completed) StrideLabSurfaceTokens.lime
-                            else StrideLabSurfaceTokens.surfaceSubtle
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = label,
-                        tint = if (set.completed) StrideLabSurfaceTokens.onLime else StrideLabSurfaceTokens.inkMuted,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            Box {
                 IconButton(
-                    onClick = { options = true },
-                    modifier = Modifier.sizeIn(minWidth = 48.dp, minHeight = 48.dp)
-                ) {
-                    Icon(
-                        Icons.Filled.MoreVert,
-                        "$unit ${index + 1} options",
-                        tint = StrideLabSurfaceTokens.inkSecondary
-                    )
-                }
-                DropdownMenu(expanded = options, onDismissRequest = { options = false }) {
-                    DropdownMenuItem(
-                        text = { Text(if (expanded) "Hide RIR / RPE & details" else "RIR / RPE, target & notes") },
-                        onClick = { options = false; expanded = !expanded }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Duplicate ${unit.lowercase()}") },
-                        enabled = canAdd,
-                        onClick = { options = false; duplicate() }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Remove ${unit.lowercase()}") },
-                        onClick = { options = false; remove() }
-                    )
-                }
-            }
-        }
-
-        if (!compact) {
-            Box(modifier = Modifier.graphicsLayer { alpha = rowAlpha }) {
-                MeasureFields(discipline, set.actual, "Actual", "freeform-actual-$index") {
-                    setError = false
-                    edit(set.copy(actual = it))
-                }
-            }
-        }
-
-        val targetSummary = listOfNotNull(
-            set.target.label(discipline).takeIf { it.isNotBlank() && !compact },
-            set.targetRir.takeIf { it.isNotBlank() }?.let { "RIR $it" },
-            set.rpe.takeIf { it.isNotBlank() }?.let { "RPE $it" },
-            set.rir.takeIf { it.isNotBlank() }?.let { "RIR $it" }
-        )
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (targetSummary.isNotEmpty() && !expanded) {
-                Text(
-                    targetSummary.joinToString(" · "),
-                    color = StrideLabSurfaceTokens.inkMuted,
-                    fontSize = 11.5.sp,
-                    style = TabularTextStyle,
-                    modifier = Modifier.weight(1f)
-                )
-            } else {
-                Spacer(Modifier.weight(1f))
-            }
-            if (discipline == ManualDiscipline.STRENGTH || discipline == ManualDiscipline.CALISTHENICS) {
-                Text(
-                    text = if (expanded) "Hide RIR/RPE" else "+ RIR/RPE",
-                    color = StrideLabSurfaceTokens.inkMuted,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
+                    onClick = {
+                        if (set.completed || set.validActual(discipline, format)) {
+                            setError = false
+                            edit(set.copy(completed = !set.completed))
+                        } else {
+                            setError = true
+                        }
+                    },
                     modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable { expanded = !expanded }
-                        .padding(horizontal = 6.dp, vertical = 4.dp)
-                )
+                        .size(48.dp)
+                        .testTag("freeform-confirm-$index")
+                ) {
+                    val label = if (set.completed) "Unconfirm $unit ${index + 1}" else "Confirm $unit ${index + 1}"
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (set.completed) StrideLabSurfaceTokens.lime
+                                else Color(0xFF1E2228)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = label,
+                            tint = if (set.completed) StrideLabSurfaceTokens.onLime else StrideLabSurfaceTokens.inkMuted,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
-        }
 
-        if (setError || (set.completed && !set.validActual(discipline, format))) {
-            FreeformError("Enter valid actual work to confirm this ${unit.lowercase()}.")
-        }
+            if (!compact) {
+                Box(modifier = Modifier.graphicsLayer { alpha = rowAlpha }) {
+                    MeasureFields(discipline, set.actual, "Actual", "freeform-actual-$index") {
+                        setError = false
+                        edit(set.copy(actual = it))
+                    }
+                }
+            }
 
-        if (expanded) {
-            StrideLabHairline()
-            MeasureFields(discipline, set.target, "Target", "freeform-target-$index") {
-                edit(set.copy(target = it))
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FreeformField(
-                    "Rest (s)",
-                    set.restSeconds,
-                    { edit(set.copy(restSeconds = it)) },
-                    Modifier.weight(1f),
-                    "freeform-rest-$index",
-                    integer = true
-                )
-                FreeformField(
-                    "RPE",
-                    set.rpe,
-                    { edit(set.copy(rpe = it)) },
-                    Modifier.weight(1f),
-                    "freeform-rpe-$index",
-                    integer = true
-                )
-            }
-            if (discipline == ManualDiscipline.STRENGTH || discipline == ManualDiscipline.CALISTHENICS) {
-                FreeformField(
-                    "RIR",
-                    set.rir,
-                    { edit(set.copy(rir = it)) },
-                    Modifier.fillMaxWidth(),
-                    "freeform-rir-$index",
-                    integer = true
-                )
-            }
-            FreeformField(
-                "$unit notes",
-                set.notes,
-                { edit(set.copy(notes = it)) },
-                Modifier.fillMaxWidth(),
-                "freeform-set-notes-$index",
-                limit = 400,
-                lines = 2
+            val targetSummary = listOfNotNull(
+                set.target.label(discipline).takeIf { it.isNotBlank() && !compact },
+                set.targetRir.takeIf { it.isNotBlank() }?.let { "RIR $it" },
+                set.rpe.takeIf { it.isNotBlank() }?.let { "RPE $it" },
+                set.rir.takeIf { it.isNotBlank() }?.let { "RIR $it" }
             )
+            if (targetSummary.isNotEmpty() || discipline == ManualDiscipline.STRENGTH || discipline == ManualDiscipline.CALISTHENICS) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (targetSummary.isNotEmpty() && !expanded) {
+                        Text(
+                            targetSummary.joinToString(" · "),
+                            color = StrideLabSurfaceTokens.inkMuted,
+                            fontSize = 11.5.sp,
+                            style = TabularTextStyle,
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+                    if (discipline == ManualDiscipline.STRENGTH || discipline == ManualDiscipline.CALISTHENICS) {
+                        Text(
+                            text = if (expanded) "Hide RIR/RPE" else "+ RIR/RPE",
+                            color = StrideLabSurfaceTokens.inkMuted,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { expanded = !expanded }
+                                .padding(horizontal = 6.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            if (setError || (set.completed && !set.validActual(discipline, format))) {
+                FreeformError("Enter valid actual work to confirm this ${unit.lowercase()}.")
+            }
+
+            if (expanded) {
+                StrideLabHairline()
+                MeasureFields(discipline, set.target, "Target", "freeform-target-$index") {
+                    edit(set.copy(target = it))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FreeformField(
+                        "Rest (s)",
+                        set.restSeconds,
+                        { edit(set.copy(restSeconds = it)) },
+                        Modifier.weight(1f),
+                        "freeform-rest-$index",
+                        integer = true
+                    )
+                    FreeformField(
+                        "RPE",
+                        set.rpe,
+                        { edit(set.copy(rpe = it)) },
+                        Modifier.weight(1f),
+                        "freeform-rpe-$index",
+                        integer = true
+                    )
+                }
+                if (discipline == ManualDiscipline.STRENGTH || discipline == ManualDiscipline.CALISTHENICS) {
+                    FreeformField(
+                        "RIR",
+                        set.rir,
+                        { edit(set.copy(rir = it)) },
+                        Modifier.fillMaxWidth(),
+                        "freeform-rir-$index",
+                        integer = true
+                    )
+                }
+                FreeformField(
+                    "$unit notes",
+                    set.notes,
+                    { edit(set.copy(notes = it)) },
+                    Modifier.fillMaxWidth(),
+                    "freeform-set-notes-$index",
+                    limit = 400,
+                    lines = 2
+                )
+            }
         }
     }
 }
 
-private enum class MeasureInput(val label: String, val suffix: String) {
-    REPS("Reps", "quantity"),
-    CONTACTS("Contacts", "quantity"),
-    HOLD("Hold (s)", "seconds"),
-    WORK("Work (s)", "seconds"),
-    LOAD("kg", "kg");
+private enum class MeasureInput(val label: String, val headerLabel: String, val suffix: String) {
+    REPS("Reps", "REPS", "quantity"),
+    CONTACTS("Contacts", "CONTACTS", "quantity"),
+    HOLD("Hold (s)", "SEC", "seconds"),
+    WORK("Work (s)", "SEC", "seconds"),
+    LOAD("kg", "KG", "kg");
 
     fun get(value: FreeformMeasure) = when (this) {
         REPS, CONTACTS -> value.quantity
@@ -1268,25 +1507,29 @@ private fun CompactSetInput(
             .testTag(tag)
             .onFocusChanged { focused = it.isFocused }
             .semantics { contentDescription = label }
-            .background(StrideLabSurfaceTokens.surfaceSubtle, shape)
-            .border(
-                1.dp,
-                if (focused) StrideLabSurfaceTokens.lime else StrideLabSurfaceTokens.hairline,
-                shape
+            .background(Color(0xFF161616), shape)
+            .then(
+                if (focused) Modifier.border(1.dp, StrideLabSurfaceTokens.lime, shape)
+                else Modifier
             ),
         singleLine = true,
         cursorBrush = SolidColor(StrideLabSurfaceTokens.lime),
-        textStyle = MaterialTheme.typography.bodyMedium.tabular().copy(color = StrideLabSurfaceTokens.ink),
+        textStyle = MaterialTheme.typography.bodyMedium.tabular().copy(
+            color = StrideLabSurfaceTokens.ink,
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.SemiBold
+        ),
         keyboardOptions = KeyboardOptions(
             keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number
         ),
         decorationBox = { inner ->
-            Box(Modifier.padding(horizontal = 8.dp, vertical = 8.dp), contentAlignment = Alignment.CenterStart) {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
                 if (value.isEmpty()) {
                     Text(
                         "–",
                         color = StrideLabSurfaceTokens.inkMuted,
-                        style = MaterialTheme.typography.bodyMedium.tabular()
+                        style = MaterialTheme.typography.bodyMedium.tabular(),
+                        textAlign = TextAlign.Center
                     )
                 }
                 inner()
@@ -1369,14 +1612,18 @@ internal fun FreeformField(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun FreeformExercisePicker(
     discipline: ManualDiscipline,
+    recentExerciseNames: List<String> = emptyList(),
     close: () -> Unit,
     select: (FreeformExercise) -> Unit
 ) {
     val context = LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var query by rememberSaveable { mutableStateOf("") }
+    var scopeFilter by rememberSaveable(discipline) { mutableStateOf(PickerScope.DISCIPLINE) }
     var loadingCatalog by remember { mutableStateOf(true) }
     val catalog by produceState<List<ExerciseLibraryRecordV2>>(emptyList(), context) {
         value = withContext(Dispatchers.IO) {
@@ -1386,67 +1633,141 @@ internal fun FreeformExercisePicker(
         loadingCatalog = false
     }
     val showSkeleton = rememberDelayedSkeletonVisible(loadingCatalog && catalog.isEmpty())
-    val category = when (discipline) {
-        ManualDiscipline.STRENGTH -> "strength_gym"
-        ManualDiscipline.CALISTHENICS -> "calisthenics"
-        ManualDiscipline.CONDITIONING -> "conditioning"
-        ManualDiscipline.PLYOMETRICS -> "plyometrics"
-        ManualDiscipline.ISOMETRICS -> "isometrics"
-        ManualDiscipline.RUNNING -> "running"
+    val matches = remember(catalog, query, discipline, scopeFilter, recentExerciseNames) {
+        FreeformExerciseCatalog.filter(catalog, discipline, scopeFilter, query, recentExerciseNames)
     }
-    val matches = remember(catalog, query, category) {
-        val search = query.trim()
-        catalog.asSequence().filter { search.isBlank() || it.name.contains(search, ignoreCase = true) }
-            .sortedWith(compareByDescending<ExerciseLibraryRecordV2> { category in it.categories }.thenBy { it.name })
-            .take(60).toList()
-    }
-    AlertDialog(
+
+    ModalBottomSheet(
         onDismissRequest = close,
+        sheetState = sheetState,
         containerColor = StrideLabSurfaceTokens.surfaceElevated,
-        title = { Text("Add exercise", color = StrideLabSurfaceTokens.ink) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                FreeformField(
-                    "Search or type a name",
-                    query,
-                    { query = it },
-                    Modifier.fillMaxWidth(),
-                    "freeform-exercise-query",
-                    limit = 100
+        contentColor = StrideLabSurfaceTokens.ink,
+        modifier = Modifier.testTag("freeform-exercise-picker-sheet")
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.88f)
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Add exercise",
+                    color = StrideLabSurfaceTokens.ink,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
                 )
-                if (query.isNotBlank()) {
-                    TextButton(
-                        onClick = { select(FreeformExercise(name = query.trim())) },
+                IconButton(
+                    onClick = close,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = "Close exercise picker",
+                        tint = StrideLabSurfaceTokens.inkSecondary
+                    )
+                }
+            }
+
+            FreeformField(
+                label = "Search or add custom",
+                value = query,
+                edit = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                tag = "freeform-exercise-query",
+                limit = 100
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .testTag("freeform-picker-filters"),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                PickerScope.entries.forEach { entry ->
+                    val label = if (entry == PickerScope.DISCIPLINE) discipline.label else entry.label
+                    FilterChip(
+                        selected = scopeFilter == entry,
+                        onClick = { scopeFilter = entry },
+                        label = { Text(label) },
+                        modifier = Modifier
+                            .heightIn(min = 48.dp)
+                            .testTag("freeform-picker-filter-${entry.name.lowercase(Locale.ROOT)}")
+                    )
+                }
+            }
+
+            if (query.isNotBlank()) {
+                val trimmed = query.trim()
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 48.dp)
-                            .testTag("freeform-add-custom")
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { select(FreeformExercise(name = trimmed)) }
+                            .padding(vertical = 10.dp)
+                            .testTag("freeform-add-custom"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Use custom name", color = StrideLabSurfaceTokens.lime)
+                        Text(
+                            text = "Add \"$trimmed\" as custom exercise",
+                            color = StrideLabSurfaceTokens.lime,
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text("+", color = StrideLabSurfaceTokens.lime, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
+                    StrideLabHairline()
                 }
-                if (showSkeleton) {
+            }
+
+            if (showSkeleton) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     SkeletonExerciseRow()
-                } else {
-                    LazyColumn(
-                        Modifier.fillMaxWidth().heightIn(max = 220.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        itemsIndexed(matches, key = { _, record -> record.id }) { _, record ->
-                            FreeformTile(
-                                record.name,
-                                color = discipline.markColor,
-                                onClick = { select(FreeformExercise(name = record.name, catalogId = record.id)) }
+                    SkeletonExerciseRow()
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.weight(1f).fillMaxWidth().testTag("freeform-picker-list"),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    if (matches.isEmpty()) {
+                        item {
+                            Text(
+                                text = if (scopeFilter == PickerScope.RECENT) "No recent exercises for ${discipline.label} yet."
+                                else "No matching exercises in ${if (scopeFilter == PickerScope.DISCIPLINE) discipline.label else "catalog"}.",
+                                color = StrideLabSurfaceTokens.inkMuted,
+                                fontSize = 13.5.sp,
+                                modifier = Modifier.padding(vertical = 16.dp)
+                            )
+                        }
+                    } else {
+                        items(matches, key = { it.id ?: it.name }) { option ->
+                            StrideLabFlatRow(
+                                title = option.name,
+                                subtitle = option.subtitle,
+                                accentColor = discipline.markColor,
+                                onClick = {
+                                    select(FreeformExercise(name = option.name, catalogId = option.id))
+                                },
+                                trailing = {
+                                    Text("›", color = StrideLabSurfaceTokens.inkMuted, fontSize = 18.sp)
+                                }
                             )
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = close, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text("Close", color = StrideLabSurfaceTokens.lime)
-            }
         }
-    )
+    }
 }

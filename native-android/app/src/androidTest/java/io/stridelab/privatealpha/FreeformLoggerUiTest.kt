@@ -93,10 +93,11 @@ class FreeformLoggerUiTest {
         openNew(ManualDiscipline.STRENGTH)
         node("freeform-editor").performScrollToNode(hasTestTag("freeform-add-exercise"))
         node("freeform-add-exercise").performClick()
+        awaitNode("freeform-exercise-picker-sheet")
         field("freeform-exercise-query").performTextInput("squat")
         closeKeyboard()
         val catalogResult = hasText("squat", substring = true, ignoreCase = true) and hasClickAction() and
-            !hasTestTag("freeform-exercise-query")
+            !hasTestTag("freeform-exercise-query") and !hasTestTag("freeform-add-custom")
         compose.waitUntil(10_000) { compose.onAllNodes(catalogResult).fetchSemanticsNodes().isNotEmpty() }
         compose.onAllNodes(catalogResult).onFirst().performClick()
         node("freeform-editor").performScrollToIndex(0)
@@ -106,7 +107,7 @@ class FreeformLoggerUiTest {
         node("freeform-confirm-0").performScrollTo().performClick()
         field("freeform-actual-0-quantity").performScrollTo().performTextReplacement("7")
         closeKeyboard()
-        node("freeform-duplicate-last").performScrollTo().performClick()
+        node("freeform-add-set").performScrollTo().performClick()
         node("freeform-save-progress").performClick()
         awaitNode("freeform-resume").performScrollTo().performClick()
         awaitNode("freeform-editor")
@@ -214,7 +215,7 @@ class FreeformLoggerUiTest {
         node("freeform-confirm-0").performScrollTo().performClick()
         awaitNode("freeform-rest-timer").assertIsDisplayed()
         node("freeform-add-set").performScrollTo().performClick()
-        field("freeform-actual-1-quantity").performScrollTo().performTextInput("6")
+        field("freeform-actual-1-quantity").performScrollTo().performTextReplacement("6")
         closeKeyboard()
         assertEquals("6", runBlocking {
             node("freeform-save-progress").performClick()
@@ -226,7 +227,10 @@ class FreeformLoggerUiTest {
 
     private fun openNew(discipline: ManualDiscipline) {
         node("training-add-workout").performClick()
-        awaitNode("freeform-log").performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodes(hasTestTag("freeform-log") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
+        }
+        node("freeform-log").performClick()
         awaitNode("freeform-discipline-sheet")
         val tag = "freeform-discipline-${discipline.name}"
         awaitNode(tag).performScrollTo().performClick()
@@ -236,9 +240,10 @@ class FreeformLoggerUiTest {
     private fun addCustom(name: String) {
         node("freeform-editor").performScrollToNode(hasTestTag("freeform-add-exercise"))
         node("freeform-add-exercise").performClick()
+        awaitNode("freeform-exercise-picker-sheet")
         field("freeform-exercise-query").performTextInput(name)
         closeKeyboard()
-        node("freeform-add-custom").performClick()
+        awaitNode("freeform-add-custom").performClick()
         node("freeform-editor").performScrollToIndex(0)
         compose.onNodeWithText(name).assertExists()
     }

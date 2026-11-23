@@ -122,7 +122,7 @@ class NativeMainActivity: ComponentActivity() {
         exportLocalArchive=model::exportLocalActivityArchive,
         restoreLocalArchive=model::restoreLocalActivityArchive, freeform=model.freeform) }
     val thumbnailLoader = remember(model) { model::loadActivityThumbnail }
-    ActivityThumbnailProvider(thumbnailLoader, state.account, state.loginGeneration) {
+    ActivityThumbnailProvider(thumbnailLoader, state.account, state.loginGeneration, model.thumbnailCache) {
         NativeStrideContent(state, online, actions)
     }
 }

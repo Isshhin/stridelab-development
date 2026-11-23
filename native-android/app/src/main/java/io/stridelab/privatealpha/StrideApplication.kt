@@ -61,6 +61,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     private val repo = (application as StrideApplication).repository
     internal val state = repo.state
     internal val online = (application as StrideApplication).connectivity.online
+    internal val thumbnailCache = repo.thumbnailCache
     fun signIn(email: String, password: String) { viewModelScope.launch { repo.signIn(email, password) } }
     fun signUp(name: String, email: String, password: String) {
         viewModelScope.launch { repo.signUp(name, email, password) }

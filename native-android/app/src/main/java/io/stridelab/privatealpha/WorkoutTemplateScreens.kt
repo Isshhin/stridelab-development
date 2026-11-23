@@ -509,7 +509,7 @@ internal fun WorkoutTemplateEditor(
         }
     }
     if (picker) {
-        FreeformExercisePicker(seed.discipline, { picker = false }) {
+        FreeformExercisePicker(seed.discipline, close = { picker = false }) {
             editor = editor.copy(exercises = editor.exercises + it)
             picker = false
         }

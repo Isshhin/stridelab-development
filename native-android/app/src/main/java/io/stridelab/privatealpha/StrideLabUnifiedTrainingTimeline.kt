@@ -552,7 +552,8 @@ internal fun StrideLabUnifiedTrainingTimeline(
                             Modifier.heightIn(min = lastDateMinHeight) else Modifier,
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        if (day.date != today &&
+                        if (agendaView && !weekOnlyFilter &&
+                            day.date != today &&
                             unifiedTimelineMonthHeading(visibleDays, position)
                         ) {
                             Text(
@@ -816,60 +817,63 @@ private fun TimelineNoPlanWeekStrip(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onPreviousWeek)
+                        .testTag("training-week-prev"),
+                    contentAlignment = Alignment.CenterStart
+                ) {
                     Surface(
-                        onClick = onPreviousWeek,
                         shape = CircleShape,
                         color = TimelineStyle.cardRaised,
                         border = BorderStroke(1.dp, TimelineStyle.border),
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Text("‹", color = TimelineStyle.lime, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                    Column(
-                        modifier = Modifier.padding(horizontal = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(1.dp)
-                    ) {
-                        Text(
-                            "TRAINING WEEK",
-                            fontSize = 9.5.sp,
-                            letterSpacing = 1.2.sp,
-                            color = TimelineStyle.muted,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "${weekStart.format(fmtMonth)} – ${weekStart.plusDays(6).format(fmtMonth)}",
-                            color = TimelineStyle.ink,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                    Surface(
-                        onClick = onNextWeek,
-                        shape = CircleShape,
-                        color = TimelineStyle.cardRaised,
-                        border = BorderStroke(1.dp, TimelineStyle.border),
-                        modifier = Modifier.size(30.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text("›", color = TimelineStyle.lime, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                            Text("‹", color = TimelineStyle.lime, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-                if (focusedDate != null || weekStart != todayWeekStart) {
-                    TextButton(
-                        onClick = onShowAll,
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
-                        modifier = Modifier.height(28.dp)
+                Column(
+                    modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        "TRAINING WEEK",
+                        fontSize = 10.sp,
+                        letterSpacing = 1.2.sp,
+                        color = TimelineStyle.muted,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "${weekStart.format(fmtMonth)} – ${weekStart.plusDays(6).format(fmtMonth)}",
+                        color = TimelineStyle.ink,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        style = TabularTextStyle,
+                        maxLines = 1
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onNextWeek)
+                        .testTag("training-week-next"),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = TimelineStyle.cardRaised,
+                        border = BorderStroke(1.dp, TimelineStyle.border),
+                        modifier = Modifier.size(32.dp)
                     ) {
-                        Text(
-                            if (focusedDate != null) "Show week" else "Today",
-                            color = TimelineStyle.lime,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("›", color = TimelineStyle.lime, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -933,6 +937,35 @@ private fun TimelineNoPlanWeekStrip(
                                 if (hasCustom) Box(Modifier.size(5.dp).clip(CircleShape)
                                     .background(StrideLabVisualPalette.easyTeal))
                             }
+                        }
+                    }
+                }
+            }
+            if (focusedDate != null || weekStart != todayWeekStart) {
+                StrideLabHairline()
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        onClick = onShowAll,
+                        shape = RoundedCornerShape(100.dp),
+                        color = TimelineStyle.cardRaised,
+                        border = BorderStroke(1.dp, TimelineStyle.border),
+                        modifier = Modifier
+                            .heightIn(min = 36.dp)
+                            .testTag("training-return-today")
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                if (focusedDate != null) "Show week" else "Return to Today",
+                                color = TimelineStyle.lime,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
@@ -1059,8 +1092,7 @@ private fun TimelineRecordedCard(
         else -> R.drawable.trackside_discipline_conditioning
     }
     val (primary, secondary) = timelineRecordedMetrics(activity)
-    val gps = if (activityUsesStationaryDetail(activity)) null
-        else rememberActivityThumbnail(activity.id, cachedDetail)
+    val showGpsThumb = !activityUsesStationaryDetail(activity)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1134,10 +1166,12 @@ private fun TimelineRecordedCard(
                     )
                 }
             }
-            if (gps != null) {
-                Box(Modifier.size(width = 48.dp, height = 44.dp)) {
-                    TodayCompactGpsThumbnail(gps, modifier = Modifier.fillMaxSize())
-                }
+            if (showGpsThumb) {
+                TodayCachedGpsThumbnail(
+                    activityId = activity.id,
+                    detail = cachedDetail,
+                    modifier = Modifier.size(width = 48.dp, height = 44.dp)
+                )
             }
         }
         StrideLabHairline()

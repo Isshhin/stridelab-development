@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -852,8 +853,6 @@ private fun RecordedDailySessionRow(
     val hr = act.averageHr?.takeIf { it.isFinite() && it > 0.0 }?.let { "${it.roundToInt()} bpm" }
     val subtitle = listOfNotNull(dur, pace, hr).joinToString(" • ")
 
-    val route = if (isRun) rememberActivityThumbnail(act.id, cachedDetail) else null
-
     Row(
         modifier = Modifier.fillMaxWidth()
             .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
@@ -884,21 +883,23 @@ private fun RecordedDailySessionRow(
                 color = TodayAdaptivePalette.text,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
+                style = TabularTextStyle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             if (subtitle.isNotBlank()) {
                 Text(
                     text = subtitle,
-                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
+                    style = TabularTextStyle,
                     color = TodayAdaptivePalette.textSecondary,
                     fontSize = 13.sp
                 )
             }
         }
-        if (route != null) {
-            TodayCompactGpsThumbnail(
-                route = route,
+        if (isRun) {
+            TodayCachedGpsThumbnail(
+                activityId = act.id,
+                detail = cachedDetail,
                 modifier = Modifier.size(width = 84.dp, height = 64.dp)
             )
         }
@@ -1155,6 +1156,7 @@ private fun OverviewMetricColumn(
 ) {
     Column(
         modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(
@@ -1163,6 +1165,7 @@ private fun OverviewMetricColumn(
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
             style = TabularTextStyle,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Ellipsis
@@ -1171,6 +1174,7 @@ private fun OverviewMetricColumn(
             text = label,
             color = TodayAdaptivePalette.textMuted,
             fontSize = 12.sp,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Ellipsis
@@ -1272,9 +1276,6 @@ private fun TodayRecentActivityListRow(
     cachedDetail: ActivityDetail?,
     onClick: () -> Unit
 ) {
-    val accent = TodayAdaptivePalette.accentFor(row.discipline)
-    val route = if (row.isRun) rememberActivityThumbnail(row.activityId, cachedDetail) else null
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1284,11 +1285,6 @@ private fun TodayRecentActivityListRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        TodayDisciplineGlyphBadge(
-            discipline = row.discipline,
-            accent = accent
-        )
-
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(3.dp)
@@ -1296,7 +1292,7 @@ private fun TodayRecentActivityListRow(
             Text(
                 text = "${row.typeLabel} • ${row.detailTitle}",
                 color = TodayAdaptivePalette.text,
-                fontSize = 14.sp,
+                fontSize = 14.5.sp,
                 fontWeight = FontWeight.SemiBold,
                 style = TabularTextStyle,
                 maxLines = 1,
@@ -1306,7 +1302,7 @@ private fun TodayRecentActivityListRow(
                 Text(
                     text = row.subtitle,
                     color = TodayAdaptivePalette.textMuted,
-                    fontSize = 12.sp,
+                    fontSize = 12.5.sp,
                     style = TabularTextStyle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1314,10 +1310,11 @@ private fun TodayRecentActivityListRow(
             }
         }
 
-        if (route != null) {
-            TodayCompactGpsThumbnail(
-                route = route,
-                modifier = Modifier.size(width = 48.dp, height = 32.dp)
+        if (row.isRun) {
+            TodayCachedGpsThumbnail(
+                activityId = row.activityId,
+                detail = cachedDetail,
+                modifier = Modifier.size(width = 52.dp, height = 36.dp)
             )
         }
     }

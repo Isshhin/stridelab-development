@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.unit.dp
@@ -12,6 +14,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -34,11 +38,21 @@ class UiModernizationAcceptanceTest {
         context.deleteSharedPreferences(fixture)
     }
 
-    @Test fun modernizedScreensKeepBoundsAndMinimumTouchTargetsAcrossFlows() {
+    @Test fun modernizedScreensKeepBoundsTouchTargetsCachesAndDisciplinePickerAcrossFlows() {
         val today = LocalDate.now()
         val sampleActivity = ActivityRecord(
             "modern-run-1", "Tempo Run", "running", "garmin",
             Instant.now(), 8500.0, 2600.0, 2580.0, 303.0, 152.0, 40.0
+        )
+        val sampleDetail = ActivityDetail(
+            activityId = sampleActivity.id,
+            samples = listOf(
+                ActivitySample(0, 0.0, null, 138.0, null, 37.7749, -122.4194),
+                ActivitySample(1, 60.0, null, 144.0, null, 37.7759, -122.4184),
+                ActivitySample(2, 120.0, null, 148.0, null, 37.7769, -122.4174)
+            ),
+            laps = emptyList(),
+            fetchedAt = 0L
         )
         runBlocking {
             repo = TrainingRepository(context, databaseName = database, preferencesName = fixture)
@@ -65,50 +79,98 @@ class UiModernizationAcceptanceTest {
             )
         }
 
+        val cache = SharedThumbnailCacheHolder.get(context)
+        val uuidAccount = "3474c5ae-56ec-43cd-9317-ff22704ed33e"
+        val simulateSignedInUuid = mutableStateOf(true)
         compose.setContent {
             val state by repo.state.collectAsState()
+            val showUuidAccount = simulateSignedInUuid.value
             val hydrated = state.copy(
+                account = if (showUuidAccount) uuidAccount else state.account,
+                accountDisplayName = if (showUuidAccount) "Marc Runner" else state.accountDisplayName,
+                accountEmail = if (showUuidAccount) "marc@stridelab.io" else state.accountEmail,
                 activities = listOf(sampleActivity),
+                details = mapOf(sampleActivity.id to sampleDetail),
                 localGarminIds = setOf(sampleActivity.id),
                 groupedActivitySummaries = null
             )
-            val access = repo.freeformAccess()
+            val access = remember(repo) { repo.freeformAccess() }
             StrideTheme {
-                NativeStrideContent(hydrated, false, NativeActions({}, { _, _ -> }, freeform = access))
+                ActivityThumbnailProvider(null, uuidAccount, 0L, cache) {
+                    NativeStrideContent(hydrated, false, NativeActions({}, { _, _ -> }, freeform = access))
+                }
             }
         }
 
-        // Today flattened dashboard + bounds check
+        // 1. Today flattened dashboard + cached GPS thumbnail + centered overview + no recent circular badge
         await("screen").assertIsDisplayed()
         val todayRoot = node("screen").getUnclippedBoundsInRoot()
         val overview = await("today-training-overview").getUnclippedBoundsInRoot()
         assertTrue("Overview clips horizontally", overview.right <= todayRoot.right + 1.dp)
         await("today-recent-activities").assertIsDisplayed()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("gps-thumb-modern-run-1", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onAllNodesWithTag("gps-thumb-modern-run-1", useUnmergedTree = true).onFirst().assertIsDisplayed()
+        assertNotNull("GPS thumbnail must be populated in memory LruCache", cache.getMemory(cache.cacheKey(uuidAccount, sampleActivity.id)))
 
-        // Training calendar-first header without Workout history link
+        // 2. More signed-in card shows display name/email, never raw UUID
+        node("nav-settings").performClick()
+        await("more-profile-card").assertIsDisplayed()
+        compose.onNodeWithText("Marc Runner").assertIsDisplayed()
+        compose.onNodeWithText("marc@stridelab.io").assertIsDisplayed()
+        compose.onNodeWithText("3474c5ae", substring = true).assertDoesNotExist()
+
+        // Switch back to Today and confirm GPS thumbnail is still immediately rendered from LruCache
+        node("nav-home").performClick()
+        compose.waitUntil(10_000) {
+            compose.onAllNodesWithTag("gps-thumb-modern-run-1", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onAllNodesWithTag("gps-thumb-modern-run-1", useUnmergedTree = true).onFirst().assertIsDisplayed()
+
+        // 3. Training calendar-first header with symmetric week arrows & Return to Today below days
+        simulateSignedInUuid.value = false
         node("nav-training").performClick()
         await("training-unified-timeline").assertIsDisplayed()
         compose.onAllNodesWithTag("training-workout-history").assertCountEquals(0)
+        val prevArrow = await("training-week-prev").getUnclippedBoundsInRoot()
+        val nextArrow = await("training-week-next").getUnclippedBoundsInRoot()
+        assertTrue("Week arrows should sit near opposite edges", nextArrow.left > prevArrow.right)
+        node("training-week-prev").performClick()
+        val returnToToday = await("training-return-today").getUnclippedBoundsInRoot()
+        assertTrue("Return to Today should sit cleanly below calendar header", returnToToday.top > prevArrow.bottom + 40.dp)
+        node("training-return-today").performClick()
         assertMinTouchHeight("training-add-workout")
 
-        // Workouts Hub: In progress row with one-tap discard + templates visible + modal bottom sheet
+        // 4. Workouts Hub: In progress row with one-tap discard + templates visible + modal bottom sheet
         node("training-add-workout").performClick()
         await("freeform-hub").assertIsDisplayed()
-        await("freeform-open-templates").assertIsDisplayed()
+        await("freeform-open-templates").performScrollTo().assertIsDisplayed()
         val draftId = runBlocking { repo.freeformAccess().read(owner).workouts.single().id }
+        node("freeform-hub").performScrollToNode(hasTestTag("freeform-log"))
         assertMinTouchHeight("freeform-log")
+        node("freeform-hub").performScrollToNode(hasTestTag("freeform-discard-row-$draftId"))
         assertMinTouchHeight("freeform-discard-row-$draftId")
 
-        // Templates flattened list with chips + preview
-        node("freeform-open-templates").performClick()
-        await("workout-template-list").assertIsDisplayed()
-        await("workout-template-filter").assertIsDisplayed()
-        compose.onNodeWithText("Front squat", substring = true).assertIsDisplayed()
-        compose.onNodeWithContentDescription("Back").performClick()
+        // 5. Open Plyometrics empty workout & verify discipline-aware bottom sheet picker
+        node("freeform-hub").performScrollToNode(hasTestTag("freeform-log"))
+        node("freeform-log").performClick()
+        await("freeform-discipline-sheet")
+        await("freeform-discipline-PLYOMETRICS").performScrollTo().performClick()
+        await("freeform-empty-state").assertIsDisplayed()
+        compose.onNodeWithText("Back squat", substring = true).assertDoesNotExist()
+        node("freeform-add-exercise").performClick()
+        await("freeform-exercise-picker-sheet").assertIsDisplayed()
+        await("freeform-picker-list").performScrollToNode(hasText("Pogo hops"))
+        compose.onNodeWithText("Pogo hops").assertIsDisplayed()
+        compose.onNodeWithText("Assisted pull-up").assertDoesNotExist()
+        compose.onNodeWithText("Pogo hops").performClick()
 
-        // Open FreeformEditor and verify active set grid + confirm + rest timer + action bar bounds
-        await("freeform-resume").performScrollTo().performClick()
-        await("freeform-editor").assertIsDisplayed()
+        // 6. Auto-prefill + Add set and clean trailing checkmark without overflow
+        await("freeform-set-0").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("freeform-actual-0-quantity", useUnmergedTree = true).performScrollTo().performTextInput("12")
+        node("freeform-add-set").performScrollTo().performClick()
+        compose.onNodeWithTag("freeform-actual-1-quantity", useUnmergedTree = true).performScrollTo().assert(hasText("12"))
         assertMinTouchHeight("freeform-confirm-0")
         assertMinTouchHeight("freeform-finish")
         await("freeform-rest-timer").assertIsDisplayed()

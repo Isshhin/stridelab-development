@@ -23,6 +23,8 @@ internal data class GarminRecordingLoad(val activityId: String, val error: Strin
 internal data class TrainingState(
     val initializing: Boolean = true,
     val account: String? = null,
+    val accountDisplayName: String? = null,
+    val accountEmail: String? = null,
     /** Persistent on-device Garmin namespace, independent of cloud sign-in. */
     val localGarminOwner: String? = null,
     /** Stable on-device plan namespace, distinct from cloud and local Garmin. */
@@ -84,6 +86,36 @@ internal data class TrainingState(
         }
 }
 
+internal object AccountProfilePresentation {
+    private val UUID_REGEX = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+    fun isUuid(raw: String?): Boolean = !raw.isNullOrBlank() && UUID_REGEX.matches(raw.trim())
+
+    fun extractJwtProfile(accessToken: String): Pair<String?, String?> = runCatching {
+        val parts = accessToken.split('.')
+        if (parts.size < 2) return@runCatching null to null
+        val payloadBytes = java.util.Base64.getUrlDecoder().decode(parts[1])
+        val json = JSONObject(String(payloadBytes, Charsets.UTF_8))
+        val meta = json.optJSONObject("user_metadata")
+        val name = listOfNotNull(
+            meta?.optString("display_name")?.takeIf { it.isNotBlank() && !isUuid(it) },
+            meta?.optString("full_name")?.takeIf { it.isNotBlank() && !isUuid(it) },
+            meta?.optString("name")?.takeIf { it.isNotBlank() && !isUuid(it) }
+        ).firstOrNull()
+        val email = json.optString("email").takeIf { it.isNotBlank() && !isUuid(it) }
+        name to email
+    }.getOrDefault(null to null)
+
+    fun resolve(account: String?, displayName: String?, email: String?): Pair<String, String> {
+        val cleanName = displayName?.trim()?.takeIf { it.isNotEmpty() && !isUuid(it) }
+        val cleanEmail = email?.trim()?.takeIf { it.isNotEmpty() && !isUuid(it) }
+        val cleanAccount = account?.trim()?.takeIf { it.isNotEmpty() && !isUuid(it) }
+        val primary = cleanName ?: cleanEmail ?: cleanAccount ?: "StrideLab Account"
+        val subtitle = if (cleanName != null && cleanEmail != null) cleanEmail else "Signed in"
+        return primary to subtitle
+    }
+}
+
 /** All network/database/encryption work is serialized off the main thread, including workers. */
 internal class TrainingRepository(context: Context, private val gateway: TrainingGateway = SupabaseGateway(),
     databaseName: String = TrainingStore.DATABASE, preferencesName: String = "native-account-v1",
@@ -93,6 +125,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     private val store = TrainingStore(context, databaseName)
     private val manualStore = ManualDisciplineStore(context, manualDatabaseName)
     private val appContext = context.applicationContext
+    internal val thumbnailCache = SharedThumbnailCacheHolder.get(appContext)
     private val engine15ExerciseLibrary by lazy {
         try { ExerciseLibraryV2.load { path -> appContext.assets.open(path) } }
         catch (_: Exception) { throw PlanConstraint("STRENGTH_CATALOG_UNAVAILABLE: The shared offline exercise catalog could not be read; no substitute was generated.") }
@@ -135,8 +168,15 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         try {
             val account = preferences.getString("active", null)
             val owner = account ?: localPlanOwner
-            mutable.value = TrainingState(account = account,
-                localGarminOwner = localGarminOwner, localPlanOwner = localPlanOwner)
+            val cachedName = account?.let { preferences.getString("profile_name_$it", null) }
+            val cachedEmail = account?.let { preferences.getString("profile_email_$it", null) }
+            mutable.value = TrainingState(
+                account = account,
+                accountDisplayName = cachedName,
+                accountEmail = cachedEmail,
+                localGarminOwner = localGarminOwner,
+                localPlanOwner = localPlanOwner
+            )
             val summaries = async { traceStartup("Today activity summaries") { readSummaries(account) } }
             val session = account?.let { async {
                 runCatching { vault.read(it) }.getOrNull()?.also { _ -> copyLegacyGarminConnection(it) }
@@ -148,8 +188,25 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             }
             publishSummaries(summaries.await())
             publishSecondary(secondary.await())
-            if (session != null && session.await() == null) {
-                mutable.value = mutable.value.copy(needsSignIn = true)
+            if (session != null) {
+                val activeSession = session.await()
+                if (activeSession == null) {
+                    mutable.value = mutable.value.copy(needsSignIn = true)
+                } else if (account != null) {
+                    val (jwtName, jwtEmail) = AccountProfilePresentation.extractJwtProfile(activeSession.accessToken)
+                    val resolvedName = jwtName ?: cachedName
+                    val resolvedEmail = jwtEmail ?: cachedEmail
+                    if (resolvedName != cachedName || resolvedEmail != cachedEmail) {
+                        preferences.edit().apply {
+                            if (resolvedName != null) putString("profile_name_$account", resolvedName)
+                            if (resolvedEmail != null) putString("profile_email_$account", resolvedEmail)
+                        }.apply()
+                    }
+                    mutable.value = mutable.value.copy(
+                        accountDisplayName = resolvedName,
+                        accountEmail = resolvedEmail
+                    )
+                }
             }
         } catch (error: CancellationException) {
             throw error
@@ -1237,10 +1294,22 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         }
         vault.save(session) // No account activation unless encryption succeeds.
         copyLegacyGarminConnection(session.account)
-        check(preferences.edit().putString("active", session.account).commit())
-        mutable.value = TrainingState(initializing = false, account = session.account,
-            localPlanOwner = localPlanOwner, busy = true,
-            loginGeneration = mutable.value.loginGeneration + 1)
+        val (jwtName, jwtEmail) = AccountProfilePresentation.extractJwtProfile(session.accessToken)
+        val resolvedEmail = jwtEmail ?: email.trim().takeIf { it.isNotBlank() && !AccountProfilePresentation.isUuid(it) }
+        check(preferences.edit().apply {
+            putString("active", session.account)
+            if (jwtName != null) putString("profile_name_${session.account}", jwtName)
+            if (resolvedEmail != null) putString("profile_email_${session.account}", resolvedEmail)
+        }.commit())
+        mutable.value = TrainingState(
+            initializing = false,
+            account = session.account,
+            accountDisplayName = jwtName,
+            accountEmail = resolvedEmail,
+            localPlanOwner = localPlanOwner,
+            busy = true,
+            loginGeneration = mutable.value.loginGeneration + 1
+        )
         loadCache(session.account)
         // Authentication is complete even if this first cache refresh fails.
         fetchActivities()
