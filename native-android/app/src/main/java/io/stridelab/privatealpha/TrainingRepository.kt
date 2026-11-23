@@ -2118,7 +2118,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 
     internal fun freeformAccess() = FreeformAccess(
         read = { owner -> withFreeformOwner(owner) {
-            FreeformBoard(manualStore.listFreeform(owner), manualStore.list(owner))
+            FreeformBoard(manualStore.listFreeform(owner), manualStore.list(owner), manualStore.listTemplates(owner))
         } },
         start = { draft -> withFreeformOwner(draft.owner) { manualStore.createFreeformDraft(draft) } },
         save = { draft -> withFreeformOwner(draft.owner) { manualStore.saveFreeformDraft(draft) } },
@@ -2127,7 +2127,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         } },
         discard = { owner, id -> withFreeformOwner(owner) { manualStore.discardFreeform(owner, id) } },
         export = { owner -> withFreeformOwner(owner) { manualStore.export(owner) } },
-        restore = { owner, raw -> withFreeformOwner(owner) { manualStore.restore(owner, raw) } }
+        restore = { owner, raw -> withFreeformOwner(owner) { manualStore.restore(owner, raw) } },
+        saveTemplate = { template, previous -> withFreeformOwner(template.owner) {
+            if (previous == null) manualStore.saveTemplate(template) else manualStore.updateTemplate(template, previous)
+        } },
+        deleteTemplate = { owner, id -> withFreeformOwner(owner) { manualStore.deleteTemplate(owner, id) } }
     )
 
     private suspend fun <T> withFreeformOwner(owner: String, action: suspend () -> T): T =

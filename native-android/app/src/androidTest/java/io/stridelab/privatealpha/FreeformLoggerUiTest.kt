@@ -120,6 +120,44 @@ class FreeformLoggerUiTest {
         assertEquals(listOf(true, false), sets.map { it.completed })
     }
 
+    @Test fun runningRoutineCreateStartFinishAndSaveFromHistory() = reportUiFailure {
+        node("nav-training").performClick()
+        node("training-add-workout").performClick()
+        awaitNode("freeform-open-templates").performClick()
+        awaitNode("workout-template-new").performClick()
+        node("workout-template-discipline-RUNNING").performClick()
+        awaitNode("workout-template-editor")
+        field("workout-template-title").performScrollTo().performTextReplacement("Track warm-up")
+        field("workout-template-distance").performScrollTo().performTextInput("5")
+        closeKeyboard()
+        field("workout-template-duration").performScrollTo().performTextInput("30")
+        closeKeyboard()
+        node("workout-template-save").performClick()
+        awaitNode("workout-template-start").performScrollTo().performClick()
+        awaitNode("freeform-run-targets").assertIsDisplayed()
+        val original = runBlocking { repo.freeformAccess().read(owner) }
+        val draft = original.workouts.single()
+        assertTrue(draft.distanceKm.isEmpty() && draft.durationMinutes.isEmpty())
+        assertEquals(original.templates.single().id, draft.templateId)
+
+        field("freeform-run-distance").performScrollTo().performTextInput("4.5")
+        field("freeform-run-duration").performScrollTo().performTextInput("28")
+        closeKeyboard()
+        node("freeform-finish").performClick()
+        awaitNode("freeform-save-completed").performClick()
+        awaitNode("freeform-save-as-template").performScrollTo().performClick()
+        awaitNode("workout-template-editor")
+        field("workout-template-title").performScrollTo().performTextReplacement("Repeat warm-up")
+        closeKeyboard()
+        node("workout-template-save").performClick()
+        awaitNode("workout-template-list")
+        val after = runBlocking { repo.freeformAccess().read(owner) }
+        assertEquals(listOf("Repeat warm-up", "Track warm-up"), after.templates.map { it.name })
+        assertTrue(after.templates.all { it.structure.distanceKm == "5" && it.structure.durationMinutes == "30" })
+        assertEquals("4.5", after.workouts.single().distanceKm)
+        assertTrue(after.workouts.single().isComplete)
+    }
+
     private fun openNew(discipline: ManualDiscipline) {
         node("training-add-workout").performClick()
         awaitNode("freeform-log").performClick()

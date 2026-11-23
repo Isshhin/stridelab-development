@@ -2,6 +2,9 @@ package io.stridelab.privatealpha
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -15,6 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -43,6 +48,7 @@ internal fun FreeformEditor(
     var error by remember(initial.id) { mutableStateOf<String?>(null) }
     var review by rememberSaveable(initial.id) { mutableStateOf(false) }
     var picker by rememberSaveable(initial.id) { mutableStateOf(false) }
+    var details by rememberSaveable(initial.id) { mutableStateOf(false) }
     var discard by rememberSaveable(initial.id) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -133,7 +139,9 @@ internal fun FreeformEditor(
         return
     }
 
-    FreeformPage("Log ${draft.discipline.label.lowercase()}", "Freeform workout", ::back) {
+    FreeformPage(
+        draft.workoutName.ifBlank { draft.discipline.label }, draft.date?.toString(), ::back
+    ) {
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth().testTag("freeform-editor"),
             contentPadding = PaddingValues(16.dp),
@@ -144,6 +152,13 @@ internal fun FreeformEditor(
                     FreeformPanel {
                         Text("Run details", color = freeformPalette.ink, style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold)
+                        val targets = listOfNotNull(
+                            draft.targetDistanceKm.takeIf { it.isNotBlank() }?.let { "$it km" },
+                            draft.targetDurationMinutes.takeIf { it.isNotBlank() }?.let { "$it min" }
+                        )
+                        if (targets.isNotEmpty()) Text("Target · ${targets.joinToString(" · ")}",
+                            color = freeformPalette.secondary, style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.testTag("freeform-run-targets"))
                         FreeformField("Distance (km)", draft.distanceKm, { edit(draft.copy(distanceKm = it)) },
                             Modifier.fillMaxWidth(), "freeform-run-distance", decimal = true)
                         FreeformField("Duration (min)", draft.durationMinutes, { edit(draft.copy(durationMinutes = it)) },
@@ -176,13 +191,18 @@ internal fun FreeformEditor(
             }
             item {
                 FreeformPanel {
-                    Text("Workout details", color = freeformPalette.ink, style = MaterialTheme.typography.titleMedium)
-                    FreeformField("Date (YYYY-MM-DD)", draft.performedOn, { edit(draft.copy(performedOn = it)) },
-                        Modifier.fillMaxWidth(), "freeform-date")
-                    FreeformField("Effort (1–10, optional)", draft.effort, { edit(draft.copy(effort = it)) },
-                        Modifier.fillMaxWidth(), "freeform-workout-effort", integer = true)
-                    FreeformField("Workout notes", draft.notes, { edit(draft.copy(notes = it)) },
-                        Modifier.fillMaxWidth(), "freeform-workout-notes", limit = 2000, lines = 3)
+                    TextButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (details) "Hide workout details" else "Date, effort and notes",
+                            color = freeformPalette.secondary, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (details) {
+                        FreeformField("Date (YYYY-MM-DD)", draft.performedOn, { edit(draft.copy(performedOn = it)) },
+                            Modifier.fillMaxWidth(), "freeform-date")
+                        FreeformField("Effort (1–10, optional)", draft.effort, { edit(draft.copy(effort = it)) },
+                            Modifier.fillMaxWidth(), "freeform-workout-effort", integer = true)
+                        FreeformField("Workout notes", draft.notes, { edit(draft.copy(notes = it)) },
+                            Modifier.fillMaxWidth(), "freeform-workout-notes", limit = 2000, lines = 3)
+                    }
                 }
             }
             item {
@@ -199,16 +219,15 @@ internal fun FreeformEditor(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 FreeformError(error)
-                FreeformPrimary("Finish Workout", {
-                    runCatching { draft.finish(System.currentTimeMillis()) }.onSuccess { error = null; review = true }
-                        .onFailure { error = it.freeformMessage("Check the workout before finishing.") }
-                }, Modifier.fillMaxWidth().testTag("freeform-finish"), enabled = !working)
-                TextButton(
-                    onClick = ::saveAndLeave,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("freeform-save-progress"),
-                    enabled = !working
-                ) {
-                    Text("Save progress", color = freeformPalette.lime)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = ::saveAndLeave,
+                        modifier = Modifier.weight(0.42f).heightIn(min = 48.dp).testTag("freeform-save-progress"),
+                        enabled = !working) { Text("Save draft", color = freeformPalette.secondary) }
+                    FreeformPrimary("Finish workout", {
+                        runCatching { draft.finish(System.currentTimeMillis()) }.onSuccess { error = null; review = true }
+                            .onFailure { error = it.freeformMessage("Check the workout before finishing.") }
+                    }, Modifier.weight(0.58f).testTag("freeform-finish"), enabled = !working)
                 }
             }
         }
@@ -239,10 +258,10 @@ internal fun FreeformEditor(
 }
 
 @Composable
-private fun FreeformExercisePanel(
+internal fun FreeformExercisePanel(
     exercise: FreeformExercise, discipline: ManualDiscipline, previous: FreeformMeasure?,
     hasPrevious: Boolean, hasNext: Boolean,
-    change: (FreeformExercise) -> Unit, move: (Int) -> Unit, delete: () -> Unit
+    change: (FreeformExercise) -> Unit, move: (Int) -> Unit, delete: () -> Unit, authoring: Boolean = false
 ) {
     var menu by remember { mutableStateOf(false) }
     var showNotes by rememberSaveable { mutableStateOf(exercise.notes.isNotBlank()) }
@@ -292,6 +311,19 @@ private fun FreeformExercisePanel(
                     Modifier.fillMaxWidth(), "freeform-block-minutes", decimal = true)
             }
         }
+        val compact = discipline != ManualDiscipline.CALISTHENICS && !authoring
+        if (compact && exercise.sets.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (conditioning) "Rd" else "Set", Modifier.width(30.dp),
+                    color = freeformPalette.secondary, style = MaterialTheme.typography.labelSmall)
+                measureInputs(discipline).forEach { metric ->
+                    Text(metric.label, Modifier.weight(1f), color = freeformPalette.secondary,
+                        style = MaterialTheme.typography.labelSmall)
+                }
+                Spacer(Modifier.width(96.dp))
+            }
+        }
         exercise.sets.forEachIndexed { index, set ->
             key(set.id) {
                 FreeformSetRow(
@@ -301,7 +333,7 @@ private fun FreeformExercisePanel(
                         change(exercise.copy(sets = exercise.sets.toMutableList().apply { add(index + 1, set.duplicate()) }))
                     },
                     remove = { change(exercise.copy(sets = exercise.sets.filterNot { it.id == set.id })) },
-                    canAdd = exercise.sets.size < 30
+                    canAdd = exercise.sets.size < 30, authoring = authoring, compact = compact
                 )
             }
         }
@@ -334,23 +366,59 @@ private fun FreeformExercisePanel(
 private fun FreeformSetRow(
     set: FreeformSet, index: Int, discipline: ManualDiscipline, format: ConditioningFormat,
     edit: (FreeformSet) -> Unit,
-    duplicate: () -> Unit, remove: () -> Unit, canAdd: Boolean
+    duplicate: () -> Unit, remove: () -> Unit, canAdd: Boolean, authoring: Boolean, compact: Boolean
 ) {
     var options by remember { mutableStateOf(false) }
     var expanded by rememberSaveable { mutableStateOf(false) }
     var setError by remember { mutableStateOf(false) }
     val unit = if (discipline == ManualDiscipline.CONDITIONING) "Round" else "Set"
 
-    Surface(
-        color = freeformPalette.surfaceRaised, shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, if (set.completed) freeformPalette.lime.copy(alpha = .5f) else freeformPalette.border),
-        modifier = Modifier.fillMaxWidth().testTag("freeform-set-$index")
-    ) {
-        Column(Modifier.padding(start = 10.dp, end = 10.dp, bottom = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    if (authoring) {
+        Column(Modifier.fillMaxWidth().testTag("freeform-set-$index"), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            HorizontalDivider(color = freeformPalette.border)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("$unit ${index + 1}", Modifier.weight(1f), color = freeformPalette.ink,
-                    style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.titleSmall)
+                TextButton(onClick = remove) { Text("Remove", color = freeformPalette.secondary) }
+            }
+            MeasureFields(discipline, set.target, "Target", "freeform-target-$index") { edit(set.copy(target = it)) }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FreeformField("Rest (s)", set.restSeconds, { edit(set.copy(restSeconds = it)) },
+                    Modifier.weight(1f), "freeform-rest-$index", integer = true)
+                if (discipline in setOf(ManualDiscipline.STRENGTH, ManualDiscipline.CALISTHENICS)) {
+                    FreeformField("Target RIR", set.targetRir, { edit(set.copy(targetRir = it)) },
+                        Modifier.weight(1f), "freeform-target-rir-$index", integer = true)
+                }
+            }
+        }
+        return
+    }
+
+    Surface(
+        color = freeformPalette.surfaceRaised, shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, if (set.completed) freeformPalette.lime.copy(alpha = .28f) else freeformPalette.borderSubtle),
+        modifier = Modifier.fillMaxWidth().testTag("freeform-set-$index")
+    ) {
+        Column(Modifier.padding(horizontal = if (compact) 4.dp else 10.dp, vertical = if (compact) 2.dp else 6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (compact) "${index + 1}" else "$unit ${index + 1}",
+                    if (compact) Modifier.width(30.dp) else Modifier.weight(1f), color = freeformPalette.ink,
+                    style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                if (compact) {
+                    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        measureInputs(discipline).forEach { metric ->
+                            CompactSetInput(
+                                value = metric.get(set.actual), label = "Actual ${metric.label}",
+                                tag = "freeform-actual-$index-${metric.suffix}", decimal = metric == MeasureInput.LOAD,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                setError = false
+                                edit(set.copy(actual = metric.update(set.actual, it)))
+                            }
+                        }
+                    }
+                }
                 IconButton(
                     onClick = {
                         if (set.completed || set.validActual(discipline, format)) {
@@ -377,9 +445,15 @@ private fun FreeformSetRow(
                     }
                 }
             }
-            MeasureFields(discipline, set.actual, "Actual", "freeform-actual-$index") {
+            if (!compact) MeasureFields(discipline, set.actual, "Actual", "freeform-actual-$index") {
                 setError = false
                 edit(set.copy(actual = it))
+            }
+            val targetSummary = listOfNotNull(set.target.label(discipline).takeIf { it.isNotBlank() },
+                set.targetRir.takeIf { it.isNotBlank() }?.let { "RIR $it" })
+            if (targetSummary.isNotEmpty() && !expanded) {
+                Text("Target · ${targetSummary.joinToString(" · ")}", Modifier.padding(start = 8.dp, bottom = 4.dp),
+                    color = freeformPalette.secondary, style = MaterialTheme.typography.bodySmall)
             }
             if (setError || set.completed && !set.validActual(discipline, format)) {
                 FreeformError("Enter valid actual work to confirm this ${unit.lowercase()}.")
@@ -406,7 +480,52 @@ private fun FreeformSetRow(
 
 private enum class MeasureInput(val label: String, val suffix: String) {
     REPS("Reps", "quantity"), CONTACTS("Contacts", "quantity"), HOLD("Hold (s)", "seconds"),
-    WORK("Work (s)", "seconds"), LOAD("Load (kg)", "kg")
+    WORK("Work (s)", "seconds"), LOAD("kg", "kg");
+
+    fun get(value: FreeformMeasure) = when (this) {
+        REPS, CONTACTS -> value.quantity
+        HOLD, WORK -> value.seconds
+        LOAD -> value.kg
+    }
+
+    fun update(value: FreeformMeasure, input: String) = when (this) {
+        REPS, CONTACTS -> value.copy(quantity = input)
+        HOLD, WORK -> value.copy(seconds = input)
+        LOAD -> value.copy(kg = input)
+    }
+}
+
+private fun measureInputs(discipline: ManualDiscipline) = when (discipline) {
+    ManualDiscipline.RUNNING -> emptyList()
+    ManualDiscipline.STRENGTH -> listOf(MeasureInput.REPS, MeasureInput.LOAD)
+    ManualDiscipline.CALISTHENICS -> listOf(MeasureInput.REPS, MeasureInput.LOAD, MeasureInput.HOLD)
+    ManualDiscipline.PLYOMETRICS -> listOf(MeasureInput.CONTACTS)
+    ManualDiscipline.ISOMETRICS -> listOf(MeasureInput.HOLD, MeasureInput.LOAD)
+    ManualDiscipline.CONDITIONING -> listOf(MeasureInput.WORK)
+}
+
+@Composable
+private fun CompactSetInput(value: String, label: String, tag: String, decimal: Boolean,
+    modifier: Modifier, change: (String) -> Unit
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(8.dp)
+    BasicTextField(
+        value = value, onValueChange = { if (it.length <= 32) change(it) },
+        modifier = modifier.heightIn(min = 48.dp).testTag(tag).onFocusChanged { focused = it.isFocused }
+            .semantics { contentDescription = label }
+            .background(freeformPalette.surface, shape)
+            .border(1.dp, if (focused) freeformPalette.lime else freeformPalette.border, shape),
+        singleLine = true, cursorBrush = SolidColor(freeformPalette.lime),
+        textStyle = MaterialTheme.typography.bodyMedium.copy(color = freeformPalette.ink),
+        keyboardOptions = KeyboardOptions(keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number),
+        decorationBox = { inner ->
+            Box(Modifier.padding(horizontal = 8.dp, vertical = 8.dp), contentAlignment = Alignment.CenterStart) {
+                if (value.isEmpty()) Text("–", color = freeformPalette.muted, style = MaterialTheme.typography.bodyMedium)
+                inner()
+            }
+        }
+    )
 }
 
 @Composable
@@ -414,30 +533,13 @@ private fun MeasureFields(
     discipline: ManualDiscipline, value: FreeformMeasure, group: String, tag: String,
     edit: (FreeformMeasure) -> Unit
 ) {
-    val metrics = when (discipline) {
-        ManualDiscipline.RUNNING -> emptyList()
-        ManualDiscipline.STRENGTH -> listOf(MeasureInput.REPS, MeasureInput.LOAD)
-        ManualDiscipline.CALISTHENICS -> listOf(MeasureInput.REPS, MeasureInput.LOAD, MeasureInput.HOLD)
-        ManualDiscipline.PLYOMETRICS -> listOf(MeasureInput.CONTACTS)
-        ManualDiscipline.ISOMETRICS -> listOf(MeasureInput.HOLD, MeasureInput.LOAD)
-        ManualDiscipline.CONDITIONING -> listOf(MeasureInput.WORK)
-    }
+    val metrics = measureInputs(discipline)
     Text(group, color = freeformPalette.secondary, style = MaterialTheme.typography.labelLarge)
     metrics.chunked(2).forEach { row ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             row.forEach { metric ->
-                val current = when (metric) {
-                    MeasureInput.REPS, MeasureInput.CONTACTS -> value.quantity
-                    MeasureInput.HOLD, MeasureInput.WORK -> value.seconds
-                    MeasureInput.LOAD -> value.kg
-                }
-                FreeformField(metric.label, current, { input ->
-                    edit(when (metric) {
-                        MeasureInput.REPS, MeasureInput.CONTACTS -> value.copy(quantity = input)
-                        MeasureInput.HOLD, MeasureInput.WORK -> value.copy(seconds = input)
-                        MeasureInput.LOAD -> value.copy(kg = input)
-                    })
-                }, Modifier.weight(1f), "$tag-${metric.suffix}", integer = metric != MeasureInput.LOAD,
+                FreeformField(metric.label, metric.get(value), { edit(metric.update(value, it)) },
+                    Modifier.weight(1f), "$tag-${metric.suffix}", integer = metric != MeasureInput.LOAD,
                     decimal = metric == MeasureInput.LOAD, accessibilityLabel = "$group ${metric.label}")
             }
             if (row.size == 1 && metrics.size > 1) Spacer(Modifier.weight(1f))
@@ -446,7 +548,7 @@ private fun MeasureFields(
 }
 
 @Composable
-private fun FreeformField(
+internal fun FreeformField(
     label: String, value: String, edit: (String) -> Unit, modifier: Modifier, tag: String,
     limit: Int = 32, integer: Boolean = false, decimal: Boolean = false, lines: Int = 1,
     accessibilityLabel: String = label
@@ -475,7 +577,7 @@ private fun FreeformField(
 }
 
 @Composable
-private fun FreeformExercisePicker(discipline: ManualDiscipline, close: () -> Unit, select: (FreeformExercise) -> Unit) {
+internal fun FreeformExercisePicker(discipline: ManualDiscipline, close: () -> Unit, select: (FreeformExercise) -> Unit) {
     val context = LocalContext.current
     var query by rememberSaveable { mutableStateOf("") }
     val catalog by produceState<List<ExerciseLibraryRecordV2>>(emptyList(), context) {

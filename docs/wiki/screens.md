@@ -65,9 +65,11 @@ Back to [[index]] · Related: [[ui-system]] · [[architecture]] · [[engine-rule
 
 ### Freeform Workout Logger
 
-- **Training → Add Workout → Log Workout** opens the discipline picker. Choose a movement from the bundled catalog or enter a custom name. Drafts can be resumed from Add Workout.
+- **Training → Add Workout → Start empty workout** opens the discipline picker. Choose a movement from the bundled catalog or enter a custom name. Workouts in progress are listed on the same screen.
 - `freeform/edit/{id}` supports autosave, editable actuals, set confirmation, optional targets and rest, and a recorded-totals review before saving. Running captures date, distance, duration, optional effort, workout type, and notes.
 - Completed workouts open via `freeform/history/{kind}/{id}` and appear on their performed date in Training with a **Freeform** label. Legacy manual sessions retain a **Manual** label. **Workout backup** under Add Workout exports and restores an archive for the current profile.
+
+- **Workout templates** opens the searchable, discipline-filtered routine library. Create, edit, rename, duplicate, delete, or start a routine here. Completed Freeform detail offers **Save as template**.
 
 ## Deprecated & Removed Elements (Do Not Reintroduce)
 - **Concentric Weekly TSS Rings & Elevated Telemetry Feed on Today (`All`):** Replaced by the verified P0 3-section layout (`TodayDailyTrainingCard`, `TodayTrainingOverviewCard`, Option 1 `TodayRecentActivitiesSection`) to avoid fabricated multisport TSS scores, fake workout-to-activity adherence guessing, and heavy scrolling cards.

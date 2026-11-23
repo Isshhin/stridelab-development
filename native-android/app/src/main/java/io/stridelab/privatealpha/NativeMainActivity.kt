@@ -406,6 +406,7 @@ private fun NavHostController.openActivity(id: String) {
                                 access = freeformAccess, back = { nav.popBackStack() }, retry = { freeformReload++ },
                                 update = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
                                 restored = { freeformBoard = it },
+                                openTemplates = { nav.navigate("freeform/templates") },
                                 openDraft = { id ->
                                     nav.navigate("freeform/edit/${android.net.Uri.encode(id)}") { launchSingleTop = true }
                                 }
@@ -413,6 +414,65 @@ private fun NavHostController.openActivity(id: String) {
                         }
                     } else {
                         FreeformHistoryDetail(null, null, state.initializing) { nav.popBackStack() }
+                    }
+                }
+                composable("freeform/templates") {
+                    if (freeformOwner != null && freeformAccess != null) {
+                        key(freeformOwner, state.loginGeneration) {
+                            WorkoutTemplateLibrary(
+                                freeformOwner, freeformBoard?.templates.orEmpty(), freeformAccess,
+                                back = { nav.popBackStack() },
+                                create = { nav.navigate("freeform/template/new/${it.name}") },
+                                edit = { nav.navigate("freeform/template/edit/${android.net.Uri.encode(it)}") },
+                                added = { template ->
+                                    freeformBoard = freeformBoard?.withTemplate(template)
+                                },
+                                deleted = { id ->
+                                    freeformBoard = freeformBoard?.let { board ->
+                                        board.copy(templates = board.templates.filterNot { it.id == id })
+                                    }
+                                },
+                                started = { draft ->
+                                    freeformBoard = (freeformBoard ?: FreeformBoard()).updated(draft)
+                                    nav.navigate("freeform/edit/${android.net.Uri.encode(draft.id)}")
+                                }
+                            )
+                        }
+                    }
+                }
+                composable("freeform/template/{mode}/{value}") { destination ->
+                    val mode = destination.arguments?.getString("mode")
+                    val value = destination.arguments?.getString("value")
+                    val board = freeformBoard
+                    if (freeformOwner != null && freeformAccess != null) {
+                        key(freeformOwner, state.loginGeneration, mode, value) {
+                            val previous = if (mode == "edit") board?.templates?.firstOrNull { it.id == value } else null
+                            val seed = when (mode) {
+                                "new" -> remember(value) {
+                                    ManualDiscipline.entries.firstOrNull { it.name == value }?.let {
+                                        ManualWorkoutTemplate.empty(freeformOwner, it)
+                                    }
+                                }
+                                "edit" -> previous
+                                "from" -> {
+                                    val workout = board?.workouts?.firstOrNull { it.id == value && it.isComplete }
+                                    remember(workout) { workout?.let(ManualWorkoutTemplate::fromWorkout) }
+                                }
+                                else -> null
+                            }
+                            if (seed != null) {
+                                WorkoutTemplateEditor(seed, previous, freeformAccess, back = { nav.popBackStack() }) { template ->
+                                    freeformBoard = freeformBoard?.withTemplate(template)
+                                    if (mode == "from") nav.navigate("freeform/templates") {
+                                        popUpTo("freeform/template/{mode}/{value}") { inclusive = true }
+                                    } else nav.popBackStack()
+                                }
+                            } else {
+                                FreeformHistoryDetail(null, null, board == null && freeformReadError == null) {
+                                    nav.popBackStack()
+                                }
+                            }
+                        }
                     }
                 }
                 composable("freeform/edit/{id}") { destination ->
@@ -445,6 +505,9 @@ private fun NavHostController.openActivity(id: String) {
                         workout = if (!legacy) freeformBoard?.workouts?.firstOrNull { it.id == id && it.isComplete } else null,
                         legacy = if (legacy) freeformBoard?.legacy?.firstOrNull { it.id == id } else null,
                         loading = freeformBoard == null && freeformReadError == null,
+                        onSaveAsTemplate = if (!legacy && id != null && freeformAccess != null) {
+                            { nav.navigate("freeform/template/from/${android.net.Uri.encode(id)}") }
+                        } else null,
                         back = { nav.popBackStack() }
                     )
                 }

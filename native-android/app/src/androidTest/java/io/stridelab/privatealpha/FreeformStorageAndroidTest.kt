@@ -139,6 +139,47 @@ class FreeformStorageAndroidTest {
         }
     }
 
+    @Test fun detailedTemplatesSupportCrudReopenAndArchiveWithoutChangingHistory() = runBlocking {
+        val original = ManualWorkoutTemplate.empty(owner, ManualDiscipline.ISOMETRICS).copy(name = "Wall sits",
+            recipe = WorkoutRecipe(exercises = listOf(FreeformExercise(name = "Wall sit", sets = listOf(
+                FreeformSet(target = FreeformMeasure(seconds = "45"), restSeconds = "60")
+            )))))
+        val newName = original.copy(name = "Wall sit holds", recipe = WorkoutRecipe())
+        val archive: String
+        val completed: FreeformWorkout
+        ManualDisciplineStore(context, database).use { store ->
+            store.saveTemplate(original)
+            val draft = store.createFreeformDraft(original.startWorkout(date, 100))
+            val exercise = draft.exercises.single()
+            val set = exercise.sets.single()
+            completed = store.completeFreeform(draft.copy(modifiedAt = 101, exercises = listOf(
+                exercise.copy(sets = listOf(set.copy(actual = FreeformMeasure(seconds = "40"), completed = true)))
+            )), 102)
+            store.updateTemplate(newName, original)
+            assertTrue(runCatching { store.updateTemplate(original, original) }.isFailure)
+            val duplicate = newName.duplicate()
+            store.saveTemplate(duplicate)
+            assertTrue(store.listTemplates(other).isEmpty())
+            assertFalse(store.deleteTemplate(other, duplicate.id))
+            assertTrue(store.deleteTemplate(owner, duplicate.id))
+            assertEquals(completed, store.listFreeform(owner).single())
+            assertEquals("45", completed.exercises.single().sets.single().target.seconds)
+            archive = store.export(owner)
+        }
+        ManualDisciplineStore(context, database).use { reopened ->
+            assertEquals(listOf(newName), reopened.listTemplates(owner))
+            assertEquals(completed, reopened.listFreeform(owner).single())
+            assertEquals(0, reopened.restore(owner, archive))
+        }
+        ManualDisciplineStore(context, "$name-restore.db").use { restored ->
+            assertTrue(runCatching { restored.restore(other, archive) }.isFailure)
+            assertEquals(2, restored.restore(owner, archive))
+            assertEquals(0, restored.restore(owner, archive))
+            assertEquals(listOf(newName), restored.listTemplates(owner))
+            assertEquals(completed, restored.listFreeform(owner).single())
+        }
+    }
+
     private fun protectedRows(): List<String> = TrainingStore(context, database).use { store ->
         val db = store.readableDatabase
         val plans = db.rawQuery("SELECT payload FROM records WHERE kind='plan' ORDER BY account,record_id", null)

@@ -43,7 +43,8 @@ internal data class FreeformSet(
     val rpe: String = "",
     val rir: String = "",
     val notes: String = "",
-    val completed: Boolean = false
+    val completed: Boolean = false,
+    val targetRir: String = ""
 ) {
     fun validActual(discipline: ManualDiscipline, format: ConditioningFormat = ConditioningFormat.INTERVALS) =
         actual.isValid() && (actual.hasWork(discipline) ||
@@ -75,12 +76,17 @@ internal data class FreeformWorkout(
     val durationMinutes: String = "",
     val effort: String = "",
     val runType: String = "",
-    val exercises: List<FreeformExercise> = emptyList()
+    val exercises: List<FreeformExercise> = emptyList(),
+    val templateId: String? = null,
+    val workoutName: String = "",
+    val targetDistanceKm: String = "",
+    val targetDurationMinutes: String = ""
 ) {
     val isComplete: Boolean get() = completedAt != null
     val date: LocalDate? get() = runCatching { LocalDate.parse(performedOn) }.getOrNull()
-    val title: String get() = if (discipline == ManualDiscipline.RUNNING && runType.isNotBlank()) runType.trim()
-        else discipline.label
+    val title: String get() = workoutName.trim().ifEmpty {
+        if (discipline == ManualDiscipline.RUNNING && runType.isNotBlank()) runType.trim() else discipline.label
+    }
 
     fun finish(now: Long): FreeformWorkout {
         check(!isComplete)
@@ -99,7 +105,7 @@ internal data class FreeformWorkout(
                     "Enter a valid time cap for ${exercise.name}."
                 }
                 for (set in exercise.sets) {
-                    require(set.target.isValid() && set.restSeconds.optionalInt(0..86_400)) {
+                    require(set.target.isValid() && set.restSeconds.optionalInt(0..86_400) && set.targetRir.optionalInt(0..10)) {
                         "Check the target and rest values for ${exercise.name}."
                     }
                     if (set.completed) {
@@ -154,10 +160,10 @@ internal fun freeformNumber(value: Double): String =
     String.format(Locale.ROOT, "%.2f", value).trimEnd('0').trimEnd('.')
 
 private fun String.asDecimal(): Double? = trim().replace(',', '.').toDoubleOrNull()?.takeIf { it.isFinite() }
-private fun String.optionalInt(range: IntRange): Boolean = isBlank() || trim().toIntOrNull()?.let { it in range } == true
+internal fun String.optionalInt(range: IntRange): Boolean = isBlank() || trim().toIntOrNull()?.let { it in range } == true
 private fun String.optionalDecimal(range: ClosedFloatingPointRange<Double>): Boolean =
     isBlank() || asDecimal()?.let { it in range } == true
-private fun String.requiredDecimal(minExclusive: Double, max: Double): Boolean =
+internal fun String.requiredDecimal(minExclusive: Double, max: Double): Boolean =
     asDecimal()?.let { it > minExclusive && it <= max } == true
 
 internal object FreeformCodec {
@@ -180,18 +186,26 @@ internal object FreeformCodec {
             .put("notes", workout.notes).put("distanceKm", workout.distanceKm)
             .put("durationMinutes", workout.durationMinutes).put("effort", workout.effort)
             .put("runType", workout.runType)
-            .put("exercises", JSONArray(workout.exercises.map { exercise ->
-                JSONObject().put("id", exercise.id).put("name", exercise.name)
-                    .put("catalogId", exercise.catalogId).put("notes", exercise.notes)
-                    .put("format", exercise.format.name).put("blockMinutes", exercise.blockMinutes)
-                    .put("sets", JSONArray(exercise.sets.map { set ->
-                        JSONObject().put("id", set.id).put("target", measure(set.target))
-                            .put("actual", measure(set.actual)).put("restSeconds", set.restSeconds)
-                            .put("rpe", set.rpe).put("rir", set.rir).put("notes", set.notes)
-                            .put("completed", set.completed)
-                    }))
-            })).toString().also { require(it.length <= MAX_ROW) { "This workout is too large to save." } }
+            .put("templateId", workout.templateId)
+            .put("workoutName", workout.workoutName.ifEmpty { null })
+            .put("targetDistanceKm", workout.targetDistanceKm.ifEmpty { null })
+            .put("targetDurationMinutes", workout.targetDurationMinutes.ifEmpty { null })
+            .put("exercises", writeExercises(workout.exercises))
+            .toString().also { require(it.length <= MAX_ROW) { "This workout is too large to save." } }
     }
+
+    fun writeExercises(exercises: List<FreeformExercise>): JSONArray =
+        JSONArray(exercises.map { exercise ->
+            JSONObject().put("id", exercise.id).put("name", exercise.name)
+                .put("catalogId", exercise.catalogId).put("notes", exercise.notes)
+                .put("format", exercise.format.name).put("blockMinutes", exercise.blockMinutes)
+                .put("sets", JSONArray(exercise.sets.map { set ->
+                    JSONObject().put("id", set.id).put("target", measure(set.target))
+                        .put("actual", measure(set.actual)).put("restSeconds", set.restSeconds)
+                        .put("rpe", set.rpe).put("rir", set.rir).put("notes", set.notes)
+                        .put("completed", set.completed).put("targetRir", set.targetRir.ifEmpty { null })
+                }))
+        })
 
     fun decode(raw: String, owner: String): FreeformWorkout {
         require(raw.length <= MAX_ROW)
@@ -206,24 +220,31 @@ internal object FreeformCodec {
             modifiedAt = json.getLong("modifiedAt"), completedAt = completed, notes = json.getString("notes"),
             distanceKm = json.getString("distanceKm"), durationMinutes = json.getString("durationMinutes"),
             effort = json.getString("effort"), runType = json.getString("runType"),
-            exercises = objects(json.getJSONArray("exercises")).map { exercise ->
-                FreeformExercise(
-                    id = exercise.getString("id"), name = exercise.getString("name"),
-                    catalogId = if (exercise.isNull("catalogId")) null else exercise.getString("catalogId"),
-                    notes = exercise.getString("notes"), format = ConditioningFormat.valueOf(exercise.getString("format")),
-                    blockMinutes = exercise.getString("blockMinutes"),
-                    sets = objects(exercise.getJSONArray("sets")).map { set ->
-                        FreeformSet(
-                            id = set.getString("id"), target = readMeasure(set.getJSONObject("target")),
-                            actual = readMeasure(set.getJSONObject("actual")), restSeconds = set.getString("restSeconds"),
-                            rpe = set.getString("rpe"), rir = set.getString("rir"), notes = set.getString("notes"),
-                            completed = set.getBoolean("completed")
-                        )
-                    }
-                )
-            }
+            templateId = if (json.isNull("templateId")) null else json.getString("templateId"),
+            workoutName = json.optString("workoutName", ""),
+            targetDistanceKm = json.optString("targetDistanceKm", ""),
+            targetDurationMinutes = json.optString("targetDurationMinutes", ""),
+            exercises = readExercises(json.getJSONArray("exercises"))
         ).also { encode(it) }
     }
+
+    fun readExercises(array: JSONArray): List<FreeformExercise> =
+        objects(array).map { exercise ->
+            FreeformExercise(
+                id = exercise.getString("id"), name = exercise.getString("name"),
+                catalogId = if (exercise.isNull("catalogId")) null else exercise.getString("catalogId"),
+                notes = exercise.getString("notes"), format = ConditioningFormat.valueOf(exercise.getString("format")),
+                blockMinutes = exercise.getString("blockMinutes"),
+                sets = objects(exercise.getJSONArray("sets")).map { set ->
+                    FreeformSet(
+                        id = set.getString("id"), target = readMeasure(set.getJSONObject("target")),
+                        actual = readMeasure(set.getJSONObject("actual")), restSeconds = set.getString("restSeconds"),
+                        rpe = set.getString("rpe"), rir = set.getString("rir"), notes = set.getString("notes"),
+                        completed = set.getBoolean("completed"), targetRir = set.optString("targetRir", "")
+                    )
+                }
+            )
+        }
 
     private fun measure(values: FreeformMeasure) =
         JSONObject().put("quantity", values.quantity).put("seconds", values.seconds).put("kg", values.kg)
@@ -239,12 +260,14 @@ internal object FreeformCodec {
     private fun FreeformWorkout.validateStructure() {
         RecordPolicy.identifier(owner)
         RecordPolicy.identifier(id)
+        templateId?.let(RecordPolicy::identifier)
+        require(workoutName.length <= 100)
         require(startedAt in 1 until Long.MAX_VALUE - 1 && modifiedAt in startedAt until Long.MAX_VALUE)
         require(completedAt == null || completedAt == modifiedAt)
         require(performedOn.length <= 32 && notes.length <= 2000 && runType.length <= 80)
-        require(listOf(distanceKm, durationMinutes, effort).all { it.length <= 32 })
+        require(listOf(distanceKm, durationMinutes, effort, targetDistanceKm, targetDurationMinutes).all { it.length <= 32 })
         require(if (discipline == ManualDiscipline.RUNNING) exercises.isEmpty()
-            else distanceKm.isEmpty() && durationMinutes.isEmpty() && runType.isEmpty())
+            else listOf(distanceKm, durationMinutes, runType, targetDistanceKm, targetDurationMinutes).all { it.isEmpty() })
         require(exercises.size <= 30 && exercises.distinctBy { it.id }.size == exercises.size)
         for (exercise in exercises) {
             RecordPolicy.identifier(exercise.id)
@@ -259,7 +282,7 @@ internal object FreeformCodec {
                 require(set.notes.length <= 400)
                 require(listOf(set.target.quantity, set.target.seconds, set.target.kg,
                     set.actual.quantity, set.actual.seconds, set.actual.kg,
-                    set.restSeconds, set.rpe, set.rir).all { it.length <= 32 })
+                    set.restSeconds, set.rpe, set.rir, set.targetRir).all { it.length <= 32 })
             }
         }
     }

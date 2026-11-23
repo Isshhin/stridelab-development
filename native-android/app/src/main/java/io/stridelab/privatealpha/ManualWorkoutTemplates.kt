@@ -5,6 +5,7 @@ import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.LocalDate
+import java.util.UUID
 
 /** A reusable user-entered form, not a completed session or a coach prescription. */
 internal data class ManualWorkoutTemplate(
@@ -12,11 +13,75 @@ internal data class ManualWorkoutTemplate(
     val owner: String,
     val name: String,
     val discipline: ManualDiscipline,
-    val exercises: List<ManualExerciseEntry>
+    val exercises: List<ManualExerciseEntry>,
+    val recipe: WorkoutRecipe? = null
+) {
+    val structure: WorkoutRecipe
+        get() = recipe ?: WorkoutRecipe(exercises = exercises.mapIndexed { index, entry ->
+            FreeformExercise(id = "exercise-$index", name = entry.name, sets = List(entry.sets) { set ->
+                FreeformSet(id = "set-$set", target = FreeformMeasure(
+                    quantity = entry.reps?.takeIf { it > 0 }?.toString().orEmpty(),
+                    seconds = entry.seconds?.toString().orEmpty(),
+                    kg = entry.weightKg?.let(::freeformNumber).orEmpty()
+                ))
+            })
+        })
+
+    fun startWorkout(date: LocalDate, now: Long): FreeformWorkout {
+        val recipe = structure
+        return FreeformWorkout.start(owner, discipline, date, now).copy(
+            templateId = id, workoutName = name, notes = recipe.notes, runType = recipe.runType,
+            targetDistanceKm = recipe.distanceKm, targetDurationMinutes = recipe.durationMinutes,
+            exercises = recipe.exercises.map { exercise ->
+                exercise.copy(id = UUID.randomUUID().toString(), sets = exercise.sets.map { it.duplicate() })
+            }
+        )
+    }
+
+    fun editedFrom(editor: FreeformWorkout) = copy(
+        name = editor.workoutName.trim(), exercises = emptyList(),
+        recipe = WorkoutRecipe(editor.notes, editor.runType, editor.targetDistanceKm,
+            editor.targetDurationMinutes, editor.exercises.map { it.targetsOnly(keepNotes = true) })
+    )
+
+    fun duplicate() = copy(id = UUID.randomUUID().toString(), name = "${name.take(95)} copy")
+
+    companion object {
+        fun empty(owner: String, discipline: ManualDiscipline) =
+            ManualWorkoutTemplate(UUID.randomUUID().toString(), owner, discipline.label, discipline,
+                emptyList(), WorkoutRecipe())
+
+        fun fromWorkout(workout: FreeformWorkout): ManualWorkoutTemplate {
+            require(workout.isComplete)
+            return empty(workout.owner, workout.discipline).copy(
+                name = workout.title,
+                recipe = WorkoutRecipe(runType = workout.runType,
+                    distanceKm = workout.targetDistanceKm, durationMinutes = workout.targetDurationMinutes,
+                    exercises = workout.exercises.map { it.targetsOnly(keepNotes = false) })
+            )
+        }
+    }
+}
+
+internal data class WorkoutRecipe(
+    val notes: String = "",
+    val runType: String = "",
+    val distanceKm: String = "",
+    val durationMinutes: String = "",
+    val exercises: List<FreeformExercise> = emptyList()
+)
+
+private fun FreeformExercise.targetsOnly(keepNotes: Boolean) = copy(
+    notes = notes.takeIf { keepNotes }.orEmpty(),
+    sets = sets.map {
+        it.copy(actual = FreeformMeasure(), completed = false, rpe = "", rir = "", notes = "")
+    }
 )
 
 internal object ManualWorkoutTemplateCodec {
     fun encode(template: ManualWorkoutTemplate): String {
+        if (template.recipe != null) return encodeRoutine(template, template.recipe)
+
         val sample = ManualDisciplineSession(
             template.id, template.owner, template.discipline, template.name,
             LocalDate.of(2000,1,1), template.exercises
@@ -35,10 +100,19 @@ internal object ManualWorkoutTemplateCodec {
     }
 
     fun decode(raw: String, owner: String): ManualWorkoutTemplate {
-        require(raw.length <= 200_000)
+        require(raw.length <= 1_000_000)
         val obj = JSONObject(raw)
-        require(obj.getInt("schema") == 1 && obj.getString("kind") == "manual-template")
-        require(obj.getString("owner") == owner)
+        require(obj.getString("kind") == "manual-template" && obj.getString("owner") == owner)
+        if (obj.getInt("schema") == 2) {
+            return ManualWorkoutTemplate(
+                obj.getString("id"), owner, obj.getString("name"),
+                ManualDiscipline.valueOf(obj.getString("discipline")), emptyList(),
+                WorkoutRecipe(obj.getString("notes"), obj.getString("runType"),
+                    obj.getString("distanceKm"), obj.getString("durationMinutes"),
+                    FreeformCodec.readExercises(obj.getJSONArray("exercises")))
+            ).also { encode(it) }
+        }
+        require(obj.getInt("schema") == 1 && raw.length <= 200_000)
         val sample = JSONObject()
             .put("schema", 1)
             .put("source", "manual")
@@ -53,6 +127,35 @@ internal object ManualWorkoutTemplateCodec {
         return ManualWorkoutTemplate(checked.id, owner, checked.title,
             checked.discipline, checked.exercises)
     }
+    private fun encodeRoutine(template: ManualWorkoutTemplate, recipe: WorkoutRecipe): String {
+        RecordPolicy.identifier(template.id)
+        RecordPolicy.identifier(template.owner)
+        require(template.name.isNotBlank() && template.name.length <= 100) { "Enter a template name." }
+        require(template.exercises.isEmpty())
+        require(recipe.distanceKm.isBlank() || recipe.distanceKm.requiredDecimal(0.0, 500.0)) {
+            "Enter a valid target distance."
+        }
+        require(recipe.durationMinutes.isBlank() || recipe.durationMinutes.requiredDecimal(0.0, 1440.0)) {
+            "Enter a valid target duration."
+        }
+        require(recipe.exercises.flatMap { it.sets }.all { set ->
+            set.target.isValid() && set.restSeconds.optionalInt(0..86_400) && set.targetRir.optionalInt(0..10)
+        }) { "Check the set targets and rest times." }
+        require(recipe.exercises.all { exercise ->
+            exercise == exercise.targetsOnly(keepNotes = true) &&
+                (exercise.blockMinutes.isBlank() || exercise.blockMinutes.requiredDecimal(0.0, 1440.0))
+        }) { "Check the exercise targets and block time." }
+        val validation = FreeformWorkout(template.id, template.owner, template.discipline, "", 1, 1,
+            notes = recipe.notes, runType = recipe.runType, exercises = recipe.exercises,
+            targetDistanceKm = recipe.distanceKm, targetDurationMinutes = recipe.durationMinutes)
+        FreeformCodec.encode(validation)
+        return JSONObject().put("schema", 2).put("kind", "manual-template")
+            .put("id", template.id).put("owner", template.owner).put("name", template.name)
+            .put("discipline", template.discipline.name).put("notes", recipe.notes).put("runType", recipe.runType)
+            .put("distanceKm", recipe.distanceKm).put("durationMinutes", recipe.durationMinutes)
+            .put("exercises", FreeformCodec.writeExercises(recipe.exercises))
+            .toString().also { require(it.length <= 1_000_000) { "This template is too large." } }
+    }
 }
 
 internal data class ManualDisciplineArchiveData(
@@ -61,7 +164,7 @@ internal data class ManualDisciplineArchiveData(
     val freeform: List<FreeformWorkout> = emptyList()
 )
 
-/** Schema 3 adds Freeform drafts and completions. Schemas 1 and 2 remain readable. */
+/** Schema 4 carries detailed routines alongside the legacy template and workout formats. */
 internal object ManualDisciplineArchive {
     const val MAX_FILE_BYTES = 32_000_000
     private const val MAX_BODY_CHARS = 8_000_000
@@ -83,12 +186,17 @@ internal object ManualDisciplineArchive {
         require(templates.map { it.id }.distinct().size == templates.size)
         require(freeform.size <= MAX_FREEFORM_RECORDS && freeform.all { it.owner == owner })
         require(freeform.distinctBy { it.id }.size == freeform.size)
+        val schema = when {
+            templates.any { it.recipe != null } || freeform.any { it.templateId != null } -> 4
+            freeform.isNotEmpty() -> 3
+            else -> 2
+        }
         val body = JSONObject()
-            .put("schema", if (freeform.isEmpty()) 2 else 3).put("owner", owner)
+            .put("schema", schema).put("owner", owner)
             .put("records", JSONArray(sessions.map { JSONObject(ManualDisciplineCodec.encode(it)) }))
             .put("templates", JSONArray(templates.map { JSONObject(ManualWorkoutTemplateCodec.encode(it)) }))
             .apply {
-                if (freeform.isNotEmpty()) {
+                if (schema >= 3) {
                     put("freeform", JSONArray(freeform.map { JSONObject(FreeformCodec.encode(it)) }))
                 }
             }.toString()
@@ -109,7 +217,7 @@ internal object ManualDisciplineArchive {
             ManualDisciplineBackup.import(raw,owner), emptyList()
         )
         val schema = json.getInt("schema")
-        require(schema == 2 || schema == 3)
+        require(schema in 2..4)
         val sessions = json.getJSONArray("records")
         val templates = json.getJSONArray("templates")
         require(sessions.length() <= 2000 && templates.length() <= 100)
@@ -121,7 +229,8 @@ internal object ManualDisciplineArchive {
         }
         require(saved.map { it.id }.distinct().size == saved.size)
         require(forms.map { it.id }.distinct().size == forms.size)
-        val freeform = if (schema == 3) {
+        require(schema == 4 || forms.none { it.recipe != null })
+        val freeform = if (schema >= 3) {
             val rows = json.getJSONArray("freeform")
             require(rows.length() <= MAX_FREEFORM_RECORDS)
             List(rows.length()) { index ->

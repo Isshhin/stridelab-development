@@ -2,10 +2,16 @@ package io.stridelab.privatealpha
 
 internal data class FreeformBoard(
     val workouts: List<FreeformWorkout> = emptyList(),
-    val legacy: List<ManualDisciplineSession> = emptyList()
+    val legacy: List<ManualDisciplineSession> = emptyList(),
+    val templates: List<ManualWorkoutTemplate> = emptyList()
 ) {
     fun updated(workout: FreeformWorkout) = copy(
         workouts = (workouts.filterNot { it.id == workout.id } + workout).sortedByDescending { it.modifiedAt }
+    )
+
+    fun withTemplate(template: ManualWorkoutTemplate) = copy(
+        templates = (templates.filterNot { it.id == template.id } + template)
+            .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
     )
 
     fun without(id: String) = copy(workouts = workouts.filterNot { it.id == id })
@@ -32,7 +38,9 @@ internal class FreeformAccess(
     val finish: suspend (FreeformWorkout) -> FreeformWorkout,
     val discard: suspend (String, String) -> Boolean,
     val export: suspend (String) -> String,
-    val restore: suspend (String, String) -> Int
+    val restore: suspend (String, String) -> Int,
+    val saveTemplate: suspend (ManualWorkoutTemplate, ManualWorkoutTemplate?) -> Unit,
+    val deleteTemplate: suspend (String, String) -> Boolean
 )
 
 internal val ManualDiscipline.trainingTrackKey: String get() = when (this) {

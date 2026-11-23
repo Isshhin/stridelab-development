@@ -30,8 +30,8 @@ Defined across `StrideTheme` (`NativeMainActivity.kt`), `WorkoutDetailPalette` (
 
 ### Freeform Workout Logger
 
-- Training uses the existing AMOLED palette. Add Workout and Finish Workout use lime. Small discipline markers carry the six discipline colors.
-- Set cards show actuals first and keep optional targets, recovery, effort, and notes in set options. Previous confirmed performance appears below the movement name. Completed history and review show actual work from confirmed sets.
+- The Training workout hub uses the AMOLED palette and one primary empty-workout action. Drafts and the routine library have distinct rows. Workout backup is a secondary action.
+- Most disciplines use compact actual-entry rows with a shared metric header. Calisthenics retains extra room for hold, rep, and load inputs. Previous confirmed work and template targets have separate labels. Save draft and Finish workout share a single footer.
 
 ## Shared Components
 - **Today P0 Components (`TodayAdaptiveDashboard.kt`, `StrideLabTodayScreen.kt`):**

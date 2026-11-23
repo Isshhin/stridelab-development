@@ -109,6 +109,7 @@ internal fun FreeformHub(
     retry: () -> Unit,
     update: (FreeformWorkout) -> Unit,
     restored: (FreeformBoard) -> Unit,
+    openTemplates: () -> Unit,
     openDraft: (String) -> Unit
 ) {
     var choosing by rememberSaveable { mutableStateOf(false) }
@@ -165,7 +166,7 @@ internal fun FreeformHub(
         }
     }
 
-    FreeformPage("Add Workout", null, back) {
+    FreeformPage("Workouts", null, back) {
         val drafts = board?.workouts.orEmpty().filterNot { it.isComplete }
         LazyColumn(
             Modifier.fillMaxSize().testTag("freeform-hub"),
@@ -181,8 +182,8 @@ internal fun FreeformHub(
                 item { Text("In progress", style = MaterialTheme.typography.titleMedium, color = freeformPalette.ink) }
                 items(drafts, key = { it.id }) { draft ->
                     FreeformTile(
-                        title = "Resume ${draft.discipline.label.lowercase()}",
-                        supporting = draft.date?.toString() ?: "Workout draft",
+                        title = "Resume ${draft.title.lowercase()}",
+                        supporting = draft.discipline.label,
                         color = draft.discipline.markColor,
                         onClick = { openDraft(draft.id) },
                         modifier = Modifier.testTag("freeform-resume")
@@ -191,7 +192,7 @@ internal fun FreeformHub(
             }
             item {
                 FreeformPrimary(
-                    "Log Workout", { choosing = !choosing }, Modifier.fillMaxWidth().testTag("freeform-log"),
+                    if (choosing) "Hide disciplines" else "Start empty workout", { choosing = !choosing }, Modifier.fillMaxWidth().testTag("freeform-log"),
                     enabled = board != null && !working
                 )
             }
@@ -213,13 +214,17 @@ internal fun FreeformHub(
                 )
             }
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Create Template") }
-                    OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) { Text("Schedule Workout") }
-                }
+                val count = board?.templates?.size ?: 0
+                if (board != null) FreeformTile(
+                    title = "Workout templates",
+                    supporting = if (count == 0) "Create a routine you can reuse" else "$count saved",
+                    color = freeformPalette.secondary,
+                    modifier = Modifier.testTag("freeform-open-templates"),
+                    onClick = openTemplates
+                )
             }
             item {
-                TextButton(onClick = { showBackup = !showBackup }) { Text("Workout backup", color = freeformPalette.lime) }
+                TextButton(onClick = { showBackup = !showBackup }) { Text("Workout backup", color = freeformPalette.secondary) }
                 if (showBackup) {
                     Text("Restore workouts to the same profile.", color = freeformPalette.secondary)
                     TextButton(onClick = { exporter.launch("stridelab-workouts.json") }, enabled = board != null && !working) {
@@ -265,7 +270,8 @@ internal fun FreeformTile(
 
 @Composable
 internal fun FreeformHistoryDetail(
-    workout: FreeformWorkout?, legacy: ManualDisciplineSession?, loading: Boolean, back: () -> Unit
+    workout: FreeformWorkout?, legacy: ManualDisciplineSession?, loading: Boolean,
+    onSaveAsTemplate: (() -> Unit)? = null, back: () -> Unit
 ) {
     val title = workout?.title ?: legacy?.title ?: "Workout"
     val subtitle = workout?.let { "${it.discipline.label} · Freeform · ${it.performedOn}" }
@@ -281,6 +287,11 @@ internal fun FreeformHistoryDetail(
                         if (workout.effort.isNotBlank()) Text("Workout effort ${workout.effort}/10", color = freeformPalette.secondary)
                         if (workout.notes.isNotBlank()) Text(workout.notes, color = freeformPalette.secondary)
                     }
+                }
+                if (onSaveAsTemplate != null) item {
+                    OutlinedButton(onClick = onSaveAsTemplate,
+                        modifier = Modifier.fillMaxWidth().testTag("freeform-save-as-template"),
+                        shape = RoundedCornerShape(12.dp)) { Text("Save as template", color = freeformPalette.lime) }
                 }
                 items(workout.exercises.filter { exercise -> exercise.sets.any { it.completed } }, key = { it.id }) { exercise ->
                     FreeformPanel {

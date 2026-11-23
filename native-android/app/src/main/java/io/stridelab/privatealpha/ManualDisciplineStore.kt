@@ -303,16 +303,25 @@ internal class ManualDisciplineStore(
         Unit
     }
 
+    suspend fun updateTemplate(template: ManualWorkoutTemplate, previous: ManualWorkoutTemplate) =
+        withContext(Dispatchers.IO) {
+            require(template.id == previous.id && template.owner == previous.owner)
+            val before = ManualWorkoutTemplateCodec.encode(previous)
+            val after = ManualWorkoutTemplateCodec.encode(template)
+            val changed = writableDatabase.update("manual_templates", ContentValues().apply {
+                put("name", template.name)
+                put("payload", after)
+            }, "owner=? AND record_id=? AND payload=?", arrayOf(template.owner, template.id, before))
+            require(changed == 1) { "This template changed. Reopen it before saving." }
+        }
+
     suspend fun listTemplates(owner: String): List<ManualWorkoutTemplate> = withContext(Dispatchers.IO) {
         RecordPolicy.identifier(owner)
         val records = mutableListOf<ManualWorkoutTemplate>()
         readableDatabase.query("manual_templates", arrayOf("payload"), "owner=?",
-            arrayOf(owner), null, null, "name COLLATE NOCASE", "101").use { cursor ->
+            arrayOf(owner), null, null, "name COLLATE NOCASE,record_id").use { cursor ->
             while(cursor.moveToNext()) records += ManualWorkoutTemplateCodec.decode(
                 cursor.getString(0),owner)
-        }
-        require(records.size <= 100) {
-            "Template count exceeds the supported archive size. No partial export was made."
         }
         records
     }
