@@ -3,6 +3,9 @@ package io.stridelab.privatealpha
 import android.content.Intent
 import android.os.Bundle
 import java.time.LocalDate
+import java.time.ZoneId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.EnterTransition
@@ -262,6 +265,24 @@ private fun NavHostController.openActivity(id: String) {
         state.groupedActivitySummaries ?: ActivityDisplayConsolidation.groups(state.activities)
     }
     val visibleActivities = remember(groupedActivities) { groupedActivities.map { it.primary } }
+    val evidenceDate = LocalDate.now()
+    val evidence = if (route == "freeform/evidence" || route == "builder/{discipline}") {
+        key(freeformOwner, state.loginGeneration) {
+            val rows by produceState<List<WorkoutEvidence>?>(
+                null, state.plans, freeformBoard, groupedActivities, state.initializing, freeformReadError
+            ) {
+                if (!state.initializing && (freeformAccess == null || freeformOwner == null ||
+                    freeformBoard != null || freeformReadError != null)
+                ) {
+                    value = withContext(Dispatchers.Default) {
+                        projectWorkoutEvidence(freeformOwner, state.plans, freeformBoard, groupedActivities, ZoneId.systemDefault())
+                    }
+                }
+            }
+            rows
+        }
+    } else null
+    val openEvidence: () -> Unit = { nav.navigate("freeform/evidence") { launchSingleTop = true } }
     // A genuinely floating dock must not participate in Scaffold's bottomBar:
     // the overlay is positioned above the system gesture area independently
     // of the scrolling screen. Detail/builder flows continue to hide it.
@@ -587,6 +608,25 @@ private fun NavHostController.openActivity(id: String) {
                         FreeformHistoryDetail(workout, null, board == null && freeformReadError == null) { nav.popBackStack() }
                     }
                 }
+                composable("freeform/evidence") {
+                    key(freeformOwner, state.loginGeneration) {
+                        WorkoutEvidenceScreen(
+                            rows = evidence.orEmpty(), loading = evidence == null,
+                            manualHistoryError = freeformReadError, retry = { freeformReload++ },
+                            today = evidenceDate, back = { nav.popBackStack() }
+                        ) { link ->
+                            when (link) {
+                                is WorkoutEvidenceLink.Manual -> openFreeformHistory(link.id, link.legacy)
+                                is WorkoutEvidenceLink.Imported -> nav.openActivity(link.id)
+                                is WorkoutEvidenceLink.Coached -> {
+                                    val plan = android.net.Uri.encode(link.planId)
+                                    val session = android.net.Uri.encode(link.sessionId)
+                                    nav.navigate("workout/$plan/$session") { launchSingleTop = true }
+                                }
+                            }
+                        }
+                    }
+                }
                 composable("freeform/history/{kind}/{id}") { destination ->
                     val id = destination.arguments?.getString("id")
                     val legacy = destination.arguments?.getString("kind") == "legacy"
@@ -633,6 +673,9 @@ private fun NavHostController.openActivity(id: String) {
                             state, actions.planning, builder.arguments?.getString("discipline") ?: "all",
                             onDone = { nav.openTabRoot("training") },
                             onSignIn = { nav.navigate("auth") },
+                            historySuggestion = remember(evidence, evidenceDate) {
+                                evidence?.let { suggestedHistoryBaseline(it, evidenceDate) }
+                            },
                             onPreview = { planId, sessionId ->
                                 state.blueprintDraft(planId)?.let { draft ->
                                     val plan = android.net.Uri.encode(planId)
@@ -852,7 +895,7 @@ private fun NavHostController.openActivity(id: String) {
                             { id -> nav.openActivity(id) },
                             { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
                             manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory,
-                            onOpenCustom = openCustomWorkout, calendarFocus = customCalendarFocus,
+                            onOpenCustom = openCustomWorkout, onOpenHistory = openEvidence, calendarFocus = customCalendarFocus,
                             clearCalendarFocus = { customCalendarFocus = null }
                         )
                     }
@@ -901,7 +944,7 @@ private fun NavHostController.openActivity(id: String) {
                         { id -> nav.openActivity(id) },
                         { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
                         manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory,
-                        onOpenCustom = openCustomWorkout, calendarFocus = customCalendarFocus,
+                        onOpenCustom = openCustomWorkout, onOpenHistory = openEvidence, calendarFocus = customCalendarFocus,
                         clearCalendarFocus = { customCalendarFocus = null }
                     )
                 }

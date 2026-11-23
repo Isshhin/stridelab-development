@@ -74,6 +74,9 @@ Back to [[index]] · Related: [[ui-system]] · [[architecture]] · [[engine-rule
 - **Workout templates → Schedule** opens a one-off or weekly schedule with an optional end date. Open a Custom calendar entry to start, resume, move, skip, or edit following repeats. Completed Custom workouts offer **Repeat workout**.
 - Training can jump to a date and uses source labels for Custom, Coached, Freeform, and Garmin imports. The all-dates agenda shows a bounded window of repeats. Recovery notes stay advisory.
 
+- **Training → Workout history** opens `freeform/evidence`. Filter History by source and discipline, then open the original detail. Progress shows frequency over four calendar weeks, discipline-specific recorded totals, and the latest and previous confirmed effort for an exercise.
+- **Where are you starting?** in the Running builder displays available history suggestions. The card states how many finished weeks have usable distance. Each suggestion can be applied individually, then edited using the existing controls.
+
 ## Deprecated & Removed Elements (Do Not Reintroduce)
 - **Concentric Weekly TSS Rings & Elevated Telemetry Feed on Today (`All`):** Replaced by the verified P0 3-section layout (`TodayDailyTrainingCard`, `TodayTrainingOverviewCard`, Option 1 `TodayRecentActivitiesSection`) to avoid fabricated multisport TSS scores, fake workout-to-activity adherence guessing, and heavy scrolling cards.
 - **Coach's Notes on Workout Detail:** Removed (`workout-planned-coach-notes`, `workout-planned-notes-toggle`, `notesExpanded`, and `coachingReason` parameter in `TracksidePlannedRunningPreview`). *Why:* Cluttered the workout execution screen and duplicated step effort cues.

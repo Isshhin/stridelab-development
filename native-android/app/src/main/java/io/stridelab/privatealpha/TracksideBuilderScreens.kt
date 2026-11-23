@@ -847,6 +847,7 @@ internal fun TracksideRunningAbilityScreen(
             TextButton(onClick = onConfirmNoRecentRunning) { Text("I haven’t run recently") }
         }
         Spacer(Modifier.height(16.dp))
+        historyContent()
         Text("RECENT PERFORMANCE  (OPTIONAL)", fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         BenchmarkEntryCard(

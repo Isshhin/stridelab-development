@@ -41,6 +41,11 @@ NativeMainActivity NavHost ──► Jetpack Compose Screens
 - Manual database version 4 adds owner-keyed custom schedules. A schedule snapshots its template and stores recurrence windows and single-date overrides. The series ID and original occurrence date determine the execution ID, including after a move.
 - Custom execution uses the Freeform store with its own source and scheduled date. The calendar projects unstarted occurrences within bounded windows and uses the stored draft or completion once started.
 
+### Unified workout evidence
+
+- The Training history is a read-only projection of the current profile's workouts and the existing visible Garmin and FIT activity groups. A confirmed activity link merges presentation into one workout while retaining the imported and coached identities and routes. Unlinked records stay independent.
+- Progress uses recorded performance and confirmed sets. Targets stay in their original records. Baseline suggestions use recent confirmed run distances and enter the existing builder fields only after an explicit athlete action.
+
 ## 2. Garmin & FIT Ingestion
 - **Today cold start:** The owner-scoped plan query resolves the training card while scalar activity summaries and session restoration run on IO. The feed publishes cloud and local Garmin summaries together in newest-first order. Secondary caches hydrate separately. Perfetto sections identify the plan query, summary load, secondary caches and individual thumbnail reads.
 - **Route thumbnails:** Visible activity cards request bounded, downsampled previews on workers without populating the full detail cache or invoking coaching analysis. SQLite reads long recordings in UTF-8 byte windows. Activity Detail still loads the full recording on demand.

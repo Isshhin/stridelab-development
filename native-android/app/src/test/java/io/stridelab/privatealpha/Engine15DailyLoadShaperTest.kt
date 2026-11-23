@@ -203,7 +203,9 @@ class Engine15DailyLoadShaperTest {
 
     @Test
     fun track3LiveFeedbackAndWeeklyReviewWorkOnIndependentRunningAndCombinedPlans() {
-        val recentStart = LocalDate.now().minusDays(7)
+        val asOf = monday
+        val reviewAt = Instant.parse("2026-11-23T08:00:00Z")
+        val recentStart = asOf.minusWeeks(1)
         val pastReq = PlanRequest(
             goal = "Aerobic foundation",
             experience = 2,
@@ -228,13 +230,12 @@ class Engine15DailyLoadShaperTest {
             pastReq, owner, emptyList(), "live-fb-run", now
         )
         val approvedRun = PlanOperations.approve(runDraft, emptyList())
-        val asOf = LocalDate.now()
         val firstRun = approvedRun.sessions.first { it.date <= asOf && it.date >= asOf.minusDays(2) }
         val highEffort = PlanOperations.record(
             approvedRun,
             firstRun.id,
             WorkoutLog(
-                at = Instant.now(),
+                at = reviewAt,
                 minutes = firstRun.minutes.toDouble(),
                 distanceKm = firstRun.distanceKm,
                 effort = 9,
@@ -250,9 +251,9 @@ class Engine15DailyLoadShaperTest {
         val acceptedSuggestion = PlanOperations.acceptSuggestion(staged, proposals.first().targetSessionId)
         assertTrue(acceptedSuggestion.sessions.any { it.suggestion?.accepted == true })
 
-        val review = Engine15WeeklyReview.preview(highEffort, asOf, Engine15WeeklyReview.Input(fatigue = 4), now = Instant.now())
+        val review = Engine15WeeklyReview.preview(highEffort, asOf, Engine15WeeklyReview.Input(fatigue = 4), now = reviewAt)
         assertTrue("Expected weekly review changes for independent running plan", review.changes.isNotEmpty())
-        val acceptedReview = Engine15WeeklyReview.accept(highEffort, review, asOf, Instant.now())
+        val acceptedReview = Engine15WeeklyReview.accept(highEffort, review, asOf, reviewAt)
         assertTrue(acceptedReview.feedback.isNotEmpty())
 
         // Also verify ENGINE15_INDEPENDENT_COMBINED_POLICY is enabled for Feedback & WeeklyReview
@@ -283,7 +284,7 @@ class Engine15DailyLoadShaperTest {
             approvedCombined,
             combFirstRun.id,
             WorkoutLog(
-                at = Instant.now(),
+                at = reviewAt,
                 minutes = combFirstRun.minutes.toDouble(),
                 distanceKm = combFirstRun.distanceKm,
                 effort = 9,
@@ -293,6 +294,6 @@ class Engine15DailyLoadShaperTest {
             complete = true
         )
         assertTrue(Engine15Feedback.preview(combLogged, asOf).isNotEmpty())
-        assertTrue(Engine15WeeklyReview.preview(combLogged, asOf, now = Instant.now()).changes.isNotEmpty())
+        assertTrue(Engine15WeeklyReview.preview(combLogged, asOf, now = reviewAt).changes.isNotEmpty())
     }
 }

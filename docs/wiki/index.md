@@ -69,6 +69,10 @@ Offline-first native Android running and multi-discipline training coach built a
 
 - Checkpoint C passed the four JDK 21 checks, 1,274 JVM tests, and 50 API 35 executions covering the planner and logger smoke suite, six responsive profiles, process recovery, and focused calendar and Garmin regressions.
 
+- Checkpoint D adds unified completed history and progress to Training, plus editable running baseline suggestions with visible history coverage. See [[screens]] and [[architecture]].
+
+- Checkpoint D passed the four JDK 21 checks and 1,278 JVM tests. API 35 passed 12 smoke executions, 12 responsive executions, two process recovery phases, and 30 focused Training, Workout Player, and FIT compatibility checks. An expanded run had nine additional passes and 27 older fixture failures. All 27 failures reproduced on the Checkpoint C build.
+
 ## Verification Commands (`native-android/`, JDK 21, run sequentially)
 ```powershell
 .\gradlew.bat "-Dorg.gradle.java.home=C:\Program Files\Eclipse Adoptium\jdk-21.0.13.9-hotspot" :app:testDebugUnitTest

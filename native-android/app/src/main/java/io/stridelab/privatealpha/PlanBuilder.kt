@@ -24,7 +24,16 @@ import java.time.LocalDate
 import java.time.ZoneId
 import org.json.JSONObject
 
-@Composable internal fun PlanBuilder(state:TrainingState,actions:PlanActions,discipline:String="all",onDone:()->Unit,onSignIn:()->Unit,onPreview:(String,String)->Unit) {
+@Composable
+internal fun PlanBuilder(
+    state: TrainingState,
+    actions: PlanActions,
+    discipline: String = "all",
+    onDone: () -> Unit,
+    onSignIn: () -> Unit,
+    historySuggestion: HistoryBaselineSuggestion? = null,
+    onPreview: (String, String) -> Unit
+) {
     // Signed-out plans are persisted under an isolated on-device owner.
     // Cloud sign-in remains optional for backup; generating does not need it.
     val athletePlans = remember(state.plans, state.account, state.localPlanOwner) {
@@ -476,20 +485,28 @@ import org.json.JSONObject
                     10_000 -> "10K"
                     else -> "5K"
                 }
+                val setWeeklyKm: (Double) -> Unit = { value ->
+                    edit(input.copy(
+                        weeklyKm = kotlin.math.round(value * 10) / 10,
+                        recentMileageBasis = if (value >= 0.05) "SELF_REPORTED_AVERAGE" else "UNKNOWN",
+                        foundationAcknowledged = false
+                    ))
+                }
+                val setLongestKm: (Double) -> Unit = { value ->
+                    longestOverride = kotlin.math.round(value * 10) / 10
+                }
                 TracksideRunningAbilityScreen(
                     experience = input.experience,
                     weeklyKm = input.weeklyKm.takeIf { input.recentMileageBasis != "UNKNOWN" },
                     longestKm = input.longestKm.takeIf { it > 0.0 || longestOverride != null },
                     onExperience = { experienceOverride = it },
-                    onWeeklyKm = { value ->
-                        edit(input.copy(
-                            weeklyKm = kotlin.math.round(value * 10) / 10,
-                            recentMileageBasis = if (value >= 0.05) "SELF_REPORTED_AVERAGE" else "UNKNOWN",
-                            foundationAcknowledged = false
-                        ))
-                    },
-                    onLongestKm = { value ->
-                        longestOverride = kotlin.math.round(value * 10) / 10
+                    onWeeklyKm = setWeeklyKm,
+                    onLongestKm = setLongestKm,
+                    historyContent = {
+                        historySuggestion?.let {
+                            Spacer(Modifier.height(12.dp))
+                            HistoryBaselineCard(it, setWeeklyKm, setLongestKm)
+                        }
                     },
                     weeklySource = when (input.recentMileageBasis) {
                         "RECORDED_PARTIAL" -> "From recent runs"

@@ -195,6 +195,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
     onAddWorkout: (() -> Unit)? = null,
     onOpenManual: (String, Boolean) -> Unit = { _, _ -> },
     onOpenCustom: (CustomOccurrenceKey) -> Unit = {},
+    onOpenHistory: (() -> Unit)? = null,
     calendarFocus: LocalDate? = null,
     clearCalendarFocus: () -> Unit = {}
 ) {
@@ -351,12 +352,13 @@ internal fun StrideLabUnifiedTrainingTimeline(
         }
     }
 
+    val showCalendarActions = showCustom || onOpenHistory != null
     val todayIndex = visibleDays.indexOfFirst { it.date == today }.coerceAtLeast(0)
     val scroll = rememberLazyListState()
     LaunchedEffect(agendaView, selectedPlan?.id, selectedTrack, weekOnlyFilter, focusedNoPlanDate) {
         if (!state.initializing) {
             if (agendaView && !weekOnlyFilter) {
-                scroll.scrollToItem(todayIndex + (if (hasActivePlans) 2 else 1) + (if (showCustom) 1 else 0))
+                scroll.scrollToItem(todayIndex + (if (hasActivePlans) 2 else 1))
             }
             else scroll.scrollToItem(0)
         }
@@ -392,6 +394,25 @@ internal fun StrideLabUnifiedTrainingTimeline(
                     "Add Workout", onAddWorkout,
                     Modifier.align(Alignment.CenterVertically).testTag("training-add-workout")
                 )
+            }
+        }
+
+        if (showCalendarActions) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (onOpenHistory != null) {
+                    TextButton(onClick = onOpenHistory, modifier = Modifier.testTag("training-workout-history")) {
+                        Text("Workout history", color = TimelineStyle.lime)
+                    }
+                }
+                if (showCustom) {
+                    TextButton(
+                        onClick = { pickCustomDate(context, if (hasActivePlans) focusedDate else noPlanWeekAnchor, ::focusCalendar) },
+                        modifier = Modifier.testTag("training-pick-date")
+                    ) { Text("Go to date", color = TimelineStyle.secondary) }
+                }
             }
         }
 
@@ -530,12 +551,6 @@ internal fun StrideLabUnifiedTrainingTimeline(
                     }
                 }
 
-                if (showCustom) item(key = "training-pick-date") {
-                    TextButton(
-                        onClick = { pickCustomDate(context, if (hasActivePlans) focusedDate else noPlanWeekAnchor, ::focusCalendar) },
-                        modifier = Modifier.testTag("training-pick-date")
-                    ) { Text("Go to date", color = TimelineStyle.secondary) }
-                }
                 itemsIndexed(visibleDays, key = { _, day -> "timeline-date-${day.date}" }) { position, day ->
                     Column(
                         modifier = if (position == visibleDays.lastIndex)
@@ -660,12 +675,16 @@ internal fun StrideLabUnifiedTrainingTimeline(
                             }
                         }
                         if ((day.date == today || focusedNoPlanDate == day.date) && !hasActivePlans && !state.initializing) {
-                            TimelinePromptCard(
-                                title = "Your training starts here.",
-                                description = "Create a personalized training plan around your goals and schedule.",
-                                action = "Create training plan",
-                                onAction = onBuild
-                            )
+                            if (day.hasEntries) {
+                                TextButton(onClick = onBuild) { Text("Create training plan", color = TimelineStyle.secondary) }
+                            } else {
+                                TimelinePromptCard(
+                                    title = "Your training starts here.",
+                                    description = "Create a personalized training plan around your goals and schedule.",
+                                    action = "Create training plan",
+                                    onAction = onBuild
+                                )
+                            }
                         }
                     }
                 }
@@ -841,7 +860,7 @@ private fun TimelineNoPlanWeekStrip(
                         modifier = Modifier.height(28.dp)
                     ) {
                         Text(
-                            if (focusedDate != null) "Show all dates" else "Today",
+                            if (focusedDate != null) "Show week" else "Today",
                             color = TimelineStyle.lime,
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
