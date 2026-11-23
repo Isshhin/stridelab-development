@@ -16,7 +16,7 @@ Offline-first native Android running and multi-discipline training coach built a
 
 ## Repository Map (`F:\StrideLab\Current-App\stridelab-engine15-dev`, branch `dev`)
 - `native-android/app/src/main/java/io/stridelab/privatealpha/` — Active Kotlin/Compose app, Engine 1.5, Garmin/FIT pipeline, and UI
-- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`162` suites / `1,260` tests, including Blueprint, Training aggregation, hybrid activation, FIT and debriefs)
+- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`162` suites / `1,261` tests, including Blueprint, Training aggregation, hybrid activation, FIT and debriefs)
 - `native-android/app/src/androidTest/java/io/stridelab/privatealpha/` — Compose and instrumentation coverage for Activity Detail and guided execution. The five AMOLED player tests passed on the API 35 emulator at 360 dp and approximately 412 dp with font scales 1.0 and 1.3.
 - `docs/wiki/` — Persistent Obsidian-compatible LLM memory hub (this wiki)
 - `research/engine15/` — Generated Engine 1.5 coaching audit reports (e.g., `M28A_COACHING_AUDIT_20261121.md`)
@@ -52,7 +52,10 @@ Offline-first native Android running and multi-discipline training coach built a
 - Draft workout cards open the current Blueprint prescription in a read-only detail route. The builder retains its selected week on return. Gear profiles are stored per owner on this device and take precedence over saved plan defaults. See [[screens]].
 - Training defaults to the shared calendar when multiple plans are approved. Filtering, management, coaching and matches use the same tab. The seven-day chart and repeat cards are documented in [[ui-system]].
 - The hybrid builder generates a separate snapshot for each of up to six tracks. Blueprint reviews the shared calendar before one local activation transaction. See [[engine-rules#Hybrid Plan Builder]].
+- Train Your Way collects the running baseline before targets. Hybrid Schedule honors compatible fixed pairs and applies the optional daily limit independently. See [[screens]] and [[engine-rules#Hybrid Plan Builder]].
 - The four JDK 21 checks passed. API 35 acceptance passed 12 integration tests on `emulator-5554`, including collision rollback, backup restore and exact FIT bytes. The 320, 360 and 412 dp profiles at font scales 1.0 and 1.3 passed four tests each, covering Sunday visibility, grouped steps, Training filters and six-track selection.
+
+- Pre-trial polish passed all four JDK 21 checks. The API 35 emulator passed six focused cases at 412 dp and font scale 1.5, including six-track activation and identical FIT export. The two new builder cases also passed at 360 dp and font scale 1.0.
 
 ## Verification Commands (`native-android/`, JDK 21, run sequentially)
 ```powershell

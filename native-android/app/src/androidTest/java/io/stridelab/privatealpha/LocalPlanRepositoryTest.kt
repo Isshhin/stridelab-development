@@ -105,7 +105,7 @@ class LocalPlanRepositoryTest {
                 "cond" to "Steady aerobic cross-conditioning")
         )
         val requests = HybridPlanBuilder.split(request, setOf("plyo", "iso"))
-        assertTrue(repo.generateHybridPlan(requests, false))
+        assertTrue(repo.generateHybridPlan(requests))
         val preview = requireNotNull(repo.state.value.hybridPlanPreview)
         assertEquals(6, preview.drafts.size)
         val colliding = preview.drafts.last().second

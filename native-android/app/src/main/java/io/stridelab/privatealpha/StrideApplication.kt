@@ -92,8 +92,8 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         viewModelScope.launch { repo.loadGarminGps(id,source) }
     }
     internal fun planActions()=PlanActions(
-        generateHybrid = { requests, allowPairs ->
-            viewModelScope.launch { repo.generateHybridPlan(requests, allowPairs) }
+        generateHybrid = { requests ->
+            viewModelScope.launch { repo.generateHybridPlan(requests) }
         },
         approveHybrid = { id -> viewModelScope.launch { repo.approveHybridPlan(id) } },
         saveBuilderEquipment = { owner, equipment ->

@@ -42,7 +42,7 @@ internal object PlanBuilderPalette {
 internal fun PlanBuilderStageProgress(
     step: Int,
     total: Int = 6,
-    onSelectStage: ((Int) -> Unit)? = null
+    onSelectStage: ((Int) -> Unit)? = null, stepLabel: String? = null
 ) {
     val safeStep = step.coerceIn(1, total)
     val stageLabels = listOf("Focus", "Goal", "Baseline", "Week", "Schedule", "Blueprint")
@@ -56,7 +56,7 @@ internal fun PlanBuilderStageProgress(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = stageLabels.getOrElse(safeStep - 1) { "Step $safeStep" }.uppercase(),
+                text = (stepLabel ?: stageLabels.getOrElse(safeStep - 1) { "Step $safeStep" }).uppercase(),
                 fontSize = 10.sp,
                 letterSpacing = 1.4.sp,
                 color = PlanBuilderPalette.accent,

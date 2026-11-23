@@ -8,7 +8,9 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -79,7 +81,6 @@ import org.json.JSONObject
     val configured=remember(encoded) { PlanRequest.decode(JSONObject(encoded)) }
     var gearOverride by rememberSaveable { mutableStateOf<String?>(null) }
     var extraResistance by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
-    var allowHybridPairs by rememberSaveable { mutableStateOf(false) }
     val gear = remember(gearOverride, state.savedEquipment, athletePlans, configured) {
         gearOverride?.let { PlanRequest.decode(JSONObject(it)).equipment }
             ?: builderEquipmentFor(state, configured.copy(equipment = initial.equipment))
@@ -107,7 +108,7 @@ import org.json.JSONObject
         mutableStateOf(initial.reportedPeakWeeklyKm?.toString() ?: "")
     }
     var start by rememberSaveable { mutableStateOf(maxOf(initial.start,LocalDate.now()).toString()) }
-    var weeks by rememberSaveable { mutableStateOf(initial.weeks.toString()) };var minutes by rememberSaveable { mutableStateOf(initial.minutes.toString()) };var dailyMinutes by rememberSaveable { mutableStateOf(initial.dailyMinutes.toString()) }
+    var weeks by rememberSaveable { mutableStateOf(initial.weeks.toString()) };var minutes by rememberSaveable { mutableStateOf(initial.minutes.toString()) };var dailyMinutes by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
     var awaiting by rememberSaveable { mutableStateOf(false) }
     var beforeId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -158,11 +159,12 @@ import org.json.JSONObject
             throw PlanConstraint("Enter a valid recent peak between 0 and 120 km/week.")
         if(input.recentMileageBasis=="PEAK_WEEK_ONLY" && (peak==null || peak<=0.0))
             throw PlanConstraint("Enter your peak weekly mileage, or select Unknown if you cannot estimate it.")
+        val dailyLimit = if (isHybrid) hybridDailyLimit(dailyMinutes) else null
         input.copy(
             start=LocalDate.parse(start),weeks=weeks.toInt(),minutes=minutes.toInt(),
-            dailyMinutes=if(input.policyChoice=="multi-session" || isHybrid && allowHybridPairs)dailyMinutes.toInt() else input.dailyMinutes,
+            dailyMinutes=dailyLimit ?: input.dailyMinutes,
             targetWeeklyKm=if(targetSupplied) targetKm.toDouble() else null,
-            reportedPeakWeeklyKm=peak,timeBudgetEnabled=isHybrid && allowHybridPairs
+            reportedPeakWeeklyKm=peak,timeBudgetEnabled=dailyLimit != null
         )
     } catch(e:PlanConstraint) { throw e }
       catch(e:Exception) {
@@ -234,8 +236,8 @@ import org.json.JSONObject
             0 -> 10
             1 -> 11
             5 -> 12
-            3 -> 13
-            2 -> 14
+            3 -> if (runningRoute == "custom") 14 else 13
+            2 -> if (runningRoute == "custom") 13 else 14
             else -> 15
         }
         step == 1 && (input.runDays == 0 || crossTrainingGoals) -> when {
@@ -298,8 +300,7 @@ import org.json.JSONObject
                             weeklySlots = input.weeklySlots.filterKeys { it != "run" } + chosen.weeklySlots
                         ) else chosen
                         weeks = revised.weeks.toString(); targetKm = revised.targetWeeklyKm.toString(); targetSupplied = true; edit(revised)
-                        if (batch != null) actions.generateHybrid(HybridPlanBuilder.split(revised, extraResistance.toSet()),
-                            allowHybridPairs) else actions.generate(revised)
+                        if (batch != null) actions.generateHybrid(HybridPlanBuilder.split(revised, extraResistance.toSet())) else actions.generate(revised)
                     },
                     activities = state.activities,
                     activationLabel = batch?.let { "Activate ${it.drafts.size} tracks" } ?: "Activate Plan",
@@ -418,7 +419,7 @@ import org.json.JSONObject
                                 foundationAcknowledged=false
                             ))
                             advancedBackPage = 0
-                            runningSubPage = 3
+                            runningSubPage = 2
                         }
                         else -> runningSubPage = 5
                     }
@@ -511,12 +512,16 @@ import org.json.JSONObject
                     onBack = {
                         runningSubPage = when (runningRoute) {
                             "race" -> 1
-                            "custom" -> 3
+                            "custom" -> 0
                             else -> 5
                         }
                     },
                     onContinue = {
-                        runningSubPage = if (editingAbilityFromGuided) 5 else 4
+                        runningSubPage = when {
+                            runningRoute == "custom" -> 3
+                            editingAbilityFromGuided -> 5
+                            else -> 4
+                        }
                         editingAbilityFromGuided = false
                     },
                     onAdvanced = {
@@ -540,6 +545,7 @@ import org.json.JSONObject
                     paceZones = remember(input.benchmarkDistanceMeters, input.benchmarkDurationSeconds, input.planningPace, state.activities) {
                         Engine15PaceZoneEstimator.estimate(input, activities = state.activities)
                     },
+                    progressStep = if (runningRoute == "custom") 2 else 3,
                     autoDetectedExperience = detectedExperience != null && experienceOverride == null
                 )
             }
@@ -576,9 +582,13 @@ import org.json.JSONObject
                 onRemoveQualityWorkout = { key ->
                     edit(input.copy(userDefinedQualityWorkouts=input.userDefinedQualityWorkouts-key))
                 },
-                onBack = { runningSubPage = advancedBackPage },
+                onBack = { runningSubPage = if (runningRoute == "custom") 2 else advancedBackPage },
                 onContinue = {
-                    runningSubPage = if (advancedBackPage == 5) 5 else 2
+                    runningSubPage = when {
+                        runningRoute == "custom" -> 4
+                        advancedBackPage == 5 -> 5
+                        else -> 2
+                    }
                 }
             )
             5 -> TracksideGuidedRunning(
@@ -695,7 +705,7 @@ import org.json.JSONObject
                     edit(WeeklyPlacement.clear(input,"run",
                         runningSelectedSlot.coerceIn(0,input.runDays-1)))
                 },
-                onBack = { runningSubPage=2 },
+                onBack = { runningSubPage = if (runningRoute == "custom") 3 else 2 },
                 onContinue = {
                     // Save even an unchanged default once the user chose
                     // manual placement, so the engine must honor those days.
@@ -928,19 +938,29 @@ import org.json.JSONObject
                     }
                 }
                 if (isHybrid) {
-                    Text("$trackCount training tracks", color = PlanBuilderPalette.text)
-                    if (extraResistance.isNotEmpty()) Text(
-                        extraResistance.joinToString { "${trainingTrackLabel(it)} · 1 session/week" },
-                        color = PlanBuilderPalette.secondary
-                    )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Allow compatible same-day workouts", color = PlanBuilderPalette.text,
-                            modifier = Modifier.weight(1f))
-                        Switch(checked = allowHybridPairs, onCheckedChange = { allowHybridPairs = it },
-                            modifier = Modifier.testTag("builder-hybrid-pairs"))
+                    Spacer(Modifier.height(14.dp))
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().testTag("builder-training-tracks"),
+                        color = PlanBuilderPalette.surface,
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.dp, PlanBuilderPalette.border)
+                    ) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("$trackCount training tracks", color = PlanBuilderPalette.text)
+                            if (extraResistance.isNotEmpty()) Text(
+                                extraResistance.joinToString { "${trainingTrackLabel(it)} · 1 session/week" },
+                                color = PlanBuilderPalette.secondary
+                            )
+                            OutlinedTextField(
+                                value = dailyMinutes,
+                                onValueChange = { dailyMinutes = it },
+                                label = { Text("Daily training limit (min, optional)") },
+                                modifier = Modifier.fillMaxWidth().testTag("builder-hybrid-daily-limit"),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            )
+                        }
                     }
-                    if (allowHybridPairs) FormText("Daily training limit (min)", dailyMinutes,
-                        { dailyMinutes = it }, numeric = true)
                 }
             },
             onBack={
@@ -971,7 +991,7 @@ import org.json.JSONObject
                         val selected = if (tracks.size == 1) TracksideCoaching.request(p) else null
                         beforeId=state.hybridPlanPreview?.id ?: state.planPreview?.id
                         awaiting=true
-                        if (selected != null) actions.generate(selected) else actions.generateHybrid(tracks, allowHybridPairs)
+                        if (selected != null) actions.generate(selected) else actions.generateHybrid(tracks)
                     } catch(e:PlanConstraint) { error=coachBuilderError(e.message.orEmpty()) }
                 }
             }

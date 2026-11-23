@@ -58,7 +58,6 @@ internal object HybridPlanBuilder {
         owner: String,
         requests: List<HybridTrackRequest>,
         existing: List<PlanSnapshot>,
-        allowPairs: Boolean,
         generate: (PlanRequest, List<PlanSnapshot>) -> PlanSnapshot
     ): HybridPlanPreview {
         if (requests.size !in 2..6 || requests.map { it.track }.distinct().size != requests.size ||
@@ -109,7 +108,7 @@ internal object HybridPlanBuilder {
                     reason = "${trainingTrackLabel(track)} needs a different day to preserve key-run recovery."
                     continue
                 }
-                val fitted = fit(candidate, peers, allowPairs)
+                val fitted = fit(candidate, peers)
                 if (fitted.first == null) {
                     reason = fitted.second
                     continue
@@ -181,7 +180,7 @@ internal object HybridPlanBuilder {
             RunnerSupportSchedule.Tier.HEAVY_LOWER, RunnerSupportSchedule.Tier.PLYOMETRICS
         )
 
-    private fun fit(draft: PlanSnapshot, peers: List<PlanSnapshot>, allowPairs: Boolean): Pair<PlanSnapshot?, String?> {
+    private fun fit(draft: PlanSnapshot, peers: List<PlanSnapshot>): Pair<PlanSnapshot?, String?> {
         val nearby = scheduled(peers)
         val byDate = nearby.groupBy { it.date }
         val keys = RunnerSupportSchedule.keyRuns(RunnerSupportSchedule.runningPlans(draft.owner, peers))
@@ -194,7 +193,6 @@ internal object HybridPlanBuilder {
             if (peer != null) {
                 if (trainingTrack(peer) == trainingTrack(original))
                     return null to "$date already has a ${trainingTrackLabel(trainingTrack(original))} workout."
-                if (!allowPairs) return null to "$date needs two sessions. Allow supported pairs or choose a different day."
                 val running = listOf(peer, original).singleOrNull { it.discipline == "run" }
                 val support = listOf(peer, original).firstOrNull { it.discipline != "run" }
                 val reviewedPair = running != null && support != null && original.discipline != "run" &&
@@ -223,10 +221,16 @@ internal object HybridPlanBuilder {
     }
 }
 
+internal fun hybridDailyLimit(value: String): Int? {
+    if (value.isBlank()) return null
+    return value.trim().toIntOrNull()?.takeIf { it in 15..240 }
+        ?: throw PlanConstraint("Enter a daily training limit between 15 and 240 minutes, or leave it blank.")
+}
+
 internal fun coachBuilderError(message: String): String = when {
     message.startsWith("QUALITY_RECONCILIATION_UNSAFE_OR_INFEASIBLE") ->
         "The requested quality session still needs more room for warm-up, work and cool-down at the smallest safe dose. Try more time, a different quality day or fewer hard sessions. To switch to aerobic running or strides, choose that goal explicitly and review a new plan."
     message.startsWith("ENGINE15_COMBINED_SCHEDULE_CONFLICT") ->
-        "These workouts need more room. Open an available day, move a fixed support session, or allow a compatible pair. Keep your long run and recovery days protected."
+        "These workouts need more room. Open an available day, move a fixed support session, or review a compatible same-day pairing. Keep your long run and recovery days protected."
     else -> message
 }

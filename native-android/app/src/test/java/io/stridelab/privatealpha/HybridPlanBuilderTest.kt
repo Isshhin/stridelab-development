@@ -27,7 +27,7 @@ class HybridPlanBuilderTest {
 
     @Test fun sixTracksGenerateSeparateIdentityAndRoundTripThroughExistingBackup() {
         val tracks = HybridPlanBuilder.split(request(), setOf("plyo", "iso"))
-        val preview = HybridPlanBuilder.build("six-tracks", owner, tracks, emptyList(), false, ::generate)
+        val preview = HybridPlanBuilder.build("six-tracks", owner, tracks, emptyList(), ::generate)
         assertEquals(setOf("run", "str", "plyo", "iso", "cal", "cond"), preview.drafts.map { it.first }.toSet())
         assertTrue(preview.drafts.all { it.second.status == "draft" && it.second.sessions.size == 2 })
         val approved = HybridPlanBuilder.prepareActivation(preview, owner, emptyList())
@@ -42,31 +42,48 @@ class HybridPlanBuilderTest {
     @Test fun automaticWeekdaysPreferBalancedGapsInsteadOfMondayTuesday() {
         val initial = request().copy(runDays = 0, strengthDays = 2, calDays = 0, conditioningDays = 2)
         val preview = HybridPlanBuilder.build("balanced", owner, HybridPlanBuilder.split(initial, emptySet()),
-            emptyList(), false, ::generate)
+            emptyList(), ::generate)
         preview.drafts.forEach { (_, plan) ->
             val days = plan.sessions.take(2).map { it.date.dayOfWeek.value }.sorted()
             assertTrue(days[1] - days[0] in 3..4)
         }
     }
 
-    @Test fun fixedPairNeedsPermissionAndKeepsSelectedTrackPrescriptions() {
+    @Test fun compatibleFixedPairKeepsSelectedTrackPrescriptions() {
         val initial = request().copy(runDays = 0, calDays = 0,
             weeklySlots = mapOf("str" to listOf(3), "cond" to listOf(3)))
         val tracks = HybridPlanBuilder.split(initial, emptySet())
-        val rejected = assertThrows(PlanConstraint::class.java) {
-            HybridPlanBuilder.build("rejected", owner, tracks, emptyList(), false, ::generate)
-        }
-        assertTrue(rejected.message.orEmpty().contains("needs two sessions"))
-        val preview = HybridPlanBuilder.build("accepted-pair", owner, tracks, emptyList(), true, ::generate)
+        val preview = HybridPlanBuilder.build("accepted-pair", owner, tracks, emptyList(), ::generate)
         assertTrue(preview.notes.any { it.contains("first, then") })
         assertTrue(preview.drafts.flatMap { it.second.sessions }.all { it.date.dayOfWeek.value == 3 })
         assertEquals(2, HybridPlanBuilder.prepareActivation(preview, owner, emptyList()).size)
     }
 
+    @Test fun dailyLimitStillChecksTheCombinedDurationOfCompatibleFixedWorkouts() {
+        val initial = request().copy(runDays = 0, calDays = 0,
+            weeklySlots = mapOf("str" to listOf(3), "cond" to listOf(3)))
+        val requests = HybridPlanBuilder.split(initial, emptySet())
+        val preview = HybridPlanBuilder.build("no-cap", owner, requests, emptyList(), ::generate)
+        val peakDay = preview.drafts.flatMap { it.second.sessions }.groupBy { it.date }.values
+            .maxBy { sessions -> sessions.sumOf { it.effectiveMinutes } }
+        val combined = peakDay.sumOf { it.effectiveMinutes }
+        val cap = maxOf(15, peakDay.maxOf { it.effectiveMinutes })
+        assertTrue(cap < combined)
+        val limited = requests.map { it.copy(request = it.request.copy(
+            timeBudgetEnabled = true, dailyMinutes = cap)) }
+        val rejection = assertThrows(PlanConstraint::class.java) {
+            HybridPlanBuilder.build("limited", owner, limited, emptyList(), ::generate)
+        }
+        assertTrue(rejection.message.orEmpty().contains("$cap-minute daily limit"))
+        assertNull(hybridDailyLimit(""))
+        assertEquals(combined, hybridDailyLimit(combined.toString()))
+        assertThrows(PlanConstraint::class.java) { hybridDailyLimit("14") }
+    }
+
     @Test fun preparationRejectsAnyStaleOrInvalidTrackBeforeWriting() {
         val initial = request().copy(runDays = 0, calDays = 0)
         val preview = HybridPlanBuilder.build("atomic", owner, HybridPlanBuilder.split(initial, emptySet()),
-            emptyList(), false, ::generate)
+            emptyList(), ::generate)
         val last = preview.drafts.last()
         val invalid = preview.copy(drafts = preview.drafts.dropLast(1) + (last.first to last.second.copy(owner = "other")))
         assertThrows(PlanConstraint::class.java) { HybridPlanBuilder.prepareActivation(invalid, owner, emptyList()) }

@@ -59,6 +59,7 @@ internal fun TracksideBuilderFrame(
     headlineLineHeight: Int = 34,
     progressStep: Int = 2,
     onSelectStage: ((Int) -> Unit)? = null,
+    progressLabel: String? = null,
     body: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(black).testTag("figma-builder-frame")) {
@@ -80,7 +81,7 @@ internal fun TracksideBuilderFrame(
                 }
             }
             Box(Modifier.weight(1f)) {
-                PlanBuilderStageProgress(progressStep, onSelectStage = onSelectStage)
+                PlanBuilderStageProgress(progressStep, onSelectStage = onSelectStage, stepLabel = progressLabel)
             }
         }
 
@@ -774,7 +775,8 @@ internal fun TracksideRunningAbilityScreen(
     autoDetectedExperience: Boolean = false,
     weeklySource: String = "Recent training",
     longestSource: String = "Recent training",
-    onConfirmNoRecentRunning: (() -> Unit)? = null
+    onConfirmNoRecentRunning: (() -> Unit)? = null,
+    progressStep: Int = 3
 ) {
     var benchmarkDialogOpen by remember { mutableStateOf(false) }
     var chosenDistance by remember(benchmarkDistance) { mutableStateOf(benchmarkDistance) }
@@ -788,7 +790,8 @@ internal fun TracksideRunningAbilityScreen(
         descriptionBottomGap = 16,
         contentTopPadding = 12,
         headlineLineHeight = 34,
-        progressStep = 3
+        progressStep = progressStep,
+        progressLabel = "Baseline"
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

@@ -102,6 +102,6 @@ Back to [[index]] · Related: [[architecture]] · [[screens]]
 ## Hybrid Plan Builder
 
 - Create a separate draft snapshot for each selected track using the existing discipline generators. Strength, plyometrics and isometrics retain distinct goals within the existing resistance storage key.
-- Prefer balanced, open weekdays for automatic support sessions. Keep fixed dates and the long-run day. Allow at most two sessions on a date, require the athlete to opt into compatible pairs, and show the proposed order. A reduced support dose uses the existing structured dose policy.
+- Prefer balanced, open weekdays for automatic support sessions. Keep fixed dates and the long-run day. Allow at most two sessions on a date. Honor compatible fixed pairs, show the proposed order, and keep recovery checks. The optional daily time limit checks combined duration independently of pairing. A reduced support dose uses the existing structured dose policy.
 - Preserve the running quality family through Engine 1.5's same-family reconciliation. If the dose still cannot fit, ask the athlete to review changes to time, days, frequency or training goal.
 - Recheck plan revisions and validate each snapshot and the shared calendar before activation. Store the approved set through the existing atomic plan restore transaction and keep the standard backup format.

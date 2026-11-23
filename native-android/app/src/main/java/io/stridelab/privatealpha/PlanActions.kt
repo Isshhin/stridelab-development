@@ -34,6 +34,6 @@ internal data class PlanActions(
     val discardPlanPreview: () -> Unit = {},
     val saveResearchReview:(PlanRequest,IndependentAndroidPreviewConstraints)->Unit={_,_->},
     val saveBuilderEquipment: (String, Map<String, Int>) -> Unit = { _, _ -> },
-    val generateHybrid: (List<HybridTrackRequest>, Boolean) -> Unit = { _, _ -> },
+    val generateHybrid: (List<HybridTrackRequest>) -> Unit = {},
     val approveHybrid: (String) -> Unit = {}
 )

@@ -24,7 +24,7 @@ import java.util.Locale
 /**
  * Art-directed Train Your Way / Customize Running screen.
  * Pure AMOLED obsidian surfaces, gradient volume slider, semantic workout type pills,
- * and unrestricted 1 or 2 quality sessions per week.
+ * and a quality frequency selector bounded by the running week.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,10 +47,11 @@ internal fun TracksideAdvancedRunning(
 ) {
     val lime = PlanBuilderPalette.accent
     TracksideBuilderFrame(
-        progressStep = 2,
-        toolbarTitle = if (guided) "Customize" else "Train your way",
+        progressStep = if (guided) 2 else 3,
+        progressLabel = if (guided) null else "Targets",
+        toolbarTitle = if (guided) "Customize" else "Training targets",
         eyebrow = if (guided) "RUNNING / PREFERENCES" else "RUNNING / TRAIN YOUR WAY",
-        headline = if (guided) "Customize your\ntraining" else "Make running\nyour own",
+        headline = if (guided) "Customize your\ntraining" else "Training targets",
         description = if (guided) "Fine-tune your target volume and quality session styles."
         else "Set your target volume and choose the workout styles you love.",
         onBack = onBack,
@@ -253,7 +254,7 @@ internal fun TracksideAdvancedRunning(
             ) {
                 listOf(0, 1, 2).forEach { count ->
                     val chosen = qualityCount == count
-                    val enabled = count <= maxQualityCount.coerceAtLeast(1)
+                    val enabled = count <= if (guided) maxQualityCount.coerceAtLeast(1) else maxQualityCount
                     Surface(
                         onClick = { onQualityCount(count) },
                         enabled = enabled,
@@ -283,6 +284,15 @@ internal fun TracksideAdvancedRunning(
                     }
                 }
             }
+        }
+
+        if (!guided && maxQualityCount < 2) {
+            Text(
+                "2 quality sessions need 4 running days, including one easy run and one long run.",
+                modifier = Modifier.padding(top = 6.dp).testTag("builder-quality-frequency-reason"),
+                fontSize = 12.sp,
+                color = PlanBuilderPalette.secondary
+            )
         }
 
         if (userDirectedPlanning && qualityCount > 0) {

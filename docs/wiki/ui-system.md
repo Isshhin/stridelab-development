@@ -38,6 +38,7 @@ Defined across `StrideTheme` (`NativeMainActivity.kt`), `WorkoutDetailPalette` (
 - **`TracksideFloatingNavigation` (`TracksideFloatingNavigation.kt`):** Persistent 3-tab floating capsule (`Today`, `Training`, `More`, `68.dp` height, `36.dp` corner radius) with animated lime indicator; hidden on detail/builder/workout routes (`showFloatingDock` in `NativeMainActivity.kt`).
 - **Training Calendar:** Seven weighted columns with two-letter day labels keep Sunday inside the viewport. The same chart accepts a single plan or the filtered plans on the Training tab.
 - **Hybrid Blueprint:** The track chips keep the selected week when switching prescriptions. Calendar notes show pairing order and support dose changes before activation.
+- **Hybrid Schedule:** The training tracks summary uses the same dark card as Plan Length and Weekly Availability. Its count includes Strength, Plyometrics and Isometrics separately. The optional daily limit is available directly in the card.
 - **`WorkoutProfileAndDifficultyCard` (`TracksidePlannedRunningPreview.kt`):**
   - Blueprint drafts reuse the running metrics, chart and step list without execution or editing controls. Workout unavailable states use the Workout Detail foreground and muted text tokens for contrast.
   - Pure-Compose `Row` bar chart (no external chart library): bar width proportional to `durationMinutes.coerceAtLeast(1f)`, height `fillMaxHeight(intensityFraction)`, vertical gradient fill + `3.dp` top sheen.

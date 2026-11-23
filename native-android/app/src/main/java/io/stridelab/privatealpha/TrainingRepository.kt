@@ -714,13 +714,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         } }
     }
 
-    suspend fun generateHybridPlan(requests: List<HybridTrackRequest>, allowPairs: Boolean) =
+    suspend fun generateHybridPlan(requests: List<HybridTrackRequest>) =
         operation("Building your training tracks…") {
             val state = mutable.value
             val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
             mutable.value = state.copy(planPreview = null, planPreviewSupportReview = null, hybridPlanPreview = null)
             val result = HybridPlanBuilder.build(java.util.UUID.randomUUID().toString(), owner, requests,
-                state.plans, allowPairs, draftGenerator(state, owner, Engine15IndependentPlanGenerator))
+                state.plans, draftGenerator(state, owner, Engine15IndependentPlanGenerator))
             mutable.value = mutable.value.copy(hybridPlanPreview = result)
         }
 
