@@ -63,6 +63,12 @@ Back to [[index]] · Related: [[ui-system]] · [[architecture]] · [[engine-rule
   - The detected workout row opens a correction sheet. The former How It Went section is removed. Coaching statistics exclude stop and dropout values without changing the original chart samples.
 - **Offline Maps:** Panning or pinching the picker owns the touch. The shared store tracks download progress while the screen is closed. Unknown totals show a preparing state, and stalls or SDK errors show Retry on the existing saved area.
 
+### Freeform Workout Logger
+
+- **Training → Add Workout → Log Workout** opens the discipline picker. Choose a movement from the bundled catalog or enter a custom name. Drafts can be resumed from Add Workout.
+- `freeform/edit/{id}` supports autosave, editable actuals, set confirmation, optional targets and rest, and a recorded-totals review before saving. Running captures date, distance, duration, optional effort, workout type, and notes.
+- Completed workouts open via `freeform/history/{kind}/{id}` and appear on their performed date in Training with a **Freeform** label. Legacy manual sessions retain a **Manual** label. **Workout backup** under Add Workout exports and restores an archive for the current profile.
+
 ## Deprecated & Removed Elements (Do Not Reintroduce)
 - **Concentric Weekly TSS Rings & Elevated Telemetry Feed on Today (`All`):** Replaced by the verified P0 3-section layout (`TodayDailyTrainingCard`, `TodayTrainingOverviewCard`, Option 1 `TodayRecentActivitiesSection`) to avoid fabricated multisport TSS scores, fake workout-to-activity adherence guessing, and heavy scrolling cards.
 - **Coach's Notes on Workout Detail:** Removed (`workout-planned-coach-notes`, `workout-planned-notes-toggle`, `notesExpanded`, and `coachingReason` parameter in `TracksidePlannedRunningPreview`). *Why:* Cluttered the workout execution screen and duplicated step effort cues.

@@ -91,6 +91,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     internal fun loadGarminGps(id:String,source:GarminPersonalSource) {
         viewModelScope.launch { repo.loadGarminGps(id,source) }
     }
+    internal val freeform = repo.freeformAccess()
     internal fun planActions()=PlanActions(
         generateHybrid = { requests ->
             viewModelScope.launch { repo.generateHybridPlan(requests) }

@@ -28,6 +28,11 @@ Defined across `StrideTheme` (`NativeMainActivity.kt`), `WorkoutDetailPalette` (
 - **Hierarchy:** Screen titles `27–29.sp` Bold; hero metric values `20.sp` Bold; micro-headers `10–11.sp` SemiBold/Bold uppercase (`letterSpacing = 1.0–1.2.sp`).
 - **Clipping Prevention:** All 3-column hero metrics, zone pills, difficulty controls, and Today 3-column/multisport load legends enforce `maxLines = 1`, `softWrap = false`, `overflow = TextOverflow.Ellipsis`, and `Modifier.weight(1f)` for `360.dp` widths.
 
+### Freeform Workout Logger
+
+- Training uses the existing AMOLED palette. Add Workout and Finish Workout use lime. Small discipline markers carry the six discipline colors.
+- Set cards show actuals first and keep optional targets, recovery, effort, and notes in set options. Previous confirmed performance appears below the movement name. Completed history and review show actual work from confirmed sets.
+
 ## Shared Components
 - **Today P0 Components (`TodayAdaptiveDashboard.kt`, `StrideLabTodayScreen.kt`):**
   - `TodayWeekCalendar`: Non-color-dependent state markers (solid lime dot = completed activity; outlined `1.2.dp` ring = scheduled/pending workout).

@@ -116,7 +116,7 @@ class NativeMainActivity: ComponentActivity() {
         loadCachedDetail=model::loadCachedDetail,
         renameActivity=model::renameActivity,
         exportLocalArchive=model::exportLocalActivityArchive,
-        restoreLocalArchive=model::restoreLocalActivityArchive) }
+        restoreLocalArchive=model::restoreLocalActivityArchive, freeform=model.freeform) }
     val thumbnailLoader = remember(model) { model::loadActivityThumbnail }
     ActivityThumbnailProvider(thumbnailLoader, state.account, state.loginGeneration) {
         NativeStrideContent(state, online, actions)
@@ -136,12 +136,15 @@ internal data class NativeActions(val signOut: () -> Unit, val signIn: (String, 
     val loadCachedDetail: (suspend (String) -> Boolean)? = null,
     val renameActivity: (suspend (String, String) -> Boolean)? = null,
     val exportLocalArchive: (suspend (LocalActivityArchiveScope) -> java.io.File)? = null,
-    val restoreLocalArchive: (suspend (LocalActivityArchiveScope,java.io.File) -> LocalActivityArchiveCounts)? = null)
+    val restoreLocalArchive: (suspend (LocalActivityArchiveScope,java.io.File) -> LocalActivityArchiveCounts)? = null,
+    val freeform: FreeformAccess? = null)
 
 /** Primary destinations switch immediately; the legacy Activity history route remains available.
  * retain the existing Navigation Compose transitions.
  */
 private val mainTabRoutes = setOf("home", "training", "settings")
+private fun immediateTransition(from: String?, to: String?) =
+    to in mainTabRoutes || from?.startsWith("freeform/") == true || to?.startsWith("freeform/") == true
 
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
@@ -183,6 +186,25 @@ private fun NavHostController.openActivity(id: String) {
 ) {
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
+    val freeformOwner = state.freeformOwner
+    val freeformAccess = actions.freeform
+    var freeformBoard by remember(freeformOwner, state.loginGeneration) { mutableStateOf<FreeformBoard?>(null) }
+    var freeformReadError by remember(freeformOwner, state.loginGeneration) { mutableStateOf<String?>(null) }
+    var freeformReload by remember(freeformOwner, state.loginGeneration) { mutableStateOf(0) }
+    LaunchedEffect(freeformOwner, state.loginGeneration, freeformAccess, freeformReload) {
+        if (freeformOwner != null && freeformAccess != null) {
+            freeformReadError = null
+            freeformAttempt { freeformAccess.read(freeformOwner) }.onSuccess { freeformBoard = it }
+                .onFailure { freeformReadError = it.freeformMessage("Could not load saved workouts. Try again.") }
+        }
+    }
+    val openFreeform: (() -> Unit)? = if (freeformOwner != null && freeformAccess != null) {
+        { nav.navigate("freeform/add") { launchSingleTop = true } }
+    } else null
+    val openFreeformHistory: (String, Boolean) -> Unit = { id, legacy ->
+        val kind = if (legacy) "legacy" else "freeform"
+        nav.navigate("freeform/history/$kind/${android.net.Uri.encode(id)}") { launchSingleTop = true }
+    }
     // Immediate visual acknowledgement of a bottom-tab press. NavController
     // still owns the back stack, restoration and child destination lifecycle;
     // the dock's animation never gates which retained root is laid out.
@@ -232,7 +254,8 @@ private fun NavHostController.openActivity(id: String) {
         route != "review-move/{planId}/{sessionId}/{date}" &&
         route != "activity/{id}" && route != "builder/{discipline}" &&
         route != "workout/{planId}/{sessionId}" && route != blueprintWorkoutRoute &&
-        route?.startsWith("auth") != true && route?.startsWith("more/") != true
+        route?.startsWith("auth") != true && route?.startsWith("more/") != true &&
+        route?.startsWith("freeform/") != true
     CompositionLocalProvider(
         LocalProfileAction provides { nav.openTabRoot("settings") },
         LocalFloatingDockVisible provides showFloatingDock
@@ -272,19 +295,19 @@ private fun NavHostController.openActivity(id: String) {
                 // Navigation Compose's default 700 ms fade made the bottom tabs
                 // feel like a flash. The lime dock pill is the only tab motion.
                 enterTransition = {
-                    if (targetState.destination.route in mainTabRoutes) EnterTransition.None
+                    if (immediateTransition(initialState.destination.route, targetState.destination.route)) EnterTransition.None
                     else fadeIn(animationSpec = tween(700))
                 },
                 exitTransition = {
-                    if (targetState.destination.route in mainTabRoutes) ExitTransition.None
+                    if (immediateTransition(initialState.destination.route, targetState.destination.route)) ExitTransition.None
                     else fadeOut(animationSpec = tween(700))
                 },
                 popEnterTransition = {
-                    if (targetState.destination.route in mainTabRoutes) EnterTransition.None
+                    if (immediateTransition(initialState.destination.route, targetState.destination.route)) EnterTransition.None
                     else fadeIn(animationSpec = tween(700))
                 },
                 popExitTransition = {
-                    if (targetState.destination.route in mainTabRoutes) ExitTransition.None
+                    if (immediateTransition(initialState.destination.route, targetState.destination.route)) ExitTransition.None
                     else fadeOut(animationSpec = tween(700))
                 }
             ) {
@@ -375,6 +398,56 @@ private fun NavHostController.openActivity(id: String) {
                     }
                 }
                 composable("training") { /* Retained tab surface. */ }
+                composable("freeform/add") {
+                    if (freeformOwner != null && freeformAccess != null) {
+                        key(freeformOwner, state.loginGeneration) {
+                            FreeformHub(
+                                owner = freeformOwner, board = freeformBoard, readError = freeformReadError,
+                                access = freeformAccess, back = { nav.popBackStack() }, retry = { freeformReload++ },
+                                update = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
+                                restored = { freeformBoard = it },
+                                openDraft = { id ->
+                                    nav.navigate("freeform/edit/${android.net.Uri.encode(id)}") { launchSingleTop = true }
+                                }
+                            )
+                        }
+                    } else {
+                        FreeformHistoryDetail(null, null, state.initializing) { nav.popBackStack() }
+                    }
+                }
+                composable("freeform/edit/{id}") { destination ->
+                    val id = destination.arguments?.getString("id")
+                    val board = freeformBoard
+                    val workout = board?.workouts?.firstOrNull { it.id == id }
+                    if (workout != null && !workout.isComplete && freeformAccess != null) {
+                        key(freeformOwner, state.loginGeneration) {
+                            FreeformEditor(
+                                initial = workout, board = board, access = freeformAccess,
+                                update = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
+                                remove = { freeformBoard = freeformBoard?.without(it) },
+                                leave = { nav.popBackStack() },
+                                saved = { completedId ->
+                                    nav.navigate("freeform/history/freeform/${android.net.Uri.encode(completedId)}") {
+                                        popUpTo("training") { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            )
+                        }
+                    } else {
+                        FreeformHistoryDetail(workout, null, board == null && freeformReadError == null) { nav.popBackStack() }
+                    }
+                }
+                composable("freeform/history/{kind}/{id}") { destination ->
+                    val id = destination.arguments?.getString("id")
+                    val legacy = destination.arguments?.getString("kind") == "legacy"
+                    FreeformHistoryDetail(
+                        workout = if (!legacy) freeformBoard?.workouts?.firstOrNull { it.id == id && it.isComplete } else null,
+                        legacy = if (legacy) freeformBoard?.legacy?.firstOrNull { it.id == id } else null,
+                        loading = freeformBoard == null && freeformReadError == null,
+                        back = { nav.popBackStack() }
+                    )
+                }
                 composable("manage/{planId}/{date}") { back ->
                     val planId = back.arguments?.getString("planId") ?: ""
                     val plan = state.plans.firstOrNull { it.id == planId }
@@ -622,7 +695,8 @@ private fun NavHostController.openActivity(id: String) {
                             { nav.navigate("builder/all") },
                             { p, session -> nav.openWorkout(p, session) },
                             { id -> nav.openActivity(id) },
-                            { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
+                            { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
+                            manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory
                         )
                     }
                     PersistentTabSurface(active = visibleRoot == "settings") {
@@ -668,7 +742,8 @@ private fun NavHostController.openActivity(id: String) {
                         { nav.navigate("builder/all") },
                         { p, session -> nav.openWorkout(p, session) },
                         { id -> nav.openActivity(id) },
-                        { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
+                        { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
+                        manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory
                     )
                 }
                 PersistentTabSurface(active = visibleRoot == "settings") {

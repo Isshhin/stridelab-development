@@ -30,6 +30,12 @@ NativeMainActivity NavHost ──► Jetpack Compose Screens
 - **Auxiliary Stores:** `GarminCredentialStore` / `GarminCredentialVault`, `GarminFitArchive`, `FitImportCache`, `LocalActivityArchive`, `ManualDisciplineStore`, `StrideOfflineMapStore`, `GarminZonePreferenceStore`.
 - **Offline maps:** Seed the APK style into MapLibre’s resource cache before creating or retrying a region. The renderer and downloader share that style URL. The app-scoped store owns the region, observer, Wi-Fi checks and stall timeout across screen changes.
 
+### Freeform Workout Logger
+
+- `ManualDisciplineStore` migration 3 adds an owner-keyed Freeform table. Draft edits retain partial input. Completion validates actuals, stores one immutable record under the draft ID, and returns that record on retry.
+- Freeform uses the active StrideLab profile ID or the persistent signed-out plan identity. Repository checks serialize access with profile switches. Training reads completed records as their own source. Freeform writes go to the manual store.
+- Manual archive schema 3 includes drafts and completed Freeform workouts. Schemas 1 and 2 still restore legacy sessions and templates. Restore uses a single transaction and rejects conflicting completed records.
+
 ## 2. Garmin & FIT Ingestion
 - **Today cold start:** The owner-scoped plan query resolves the training card while scalar activity summaries and session restoration run on IO. The feed publishes cloud and local Garmin summaries together in newest-first order. Secondary caches hydrate separately. Perfetto sections identify the plan query, summary load, secondary caches and individual thumbnail reads.
 - **Route thumbnails:** Visible activity cards request bounded, downsampled previews on workers without populating the full detail cache or invoking coaching analysis. SQLite reads long recordings in UTF-8 byte windows. Activity Detail still loads the full recording on demand.

@@ -74,8 +74,13 @@ internal fun trainingTrackLabel(track: String): String = when (track) {
 internal data class UnifiedTrainingDay(
     val date: LocalDate,
     val activities: List<DisplayActivity>,
-    val workouts: List<UnifiedTrainingWorkout>
-)
+    val workouts: List<UnifiedTrainingWorkout>,
+    val freeform: List<FreeformWorkout> = emptyList(),
+    val manual: List<ManualDisciplineSession> = emptyList()
+) {
+    val hasEntries get() = activities.isNotEmpty() || workouts.isNotEmpty() ||
+        freeform.isNotEmpty() || manual.isNotEmpty()
+}
 
 /**
  * Presentation-only join: preserve source records and every real session ID.
@@ -89,7 +94,9 @@ internal fun unifiedTrainingDays(
     plans: List<PlanSnapshot>,
     activePlanId: String?,
     zone: ZoneId,
-    activePlanIds: Set<String> = setOfNotNull(activePlanId)
+    activePlanIds: Set<String> = setOfNotNull(activePlanId),
+    freeform: List<FreeformWorkout> = emptyList(),
+    manual: List<ManualDisciplineSession> = emptyList()
 ): List<UnifiedTrainingDay> {
     val activitiesByDate = groupedActivities.groupBy {
         it.primary.startedAt.atZone(zone).toLocalDate()
@@ -113,13 +120,18 @@ internal fun unifiedTrainingDays(
                 .add(UnifiedTrainingWorkout(plan.id, session))
         }
     }
-    return (activitiesByDate.keys + workoutsByDate.keys + today).toSortedSet().map { date ->
+    val freeformByDate = freeform.filter { it.isComplete }.groupBy { requireNotNull(it.date) }
+    val manualByDate = manual.groupBy { it.performedOn }
+    return (activitiesByDate.keys + workoutsByDate.keys + freeformByDate.keys + manualByDate.keys + today)
+        .toSortedSet().map { date ->
         UnifiedTrainingDay(
             date = date,
             activities = activitiesByDate[date].orEmpty().sortedWith(
                 compareBy<DisplayActivity> { it.primary.startedAt }.thenBy { it.primary.id }
             ),
-            workouts = workoutsByDate[date].orEmpty().sortedWith(trainingWorkoutOrder)
+            workouts = workoutsByDate[date].orEmpty().sortedWith(trainingWorkoutOrder),
+            freeform = freeformByDate[date].orEmpty(),
+            manual = manualByDate[date].orEmpty()
         )
     }
 }
@@ -144,7 +156,8 @@ internal fun unifiedTrainingSelectedDay(
                 !(session.isMarkedComplete && session.linkedActivityId?.let { it in visibleSourceIds } == true)
         }.map { UnifiedTrainingWorkout(plan.id, it) }
     }
-    return UnifiedTrainingDay(date, base?.activities.orEmpty(), (existing + scheduled).sortedWith(trainingWorkoutOrder))
+    val combined = (existing + scheduled).sortedWith(trainingWorkoutOrder)
+    return base?.copy(workouts = combined) ?: UnifiedTrainingDay(date, emptyList(), combined)
 }
 
 /** Only actual dated training records introduce a month heading. */
@@ -153,10 +166,8 @@ internal fun unifiedTimelineMonthHeading(
     position: Int
 ): Boolean {
     val current = days.getOrNull(position) ?: return false
-    if (current.activities.isEmpty() && current.workouts.isEmpty()) return false
-    val preceding = days.take(position).lastOrNull {
-        it.activities.isNotEmpty() || it.workouts.isNotEmpty()
-    } ?: return true
+    if (!current.hasEntries) return false
+    val preceding = days.take(position).lastOrNull { it.hasEntries } ?: return true
     return YearMonth.from(preceding.date) != YearMonth.from(current.date)
 }
 
@@ -165,6 +176,7 @@ internal fun unifiedTimelineMonthHeading(
  * - Pressing any Day on the calendar shows BOTH Logged Activities and Planned Workouts for that day.
  * - Pressing the Week pill or Week toggle shows BOTH Logged Activities and Planned Workouts across the week.
  */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 internal fun StrideLabUnifiedTrainingTimeline(
     state: TrainingState,
@@ -173,7 +185,10 @@ internal fun StrideLabUnifiedTrainingTimeline(
     onBuild: () -> Unit,
     onOpenWorkout: (String, String) -> Unit,
     onOpenActivity: (String) -> Unit,
-    onManage: (String, LocalDate) -> Unit
+    onManage: (String, LocalDate) -> Unit,
+    manualBoard: FreeformBoard? = null,
+    onAddWorkout: (() -> Unit)? = null,
+    onOpenManual: (String, Boolean) -> Unit = { _, _ -> }
 ) {
     val account = state.account
     val hasLocalGarmin = state.localGarminIds.isNotEmpty()
@@ -226,19 +241,33 @@ internal fun StrideLabUnifiedTrainingTimeline(
             }
         }
     }
-    val recordedDates = remember(visibleGroups, timelinePlans, hasHistory, zone) {
-        if (!hasHistory) emptySet()
-        else visibleGroups.map { it.primary.startedAt.atZone(zone).toLocalDate() }.toSet() +
-            timelinePlans.flatMap { p -> p.sessions.filter { it.isMarkedComplete }.map { it.log?.performedOn ?: it.date } }
+    val freeform = remember(manualBoard, planProfile, selectedPlan, selectedTrack) {
+        if (selectedPlan != null) emptyList() else manualBoard?.workouts.orEmpty().filter {
+            it.owner == planProfile && it.isComplete && (selectedTrack == null || it.discipline.trainingTrackKey == selectedTrack)
+        }
     }
-    val days = remember(today, zone, visibleGroups, timelinePlans, scopedPlans, hasHistory) {
+    val manual = remember(manualBoard, planProfile, selectedPlan, selectedTrack) {
+        if (selectedPlan != null) emptyList() else manualBoard?.legacy.orEmpty().filter {
+            it.owner == planProfile && (selectedTrack == null || it.discipline.trainingTrackKey == selectedTrack)
+        }
+    }
+    val recordedDates = remember(visibleGroups, timelinePlans, hasHistory, zone, freeform, manual) {
+        val manualDates = freeform.mapNotNull { it.date }.toSet() + manual.map { it.performedOn }
+        if (!hasHistory) manualDates
+        else visibleGroups.map { it.primary.startedAt.atZone(zone).toLocalDate() }.toSet() +
+            timelinePlans.flatMap { p -> p.sessions.filter { it.isMarkedComplete }.map { it.log?.performedOn ?: it.date } } +
+            manualDates
+    }
+    val days = remember(today, zone, visibleGroups, timelinePlans, scopedPlans, hasHistory, freeform, manual) {
         unifiedTrainingDays(
             today = today,
             groupedActivities = if (hasHistory) visibleGroups else emptyList(),
             plans = timelinePlans,
             activePlanId = selectedPlan?.id,
             zone = zone,
-            activePlanIds = scopedPlans.map { it.id }.toSet()
+            activePlanIds = scopedPlans.map { it.id }.toSet(),
+            freeform = freeform,
+            manual = manual
         )
     }
     val focusedDate = if (hasActivePlans) {
@@ -264,7 +293,7 @@ internal fun StrideLabUnifiedTrainingTimeline(
             listOf(combinedDayFor(focusedDate))
         } else if (hasActivePlans && agendaView && weekOnlyFilter) {
             val weekDays = (0L..6L).map { offset -> combinedDayFor(weekMonday.plusDays(offset)) }
-                .filter { it.activities.isNotEmpty() || it.workouts.isNotEmpty() || it.date == focusedDate }
+                .filter { it.hasEntries || it.date == focusedDate }
             weekDays.ifEmpty { listOf(combinedDayFor(focusedDate)) }
         } else if (!hasActivePlans && focusedNoPlanDate != null) {
             listOf(combinedDayFor(focusedNoPlanDate))
@@ -296,16 +325,27 @@ internal fun StrideLabUnifiedTrainingTimeline(
     val fullDayFmt = remember(locale) { DateTimeFormatter.ofPattern("EEEE, MMM d", locale) }
 
     Column(Modifier.fillMaxSize().background(TimelineStyle.background)) {
-        Text(
-            "Training",
-            color = TimelineStyle.ink,
-            fontSize = 30.sp,
-            lineHeight = 35.sp,
-            fontWeight = FontWeight.ExtraBold,
-            letterSpacing = (-0.6).sp,
-            modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 8.dp)
-                .testTag("training-title")
-        )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                "Training",
+                color = TimelineStyle.ink,
+                fontSize = 30.sp,
+                lineHeight = 35.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.6).sp,
+                modifier = Modifier.align(Alignment.CenterVertically).testTag("training-title")
+            )
+            if (onAddWorkout != null) {
+                FreeformPrimary(
+                    "Add Workout", onAddWorkout,
+                    Modifier.align(Alignment.CenterVertically).testTag("training-add-workout")
+                )
+            }
+        }
 
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val lastDateMinHeight = if (agendaView && !weekOnlyFilter)
@@ -500,7 +540,25 @@ internal fun StrideLabUnifiedTrainingTimeline(
                                         )
                                     }
                                 }
-                                if (hasActivePlans && day.activities.isEmpty() && day.workouts.isEmpty()) {
+                                day.freeform.forEach { workout ->
+                                    FreeformTile(
+                                        title = workout.title,
+                                        supporting = "Freeform · ${workout.discipline.label}\n${workout.summary()}",
+                                        color = workout.discipline.markColor,
+                                        onClick = { onOpenManual(workout.id, false) },
+                                        modifier = Modifier.testTag("training-freeform-${workout.id}")
+                                    )
+                                }
+                                day.manual.forEach { workout ->
+                                    FreeformTile(
+                                        title = workout.title,
+                                        supporting = "Manual · ${workout.discipline.label}",
+                                        color = workout.discipline.markColor,
+                                        onClick = { onOpenManual(workout.id, true) },
+                                        modifier = Modifier.testTag("training-manual-${workout.id}")
+                                    )
+                                }
+                                if (hasActivePlans && !day.hasEntries) {
                                     Surface(
                                         shape = RoundedCornerShape(15.dp),
                                         color = TimelineStyle.card,

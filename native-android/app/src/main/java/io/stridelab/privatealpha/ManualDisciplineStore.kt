@@ -14,7 +14,8 @@ import java.time.LocalDate
 
 /** Manually entered, source-labelled completed sessions. No generated coaching data. */
 internal enum class ManualDiscipline(val label: String) {
-    STRENGTH("Strength"), CALISTHENICS("Calisthenics"), CONDITIONING("Conditioning")
+    RUNNING("Running"), STRENGTH("Strength"), PLYOMETRICS("Plyometrics"),
+    ISOMETRICS("Isometrics"), CALISTHENICS("Calisthenics"), CONDITIONING("Conditioning")
 }
 
 internal data class ManualExerciseEntry(
@@ -143,19 +144,127 @@ internal object ManualDisciplineBackup {
 /** Separate owner-scoped database. Never writes to TrainingStore or Garmin FIT records. */
 internal class ManualDisciplineStore(
     context: Context,
-    databaseName: String = "stridelab-standalone-sessions-v1.db"
-) : SQLiteOpenHelper(context.applicationContext, databaseName, null, 2) {
+    databaseName: String = DATABASE
+) : SQLiteOpenHelper(context.applicationContext, databaseName, null, 3) {
+    companion object {
+        const val DATABASE = "stridelab-standalone-sessions-v1.db"
+    }
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE sessions(owner TEXT NOT NULL, record_id TEXT NOT NULL, performed_on TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(owner,record_id))")
         db.execSQL("CREATE INDEX session_owner_date ON sessions(owner,performed_on DESC)")
         createTemplates(db)
+        createFreeform(db)
     }
     private fun createTemplates(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE manual_templates(owner TEXT NOT NULL, record_id TEXT NOT NULL, name TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(owner,record_id))")
     }
+    private fun createFreeform(db: SQLiteDatabase) {
+        db.execSQL(
+            """CREATE TABLE freeform_workouts(
+                owner TEXT NOT NULL, record_id TEXT NOT NULL, completed INTEGER NOT NULL,
+                modified_at INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY(owner,record_id)
+            )"""
+        )
+        db.execSQL("CREATE INDEX freeform_owner_modified ON freeform_workouts(owner,modified_at DESC)")
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if(oldVersion == 1 && newVersion == 2) createTemplates(db)
-        else throw IllegalStateException("A non-destructive migration is required; existing logs retained.")
+        require(oldVersion in 1..2 && newVersion == 3)
+        if (oldVersion == 1) createTemplates(db)
+        createFreeform(db)
+    }
+
+    suspend fun listFreeform(owner: String): List<FreeformWorkout> = withContext(Dispatchers.IO) {
+        RecordPolicy.identifier(owner)
+        readableDatabase.query("freeform_workouts", arrayOf("payload"), "owner=?", arrayOf(owner),
+            null, null, "modified_at DESC,record_id DESC").use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) add(FreeformCodec.decode(cursor.getString(0), owner))
+            }
+        }
+    }
+
+    suspend fun createFreeformDraft(draft: FreeformWorkout): FreeformWorkout = withContext(Dispatchers.IO) {
+        require(!draft.isComplete)
+        writableDatabase.writeFreeform(draft, FreeformCodec.encode(draft), updating = false)
+        draft
+    }
+
+    suspend fun saveFreeformDraft(draft: FreeformWorkout): FreeformWorkout = withContext(Dispatchers.IO) {
+        require(!draft.isComplete)
+        val payload = FreeformCodec.encode(draft)
+        freeformTransaction { db ->
+            val existing = requireNotNull(db.findFreeform(draft.owner, draft.id)) {
+                "This draft is unavailable. Reopen it from Training."
+            }
+            require(existing.sameWorkout(draft))
+            if (existing.isComplete || existing.modifiedAt > draft.modifiedAt) return@freeformTransaction existing
+            require(existing.modifiedAt != draft.modifiedAt || existing == draft) {
+                "This draft was edited elsewhere. Reopen it before saving."
+            }
+            if (existing == draft) return@freeformTransaction existing
+            db.writeFreeform(draft, payload, updating = true)
+            draft
+        }
+    }
+
+    suspend fun completeFreeform(draft: FreeformWorkout, now: Long): FreeformWorkout = withContext(Dispatchers.IO) {
+        require(!draft.isComplete)
+        freeformTransaction { db ->
+            val existing = requireNotNull(db.findFreeform(draft.owner, draft.id)) {
+                "This draft is unavailable. Reopen it from Training."
+            }
+            require(existing.sameWorkout(draft))
+            if (existing.isComplete) return@freeformTransaction existing
+            require(draft.modifiedAt > existing.modifiedAt || draft == existing) {
+                "A newer draft is saved. Reopen it before finishing."
+            }
+            val completed = draft.finish(now)
+            db.writeFreeform(completed, FreeformCodec.encode(completed), updating = true)
+            completed
+        }
+    }
+
+    suspend fun discardFreeform(owner: String, id: String): Boolean = withContext(Dispatchers.IO) {
+        RecordPolicy.identifier(owner)
+        RecordPolicy.identifier(id)
+        writableDatabase.delete("freeform_workouts", "owner=? AND record_id=? AND completed=0",
+            arrayOf(owner, id)) > 0
+    }
+
+    private fun FreeformWorkout.sameWorkout(other: FreeformWorkout): Boolean =
+        startedAt == other.startedAt && discipline == other.discipline
+
+    private fun SQLiteDatabase.findFreeform(owner: String, id: String): FreeformWorkout? =
+        query("freeform_workouts", arrayOf("payload"), "owner=? AND record_id=?", arrayOf(owner, id),
+            null, null, null).use { cursor ->
+            if (cursor.moveToFirst()) FreeformCodec.decode(cursor.getString(0), owner) else null
+        }
+
+    private fun SQLiteDatabase.writeFreeform(row: FreeformWorkout, payload: String, updating: Boolean) {
+        val values = ContentValues().apply {
+            put("owner", row.owner)
+            put("record_id", row.id)
+            put("completed", if (row.isComplete) 1 else 0)
+            put("modified_at", row.modifiedAt)
+            put("payload", payload)
+        }
+        if (updating) {
+            check(update("freeform_workouts", values, "owner=? AND record_id=?", arrayOf(row.owner, row.id)) == 1)
+        } else {
+            insertOrThrow("freeform_workouts", null, values)
+        }
+    }
+
+    private fun <T> freeformTransaction(action: (SQLiteDatabase) -> T): T {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            return action(db).also { db.setTransactionSuccessful() }
+        } finally {
+            db.endTransaction()
+        }
     }
 
     suspend fun save(record: ManualDisciplineSession) = withContext(Dispatchers.IO) {
@@ -216,7 +325,7 @@ internal class ManualDisciplineStore(
     }
 
     suspend fun export(owner: String): String =
-        ManualDisciplineArchive.export(owner, list(owner), listTemplates(owner))
+        ManualDisciplineArchive.export(owner, list(owner), listTemplates(owner), listFreeform(owner))
 
     suspend fun delete(owner: String, id: String): Boolean = withContext(Dispatchers.IO) {
         RecordPolicy.identifier(owner)
@@ -269,6 +378,20 @@ internal class ManualDisciplineStore(
                     put("owner",owner);put("record_id",form.id)
                     put("name",form.name);put("payload",incoming)
                 })
+                additions++
+            }
+            for (row in archive.freeform) {
+                val existing = db.findFreeform(owner, row.id)
+                if (existing != null) {
+                    require(existing.sameWorkout(row)) { "This workout ID already has different contents." }
+                    if (existing == row || existing.isComplete && !row.isComplete) continue
+                    require(!existing.isComplete) { "A completed workout has different contents. No records changed." }
+                    if (!row.isComplete && existing.modifiedAt > row.modifiedAt) continue
+                    require(row.modifiedAt > existing.modifiedAt) {
+                        "This workout conflicts with a saved draft. No records changed."
+                    }
+                }
+                db.writeFreeform(row, FreeformCodec.encode(row), updating = existing != null)
                 additions++
             }
             db.setTransactionSuccessful()

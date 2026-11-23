@@ -16,7 +16,7 @@ Offline-first native Android running and multi-discipline training coach built a
 
 ## Repository Map (`F:\StrideLab\Current-App\stridelab-engine15-dev`, branch `dev`)
 - `native-android/app/src/main/java/io/stridelab/privatealpha/` — Active Kotlin/Compose app, Engine 1.5, Garmin/FIT pipeline, and UI
-- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`162` suites / `1,261` tests, including Blueprint, Training aggregation, hybrid activation, FIT and debriefs)
+- `native-android/app/src/test/java/io/stridelab/privatealpha/` — JVM unit tests (`163` suites / `1,265` tests, including Blueprint, Training aggregation, hybrid activation, FIT and debriefs)
 - `native-android/app/src/androidTest/java/io/stridelab/privatealpha/` — Compose and instrumentation coverage for Activity Detail and guided execution. The five AMOLED player tests passed on the API 35 emulator at 360 dp and approximately 412 dp with font scales 1.0 and 1.3.
 - `docs/wiki/` — Persistent Obsidian-compatible LLM memory hub (this wiki)
 - `research/engine15/` — Generated Engine 1.5 coaching audit reports (e.g., `M28A_COACHING_AUDIT_20261121.md`)
@@ -56,6 +56,14 @@ Offline-first native Android running and multi-discipline training coach built a
 - The four JDK 21 checks passed. API 35 acceptance passed 12 integration tests on `emulator-5554`, including collision rollback, backup restore and exact FIT bytes. The 320, 360 and 412 dp profiles at font scales 1.0 and 1.3 passed four tests each, covering Sunday visibility, grouped steps, Training filters and six-track selection.
 
 - Pre-trial polish passed all four JDK 21 checks. The API 35 emulator passed six focused cases at 412 dp and font scale 1.5, including six-track activation and identical FIT export. The two new builder cases also passed at 360 dp and font scale 1.0.
+
+## Freeform Workout Logger
+
+- Training opens the offline logger for Running, Strength, Plyometrics, Isometrics, Calisthenics, and Conditioning. Signed-out and signed-in profiles have independent drafts and history.
+- Checkpoint A includes logging, save and resume, Freeform history, and local workout archives. Template creation and custom scheduling are disabled pending later checkpoints. See [[screens]] and [[architecture]].
+
+- Checkpoint A passed the four required JDK 21 checks, including 1,265 JVM tests. The logger passed 19 API 35 executions across smoke, process restart, and the 320, 360, and 412 dp profiles at font scales 1.0 and 1.5.
+- The broader Android regression run passed 54 and failed 7. All seven failures reproduced on the clean dev baseline (six legacy Workout Player fixtures and one Garmin sign-out test).
 
 ## Verification Commands (`native-android/`, JDK 21, run sequentially)
 ```powershell

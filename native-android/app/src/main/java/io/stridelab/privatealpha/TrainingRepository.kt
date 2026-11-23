@@ -59,6 +59,7 @@ internal data class TrainingState(
     val savedEquipment: Map<String, Int>? = null,
     val hybridPlanPreview: HybridPlanPreview? = null
 ) {
+    val freeformOwner: String? get() = account ?: localPlanOwner
     val displayedPlanPreview get() = planPreviewSupportReview?.candidate?.takeIf { it.id == planPreview?.id } ?: planPreview
     fun blueprintDraft(id: String): PlanSnapshot? =
         displayedPlanPreview?.takeIf { it.id == id }
@@ -85,8 +86,12 @@ internal data class TrainingState(
 
 /** All network/database/encryption work is serialized off the main thread, including workers. */
 internal class TrainingRepository(context: Context, private val gateway: TrainingGateway = SupabaseGateway(),
-    databaseName: String = TrainingStore.DATABASE, preferencesName: String = "native-account-v1") {
+    databaseName: String = TrainingStore.DATABASE, preferencesName: String = "native-account-v1",
+    manualDatabaseName: String = if (databaseName == TrainingStore.DATABASE) ManualDisciplineStore.DATABASE
+        else "$databaseName-manual"
+) {
     private val store = TrainingStore(context, databaseName)
+    private val manualStore = ManualDisciplineStore(context, manualDatabaseName)
     private val appContext = context.applicationContext
     private val engine15ExerciseLibrary by lazy {
         try { ExerciseLibraryV2.load { path -> appContext.assets.open(path) } }
@@ -2111,7 +2116,29 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.applyRemotePage(owner, "workout", listOf(TrainingStore.RemoteRecord(id, raw, null)), null, System.currentTimeMillis())
     }
 
-    internal fun close() { scope.cancel(); store.close() }
+    internal fun freeformAccess() = FreeformAccess(
+        read = { owner -> withFreeformOwner(owner) {
+            FreeformBoard(manualStore.listFreeform(owner), manualStore.list(owner))
+        } },
+        start = { draft -> withFreeformOwner(draft.owner) { manualStore.createFreeformDraft(draft) } },
+        save = { draft -> withFreeformOwner(draft.owner) { manualStore.saveFreeformDraft(draft) } },
+        finish = { draft -> withFreeformOwner(draft.owner) {
+            manualStore.completeFreeform(draft, System.currentTimeMillis())
+        } },
+        discard = { owner, id -> withFreeformOwner(owner) { manualStore.discardFreeform(owner, id) } },
+        export = { owner -> withFreeformOwner(owner) { manualStore.export(owner) } },
+        restore = { owner, raw -> withFreeformOwner(owner) { manualStore.restore(owner, raw) } }
+    )
+
+    private suspend fun <T> withFreeformOwner(owner: String, action: suspend () -> T): T =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                check(mutable.value.freeformOwner == owner) { "This workout belongs to a different profile." }
+                action()
+            }
+        }
+
+    internal fun close() { scope.cancel(); store.close(); manualStore.close() }
 
     suspend fun signOut() = operation("Signing out…") {
         val account = mutable.value.account ?: return@operation
@@ -2124,6 +2151,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         check(preferences.edit().remove("active").commit())
         mutable.value = TrainingState(initializing = false,busy = true,
             localGarminOwner=localGarminOwner,localPlanOwner=localPlanOwner,
+            loginGeneration = mutable.value.loginGeneration + 1,
             task = "Finishing sign-out…")
         loadLocalPlanCache() // Show only local plans; cloud plans remain under their cloud owner.
         loadLocalGarminCache() // Hide cloud activities, retain local Garmin history.
