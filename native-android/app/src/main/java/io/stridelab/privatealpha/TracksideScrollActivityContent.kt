@@ -804,6 +804,12 @@ private fun TracksideActivityOverviewBody(
         TracksideActivitySummary(activity)
         if (activity.source == "garmin" && detailSource.id == activity.id &&
             (recorded == null || uncheckedDynamics || missingSavedCadence || garminLoad != null)) {
+            if (loadingGarmin) {
+                Spacer(Modifier.height(12.dp))
+                SkeletonShimmerContainer {
+                    SkeletonActivityDetailStreams(modifier = Modifier.testTag("activity-detail-loading-skeleton"))
+                }
+            }
             Spacer(Modifier.height(12.dp))
             Text(
                 if (loadingGarmin) "Downloading Garmin recording for offline analysis."

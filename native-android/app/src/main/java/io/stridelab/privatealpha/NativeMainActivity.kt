@@ -902,7 +902,7 @@ private fun NavHostController.openActivity(id: String) {
             PersistentTabSurface(active = visibleRoot == "activities") {
                 ActivityHistoryTabScreen(
                     evidence = evidence,
-                    loading = evidence == null,
+                    loading = evidence == null || state.initializing || !state.activitySummariesReady,
                     details = state.details,
                     onOpenActivityDetail = { id -> nav.openActivity(id) },
                     onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },

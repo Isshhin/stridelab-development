@@ -75,7 +75,7 @@ internal fun ActivityHistoryTabScreen(
         if (selectedDiscipline == null) allItems
         else allItems.filter { it.discipline == selectedDiscipline }
     }
-    val showSkeleton = rememberDelayedSkeletonVisible(loading && evidence == null)
+    val showSkeleton = rememberDelayedSkeletonVisible(loading && allItems.isEmpty())
     val context = LocalContext.current
     val reducedMotion = remember(context) { isSystemReducedMotion(context) }
 
@@ -112,7 +112,17 @@ internal fun ActivityHistoryTabScreen(
                         .semantics { heading() }
                         .testTag("activity-tab-title")
                 )
-                if (!showSkeleton) {
+                if (loading && allItems.isEmpty()) {
+                    if (showSkeleton) {
+                        SkeletonShimmerContainer(reducedMotion = reducedMotion) {
+                            Box(
+                                modifier = Modifier
+                                    .size(width = 68.dp, height = 24.dp)
+                                    .neutralSkeletonBrush(cornerRadius = 12.dp, reducedMotion = reducedMotion)
+                            )
+                        }
+                    }
+                } else {
                     Surface(
                         color = StrideLabSurfaceTokens.surfaceElevated,
                         shape = RoundedCornerShape(100.dp),
@@ -183,13 +193,20 @@ internal fun ActivityHistoryTabScreen(
 
         if (showSkeleton) {
             item(key = "activity-skeleton") {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
-                    SkeletonActivityRow()
-                    SkeletonActivityRow()
-                    SkeletonActivityRow()
+                SkeletonShimmerContainer(reducedMotion = reducedMotion) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier
+                            .padding(top = 8.dp)
+                            .testTag("activity-skeleton")
+                    ) {
+                        repeat(3) {
+                            SkeletonActivitySummaryCard(reducedMotion = reducedMotion)
+                        }
+                    }
                 }
             }
-        } else if (filtered.isEmpty()) {
+        } else if (!loading && filtered.isEmpty()) {
             item(key = "activity-empty") {
                 Column(
                     modifier = Modifier

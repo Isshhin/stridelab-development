@@ -418,27 +418,13 @@ internal fun StrideLabTodayScreen(
                 if (isPastDate && !evidence.hasApprovedPlan && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion && state.todayPlanReady) {
                     TodayCompactEmptyDay(online = online)
                 } else if (!state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth().testTag("today-hero"),
-                        shape = RoundedCornerShape(18.dp),
-                        color = TodayAdaptivePalette.card,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, TodayAdaptivePalette.border)
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "Loading training day...",
-                                color = TodayAdaptivePalette.textSecondary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            if (showHeroSkeleton) {
-                                SkeletonText(widthFraction = 0.65f, height = 18.dp, reducedMotion = reduceMotion)
-                                SkeletonText(widthFraction = 0.45f, height = 13.dp, reducedMotion = reduceMotion)
-                            }
-                        }
+                    SkeletonShimmerContainer(reducedMotion = reduceMotion || !showHeroSkeleton) {
+                        SkeletonHeroTrainingCard(
+                            modifier = Modifier
+                                .testTag("today-hero-skeleton")
+                                .semantics { contentDescription = "Loading training day" },
+                            reducedMotion = reduceMotion || !showHeroSkeleton
+                        )
                     }
                 } else {
                     TodayDailyTrainingCard(
@@ -490,10 +476,12 @@ internal fun StrideLabTodayScreen(
                         item(key = "today-recent-skeleton") {
                             val showRecentSkeleton = rememberDelayedSkeletonVisible(true)
                             if (showRecentSkeleton) {
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    SkeletonText(widthFraction = 0.4f, height = 15.dp, reducedMotion = reduceMotion)
-                                    SkeletonActivityRow(reducedMotion = reduceMotion)
-                                    SkeletonActivityRow(reducedMotion = reduceMotion)
+                                SkeletonShimmerContainer(reducedMotion = reduceMotion) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        SkeletonText(widthFraction = 0.4f, height = 15.dp, reducedMotion = reduceMotion)
+                                        SkeletonActivityRow(reducedMotion = reduceMotion)
+                                        SkeletonActivityRow(reducedMotion = reduceMotion)
+                                    }
                                 }
                             }
                         }
@@ -505,6 +493,21 @@ internal fun StrideLabTodayScreen(
                         disciplinesByDate = consistencyByDate,
                         asOf = todayDate
                     )
+                }
+            } else if (selectedPage == "all" && !state.activitySummariesReady) {
+                item(key = "today-overview-skeleton") {
+                    val showOverviewSkeleton = rememberDelayedSkeletonVisible(true)
+                    if (showOverviewSkeleton) {
+                        SkeletonShimmerContainer(reducedMotion = reduceMotion) {
+                            Column(
+                                modifier = Modifier.testTag("today-overview-skeleton"),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                SkeletonOverviewMetricsCard(reducedMotion = reduceMotion)
+                                SkeletonConsistencyHeatmap(reducedMotion = reduceMotion)
+                            }
+                        }
+                    }
                 }
             }
             if (selectedPage != "all") {

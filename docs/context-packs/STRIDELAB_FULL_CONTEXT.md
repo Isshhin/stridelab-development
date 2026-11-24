@@ -1,7 +1,7 @@
 # StrideLab — Full Portable Context Pack
 
-> **Generated:** 2026-11-24 16:01 UTC  
-> **Verified Commit:** `c0703101`  
+> **Generated:** 2026-11-24 16:24 UTC  
+> **Verified Commit:** `b78d920c`  
 > **Included Nodes:** 20  
 > **Purpose:** Complete architecture, guardrails, active features, UI system, ADRs, and marked roadmap ideas.
 
@@ -525,9 +525,9 @@ StrideLab uses a pure AMOLED black design system (`StrideLabSurfaceTokens` in `S
 - **Accessibility:** Primary actions, list rows, chip filters, and icon buttons enforce `>= 48.dp` (`minTouchTarget`), tested on `320 dp`, `360 dp`, and `412 dp` viewports up to `1.3x` font scale.
 
 ## Zero-Recomposition Neutral Skeletons (`StrideLabUiPrimitives.kt`)
-- `neutralSkeletonBrush` draws animated neutral shimmer (`#16181B` / `#23272E` — never lime-tinted) inside `drawWithCache` + `onDrawBehind` to avoid state-driven recomposition loops.
-- Gated behind `rememberDelayedSkeletonVisible` (`180 ms` cold-start delay) so cached reads never flash placeholders, and switches cleanly to a static fill when `ANIMATOR_DURATION_SCALE == 0f`.
-- Exposes `SkeletonText`, `SkeletonMetric`, `SkeletonWorkoutRow`, `SkeletonExerciseRow`, `SkeletonCalendar`, and `SkeletonActivityRow`.
+- `SkeletonShimmerContainer` shares a single `1200 ms` `rememberInfiniteTransition` (`LocalSkeletonShimmerProgress`) across all sibling skeleton bones in a card or screen; `neutralSkeletonBrush` draws the neutral `#16181B` / `#23272E` sweep (never lime-tinted) inside `drawWithCache` + `onDrawBehind` to avoid state-driven recomposition loops.
+- `rememberDelayedSkeletonVisible` (`180 ms` cold-start delay) prevents cached fast-path reads from flashing placeholders, `SkeletonCrossfade` smooths skeleton-to-content handoffs (`180 ms`, `0 ms` in reduced motion), and `ANIMATOR_DURATION_SCALE == 0f` renders a static `#16181B` fill cleanly.
+- Exposes layout-matched placeholders across Today, Activity (`loading = evidence == null || state.initializing || !state.activitySummariesReady` so cold starts never flash the empty state), Training, Activity Detail (Garmin `.FIT` stream downloads), and Share Studio (replacing raw spinners): `SkeletonHeroTrainingCard`, `SkeletonOverviewMetricsCard`, `SkeletonConsistencyHeatmap`, `SkeletonActivitySummaryCard`, `SkeletonActivityRow`, `SkeletonTrainingHeaderCard`, `SkeletonCoachingCard`, `SkeletonActivityDetailStreams`, `SkeletonShareCardPreview`, `SkeletonChipRow`, `SkeletonText`, `SkeletonMetric`, `SkeletonWorkoutRow`, `SkeletonExerciseRow`, and `SkeletonCalendar`.
 
 ## Shared Visualization Components
 - **Today Route Thumbnails (`ActivityThumbnailCache.kt`, `TodayStartup.kt`):** Synchronously checks the 6 MB in-memory `LruCache` on frame 1 before touching disk cache, eliminating tab-switch flicker.

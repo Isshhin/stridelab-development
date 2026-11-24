@@ -1,7 +1,7 @@
 # StrideLab — Architecture, Engine 1.5 & FIT Contracts Pack
 
-> **Generated:** 2026-11-24 16:01 UTC  
-> **Verified Commit:** `c0703101`  
+> **Generated:** 2026-11-24 16:24 UTC  
+> **Verified Commit:** `b78d920c`  
 > **Included Nodes:** 8  
 > **Purpose:** App architecture, deterministic Engine 1.5 coaching rules, SQLite/FIT contracts, Guided Player, and ADRs.
 

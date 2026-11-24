@@ -469,7 +469,14 @@ internal fun ShareStudioScreen(
                                                 .testTag("share-card-preview")
                                         )
                                     } else {
-                                        CircularProgressIndicator(color = StrideLabSurfaceTokens.lime)
+                                        SkeletonShimmerContainer {
+                                            SkeletonShareCardPreview(
+                                                aspectRatio = 1080f / ratio.height.toFloat(),
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .testTag("share-card-skeleton")
+                                            )
+                                        }
                                     }
                                     if (showStoryGuides && ratio == ShareRatio.STORY) {
                                         Column(Modifier.fillMaxSize().testTag("share-story-safe-guides")) {
@@ -921,7 +928,12 @@ internal fun ShareStudioScreen(
                                                 color = StrideLabSurfaceTokens.inkSecondary
                                             )
                                         } else if (!presetsReady) {
-                                            CircularProgressIndicator(color = StrideLabSurfaceTokens.lime)
+                                            SkeletonShimmerContainer {
+                                                SkeletonChipRow(
+                                                    count = 3,
+                                                    modifier = Modifier.testTag("share-presets-skeleton")
+                                                )
+                                            }
                                         } else if (presets.isEmpty()) {
                                             Text(
                                                 "Save your design to reuse it on another activity.",

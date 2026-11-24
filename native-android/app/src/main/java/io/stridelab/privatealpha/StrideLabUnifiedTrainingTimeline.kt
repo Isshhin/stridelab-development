@@ -417,10 +417,17 @@ internal fun StrideLabUnifiedTrainingTimeline(
             ) {
                 if (showSkeleton && !hasActivePlans) {
                     item(key = "training-skeleton") {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            SkeletonCalendar()
-                            SkeletonWorkoutRow()
-                            SkeletonWorkoutRow()
+                        SkeletonShimmerContainer(reducedMotion = reduceMotion) {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.testTag("training-skeleton")
+                            ) {
+                                SkeletonTrainingHeaderCard(reducedMotion = reduceMotion)
+                                SkeletonWorkoutRow(reducedMotion = reduceMotion)
+                                SkeletonWorkoutRow(reducedMotion = reduceMotion)
+                                SkeletonWorkoutRow(reducedMotion = reduceMotion)
+                                SkeletonCoachingCard(reducedMotion = reduceMotion)
+                            }
                         }
                     }
                 }

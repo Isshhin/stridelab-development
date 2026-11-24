@@ -2,6 +2,7 @@ package io.stridelab.privatealpha
 
 import android.content.Context
 import android.provider.Settings
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -233,16 +234,19 @@ internal fun rememberDelayedSkeletonVisible(loading: Boolean, delayMs: Long = 18
     return visible
 }
 
-internal fun Modifier.neutralSkeletonBrush(
-    cornerRadius: Dp = 8.dp,
-    reducedMotion: Boolean = false
-): Modifier = composed {
+private val LocalSkeletonShimmerProgress = compositionLocalOf<State<Float>?> { null }
+
+@Composable
+internal fun SkeletonShimmerContainer(
+    reducedMotion: Boolean = false,
+    content: @Composable () -> Unit
+) {
     val ctx = LocalContext.current
     val staticMode = reducedMotion || remember(ctx) { isSystemReducedMotion(ctx) }
     val progressState: State<Float> = if (staticMode) {
         remember { mutableFloatStateOf(0f) }
     } else {
-        val transition = rememberInfiniteTransition(label = "neutral-skeleton")
+        val transition = rememberInfiniteTransition(label = "neutral-skeleton-group")
         transition.animateFloat(
             initialValue = 0f,
             targetValue = 1f,
@@ -250,8 +254,54 @@ internal fun Modifier.neutralSkeletonBrush(
                 animation = tween(durationMillis = 1200, easing = LinearEasing),
                 repeatMode = RepeatMode.Restart
             ),
-            label = "neutral-skeleton-sweep"
+            label = "neutral-skeleton-group-sweep"
         )
+    }
+    CompositionLocalProvider(LocalSkeletonShimmerProgress provides progressState, content = content)
+}
+
+@Composable
+internal fun SkeletonCrossfade(
+    loading: Boolean,
+    reducedMotion: Boolean = false,
+    modifier: Modifier = Modifier,
+    skeleton: @Composable () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val ctx = LocalContext.current
+    val staticMode = reducedMotion || remember(ctx) { isSystemReducedMotion(ctx) }
+    Crossfade(
+        targetState = loading,
+        animationSpec = tween(durationMillis = if (staticMode) 0 else 180),
+        modifier = modifier,
+        label = "skeleton-crossfade"
+    ) { isLoading ->
+        if (isLoading) skeleton() else content()
+    }
+}
+
+internal fun Modifier.neutralSkeletonBrush(
+    cornerRadius: Dp = 8.dp,
+    reducedMotion: Boolean = false
+): Modifier = composed {
+    val ctx = LocalContext.current
+    val staticMode = reducedMotion || remember(ctx) { isSystemReducedMotion(ctx) }
+    val sharedProgress = LocalSkeletonShimmerProgress.current
+    val progressState: State<Float> = when {
+        staticMode -> remember { mutableFloatStateOf(0f) }
+        sharedProgress != null -> sharedProgress
+        else -> {
+            val transition = rememberInfiniteTransition(label = "neutral-skeleton")
+            transition.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 1200, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart
+                ),
+                label = "neutral-skeleton-sweep"
+            )
+        }
     }
 
     drawWithCache {
@@ -432,31 +482,431 @@ internal fun SkeletonActivityRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 60.dp)
+                .heightIn(min = 56.dp)
                 .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .neutralSkeletonBrush(cornerRadius = 10.dp, reducedMotion = reducedMotion)
+                    .width(3.dp)
+                    .height(36.dp)
+                    .neutralSkeletonBrush(cornerRadius = 2.dp, reducedMotion = reducedMotion)
             )
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
-                SkeletonText(widthFraction = 0.52f, height = 14.dp, reducedMotion = reducedMotion)
-                SkeletonText(widthFraction = 0.38f, height = 12.dp, reducedMotion = reducedMotion)
+                SkeletonText(widthFraction = 0.56f, height = 14.dp, reducedMotion = reducedMotion)
+                SkeletonText(widthFraction = 0.40f, height = 12.dp, reducedMotion = reducedMotion)
             }
             Box(
                 modifier = Modifier
-                    .width(56.dp)
-                    .height(14.dp)
-                    .neutralSkeletonBrush(cornerRadius = 4.dp, reducedMotion = reducedMotion)
+                    .size(width = 56.dp, height = 36.dp)
+                    .neutralSkeletonBrush(cornerRadius = 8.dp, reducedMotion = reducedMotion)
             )
         }
         StrideLabHairline()
+    }
+}
+
+@Composable
+internal fun SkeletonHeroTrainingCard(
+    modifier: Modifier = Modifier,
+    reducedMotion: Boolean = false
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = StrideLabSurfaceTokens.surfaceElevated,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SkeletonText(widthFraction = 0.34f, height = 11.dp, reducedMotion = reducedMotion)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(48.dp)
+                            .height(20.dp)
+                            .neutralSkeletonBrush(cornerRadius = 6.dp, reducedMotion = reducedMotion)
+                    )
+                    SkeletonText(widthFraction = 0.72f, height = 18.dp, reducedMotion = reducedMotion)
+                    SkeletonText(widthFraction = 0.52f, height = 13.dp, reducedMotion = reducedMotion)
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.Bottom,
+                    modifier = Modifier.padding(start = 12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 18.dp, height = 16.dp)
+                            .neutralSkeletonBrush(cornerRadius = 4.dp, reducedMotion = reducedMotion)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(width = 28.dp, height = 26.dp)
+                            .neutralSkeletonBrush(cornerRadius = 4.dp, reducedMotion = reducedMotion)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(width = 18.dp, height = 16.dp)
+                            .neutralSkeletonBrush(cornerRadius = 4.dp, reducedMotion = reducedMotion)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun SkeletonOverviewMetricsCard(
+    modifier: Modifier = Modifier,
+    reducedMotion: Boolean = false
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = StrideLabSurfaceTokens.surfaceElevated,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            SkeletonText(widthFraction = 0.32f, height = 11.dp, reducedMotion = reducedMotion)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                repeat(3) {
+                    SkeletonMetric(
+                        modifier = Modifier.weight(1f),
+                        reducedMotion = reducedMotion
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun SkeletonConsistencyHeatmap(
+    modifier: Modifier = Modifier,
+    reducedMotion: Boolean = false
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = StrideLabSurfaceTokens.surfaceElevated,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            SkeletonText(widthFraction = 0.44f, height = 11.dp, reducedMotion = reducedMotion)
+            repeat(4) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    repeat(7) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(26.dp)
+                                .neutralSkeletonBrush(cornerRadius = 8.dp, reducedMotion = reducedMotion)
+                        )
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 72.dp, height = 18.dp)
+                        .neutralSkeletonBrush(cornerRadius = 9.dp, reducedMotion = reducedMotion)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(width = 72.dp, height = 18.dp)
+                        .neutralSkeletonBrush(cornerRadius = 9.dp, reducedMotion = reducedMotion)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun SkeletonActivitySummaryCard(
+    modifier: Modifier = Modifier,
+    reducedMotion: Boolean = false
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = StrideLabSurfaceTokens.surfaceElevated,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 10.dp, height = 4.dp)
+                            .neutralSkeletonBrush(cornerRadius = 2.dp, reducedMotion = reducedMotion)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(width = 84.dp, height = 14.dp)
+                            .neutralSkeletonBrush(cornerRadius = 5.dp, reducedMotion = reducedMotion)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(width = 64.dp, height = 22.dp)
+                        .neutralSkeletonBrush(cornerRadius = 11.dp, reducedMotion = reducedMotion)
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    SkeletonText(widthFraction = 0.28f, height = 10.dp, reducedMotion = reducedMotion)
+                    SkeletonText(widthFraction = 0.68f, height = 16.dp, reducedMotion = reducedMotion)
+                }
+                Box(
+                    modifier = Modifier
+                        .size(width = 68.dp, height = 42.dp)
+                        .neutralSkeletonBrush(cornerRadius = 8.dp, reducedMotion = reducedMotion)
+                )
+            }
+            StrideLabHairline()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                repeat(3) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        SkeletonText(widthFraction = 0.65f, height = 10.dp, reducedMotion = reducedMotion)
+                        SkeletonText(widthFraction = 0.80f, height = 16.dp, reducedMotion = reducedMotion)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun SkeletonTrainingHeaderCard(
+    modifier: Modifier = Modifier,
+    reducedMotion: Boolean = false
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = StrideLabSurfaceTokens.surfaceElevated,
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 140.dp, height = 34.dp)
+                        .neutralSkeletonBrush(cornerRadius = 17.dp, reducedMotion = reducedMotion)
+                )
+                Box(
+                    modifier = Modifier
+                        .size(width = 64.dp, height = 24.dp)
+                        .neutralSkeletonBrush(cornerRadius = 12.dp, reducedMotion = reducedMotion)
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                repeat(7) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp)
+                            .neutralSkeletonBrush(cornerRadius = 10.dp, reducedMotion = reducedMotion)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun SkeletonCoachingCard(
+    modifier: Modifier = Modifier,
+    reducedMotion: Boolean = false
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = StrideLabSurfaceTokens.surfaceElevated,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SkeletonText(widthFraction = 0.45f, height = 12.dp, reducedMotion = reducedMotion)
+                Box(
+                    modifier = Modifier
+                        .size(width = 72.dp, height = 22.dp)
+                        .neutralSkeletonBrush(cornerRadius = 11.dp, reducedMotion = reducedMotion)
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                repeat(3) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(68.dp)
+                            .neutralSkeletonBrush(cornerRadius = 12.dp, reducedMotion = reducedMotion)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun SkeletonActivityDetailStreams(
+    modifier: Modifier = Modifier,
+    reducedMotion: Boolean = false
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = StrideLabSurfaceTokens.surfaceElevated,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(148.dp)
+                    .neutralSkeletonBrush(cornerRadius = 12.dp, reducedMotion = reducedMotion)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                repeat(3) {
+                    SkeletonMetric(modifier = Modifier.weight(1f), reducedMotion = reducedMotion)
+                }
+            }
+            repeat(2) {
+                SkeletonText(widthFraction = if (it == 0) 0.92f else 0.78f, height = 14.dp, reducedMotion = reducedMotion)
+            }
+        }
+    }
+}
+
+@Composable
+internal fun SkeletonShareCardPreview(
+    aspectRatio: Float,
+    modifier: Modifier = Modifier,
+    reducedMotion: Boolean = false
+) {
+    Box(
+        modifier = modifier
+            .aspectRatio(aspectRatio.coerceIn(0.45f, 1.5f))
+            .neutralSkeletonBrush(cornerRadius = 16.dp, reducedMotion = reducedMotion)
+            .padding(20.dp)
+    ) {
+        Column(
+            modifier = Modifier.align(Alignment.BottomStart),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            SkeletonText(widthFraction = 0.50f, height = 20.dp, reducedMotion = reducedMotion)
+            SkeletonText(widthFraction = 0.35f, height = 13.dp, reducedMotion = reducedMotion)
+        }
+    }
+}
+
+@Composable
+internal fun SkeletonChipRow(
+    count: Int = 3,
+    modifier: Modifier = Modifier,
+    reducedMotion: Boolean = false
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        repeat(count.coerceAtLeast(1)) {
+            Box(
+                modifier = Modifier
+                    .size(width = 76.dp, height = 34.dp)
+                    .neutralSkeletonBrush(cornerRadius = 17.dp, reducedMotion = reducedMotion)
+            )
+        }
     }
 }
 
