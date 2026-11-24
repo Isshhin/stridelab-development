@@ -1049,7 +1049,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     java.util.UUID.randomUUID().toString()).copy(openedAtMs = System.currentTimeMillis())
                 val before = if (saved != null && baseline.finalLog == null && baseline.phase != PlayerPhase.Completed) {
                     val currentTargets = WorkoutExecution.create(baseline.executionId, planId, session, baseline.finalizationId)
-                    if (baseline.sets.map { it.target to it.number } == currentTargets.sets.map { it.target to it.number }) baseline
+                    if (baseline.matchesPrescribedStructure(currentTargets)) baseline
                     else {
                         if (!baseline.canChangePrescription)
                             throw PlanConstraint("The workout prescription changed after you started. Your original execution was retained.")

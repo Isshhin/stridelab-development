@@ -1,7 +1,7 @@
 # StrideLab — UI Design System, Screens & Manual Logging Pack
 
-> **Generated:** 2026-11-24 10:58 UTC  
-> **Verified Commit:** `36a5eeb8`  
+> **Generated:** 2026-11-24 12:19 UTC  
+> **Verified Commit:** `5defc09e`  
 > **Included Nodes:** 6  
 > **Purpose:** AMOLED UI system, screens map, Freeform Logger, Templates/Custom Planner, and guardrails.
 
@@ -63,7 +63,8 @@ StrideLab is an **offline-first native Android running and multi-discipline trai
 - [[ADR-03-Offline-First-Independent-Local-Ownership]] — Why `localGarminOwner` and `localPlanOwner` operate independently of StrideLab cloud authentication.
 - [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]] — Why redundant screens (`freeform/evidence`, Library tab, legacy analytics) were retired while keeping `WorkoutEvidence` and baseline calculators active.
 
-### Roadmap (Unimplemented Concepts)
+### Roadmap (Shipped Overhauls & Parked Concepts)
+- [[Strength-and-Calisthenics-Overhaul]] — `status: verified` — Set-Table default (`CoachedSetTable.kt`) over `WorkoutPlayerEngine`, scoped hold-timer handoff, effort-anchored / e1RM double progression (`StrengthCalisthenicsProgression.kt`), opt-in Calisthenics upgrades, and muscle metadata prep. Follow-ups parked: Anatomical Muscle Map and [[Main-and-Supporting-Plans]].
 - [[Main-and-Supporting-Plans]] — `status: idea` — Parked concept for pairing 1 Main Plan with up to 2 flexible Supporting tracks using 48-hour Main Plan awareness and 3-tier dynamic scaling.
 
 ## Related Nodes
@@ -136,7 +137,7 @@ All navigation routes live under `NativeMainActivity.kt` (`NavHost`) reading imm
   - Hosts Garmin Connection, `more/offline-maps`, `more/activity-backup`, `more/preferences`, `more/about`, and `auth/*`.
 
 ## 2. Full-Screen Detail & Workflow Routes (`showFloatingDock == false`)
-- **`workout/{planId}/{sessionId}` (`WorkoutScreen.kt`):** Planned running detail (profile bar chart, `-2..+2` difficulty selector, `WORKOUT STEPS`, FIT watch export) or guided non-running [[Guided-Workout-Player-and-Debrief]] (`WorkoutPlayer`).
+- **`workout/{planId}/{sessionId}` (`WorkoutScreen.kt`):** Planned running detail (profile bar chart, `-2..+2` difficulty selector, `WORKOUT STEPS`, FIT watch export) or guided non-running [[Guided-Workout-Player-and-Debrief]] (`CoachedSetTable` default for Strength & Calisthenics with scoped `WorkoutPlayer` hold-timer handoff; `WorkoutPlayer` default for timer-heavy disciplines).
 - **`activity/{id}` & `activities` (`TracksideActivityDetailSurface.kt`, `TracksideStationaryActivityDetail.kt`):** MapLibre GPS route, moving-time telemetry charts (`Overview | Analysis | Splits | Charts`), Coach's Debrief, Training Effect, manual plan linking, and Share launcher.
 - **Share Studio Modal (`ShareStudioScreen.kt`):** Dialog hosted from Activity Detail. See [[Share-Studio]].
 - **`builder/{discipline}` & `blueprint-workout/{planId}/{sessionId}/{generatedAt}/{loginGeneration}`:** Multi-step Engine 1.5 / Hybrid Plan Builder (`PlanBuilder.kt`, `TracksideBuilderScreens.kt`) and read-only Blueprint workout preview (`BlueprintWorkout.kt`).

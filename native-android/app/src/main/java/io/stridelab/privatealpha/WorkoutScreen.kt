@@ -189,6 +189,10 @@ import kotlinx.coroutines.flow.drop
         !(session.suggestion?.accepted == true && session.suggestion.minutes == 0)
     val durableExecution = executeWorkout != null && supportsExecution
     var showPrescription by rememberSaveable(plan.owner, plan.id, session.id) { mutableStateOf(false) }
+    val playerMode = session.playerMode()
+    val defaultSetTable = playerMode in setOf(PlayerMode.Strength, PlayerMode.Calisthenics)
+    var showFullPlayer by rememberSaveable(plan.owner, plan.id, session.id) { mutableStateOf(!defaultSetTable) }
+    var scopedTimer by rememberSaveable(plan.owner, plan.id, session.id) { mutableStateOf(false) }
     if (executeWorkout != null && supportsExecution && !showPrescription && (active || done)) {
         var execution by remember(plan.owner, plan.id, session.id) { mutableStateOf<WorkoutExecution?>(null) }
         var executionError by remember(plan.owner, plan.id, session.id) { mutableStateOf<String?>(null) }
@@ -211,22 +215,83 @@ import kotlinx.coroutines.flow.drop
             }
         }
         LaunchedEffect(plan.owner, plan.id, session.id) { applyEvent(null) }
+        LaunchedEffect(session.swaps) {
+            if (execution != null && session.swaps.isNotEmpty()) applyEvent(null)
+        }
         if (active) {
             val currentExecution = execution
             if (currentExecution == null) {
                 Screen(shown.effectiveTitle, "WORKOUT") {
                     item {
-                        Text(executionError ?: "Opening guided workout…")
+                        Text(executionError ?: "Opening workout…")
                         if (!saving) TextButton(onClick = { saving = true; scope.launch { applyEvent(null) } }) { Text("Retry") }
                         TextButton(onClick = onBack) { Text("Back to Training") }
                     }
                 }
+            } else if (
+                !showFullPlayer &&
+                !scopedTimer &&
+                currentExecution.phase != PlayerPhase.Reviewing &&
+                currentExecution.phase != PlayerPhase.Completed
+            ) {
+                CoachedSetTable(
+                    plan = plan,
+                    session = session,
+                    execution = currentExecution,
+                    allPlans = state.plans,
+                    entries = entries,
+                    onEntries = { entries = it },
+                    busy = saving || state.busy,
+                    error = executionError,
+                    onBack = onBack,
+                    onOpenFullPlayer = { showFullPlayer = true },
+                    onOpenScopedTimer = { setIdx ->
+                        val row = currentExecution.sets.getOrNull(setIdx)
+                        if (row != null) {
+                            val updated = runCatching { JSONObject(entries) }.getOrDefault(JSONObject())
+                            updated.remove("${row.target.id}|${row.number}|seconds")
+                            entries = updated.toString()
+                        }
+                        scopedTimer = true
+                    },
+                    onSwapHarder = { exId ->
+                        actions.swapHarder(plan.id, plan.revision, session.id, exId)
+                    }
+                ) { event ->
+                    if (!saving && !state.busy) {
+                        saving = true
+                        scope.launch { applyEvent(event) }
+                    }
+                }
             } else {
-                WorkoutPlayer(currentExecution, entries, { entries = it }, effort, { effort = it },
-                    notes, { notes = it }, performedOn, { performedOn = it }, minutes, { minutes = it },
-                    distance.takeIf { session.discipline == "cond" }, { distance = it },
-                    saving || state.busy, executionError, onBack, { showPrescription = true },
-                    session.playerMode(), session.title in setOf("Strength for Runners", "Lower / Runner Durability")) { event ->
+                WorkoutPlayer(
+                    execution = currentExecution,
+                    entries = entries,
+                    onEntries = { entries = it },
+                    effort = effort,
+                    onEffort = { effort = it },
+                    notes = notes,
+                    onNotes = { notes = it },
+                    date = performedOn,
+                    onDate = { performedOn = it },
+                    minutes = minutes,
+                    onMinutes = { minutes = it },
+                    distance = distance.takeIf { session.discipline == "cond" },
+                    onDistance = { distance = it },
+                    busy = saving || state.busy,
+                    saveError = executionError,
+                    onBack = onBack,
+                    onPrescription = { showPrescription = true },
+                    mode = playerMode,
+                    runnerDurability = session.title in setOf("Strength for Runners", "Lower / Runner Durability"),
+                    scopedToTable = scopedTimer,
+                    onBackToTable = if (scopedTimer) {
+                        {
+                            scopedTimer = false
+                            showFullPlayer = false
+                        }
+                    } else null
+                ) { event ->
                     if (!saving && !state.busy) {
                         saving = true
                         scope.launch { applyEvent(event) }

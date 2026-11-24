@@ -69,6 +69,8 @@ internal fun WorkoutPlayer(
     distance: String?, onDistance: (String) -> Unit,
     busy: Boolean, saveError: String?, onBack: () -> Unit, onPrescription: () -> Unit,
     mode: PlayerMode, runnerDurability: Boolean,
+    scopedToTable: Boolean = false,
+    onBackToTable: (() -> Unit)? = null,
     dispatch: (PlayerEvent) -> Unit
 ) {
     val step = execution.current
@@ -124,6 +126,25 @@ internal fun WorkoutPlayer(
             dispatch(if (resting) PlayerEvent.AdvanceEmom else PlayerEvent.EmomWorkElapsed)
         }
     }
+    LaunchedEffect(scopedToTable, expired, isResumed, resting, reviewing, finished, execution.cursor) {
+        if (scopedToTable && expired && isResumed && enabled && !resting && !reviewing && !finished &&
+            step.disposition == SetDisposition.PENDING && step.target.seconds != null
+        ) {
+            val targetSec = step.target.seconds ?: 1
+            dispatch(PlayerEvent.CompleteSetAt(execution.cursor, SetActual(seconds = targetSec), startRest = true))
+        }
+    }
+
+    fun handleBackToTable() {
+        val handler = onBackToTable ?: run { onBack(); return }
+        if (!resting && !reviewing && !finished && step.disposition == SetDisposition.PENDING && timer != null) {
+            val elapsedSec = (timer.elapsed(SystemClock.elapsedRealtime()) / 1000L).toInt()
+            if (elapsedSec >= 3) {
+                dispatch(PlayerEvent.SaveUnconfirmedPartialHold(execution.cursor, elapsedSec))
+            }
+        }
+        handler()
+    }
 
     fun draft(row: ExecutionSet, field: String, fallback: String = ""): String =
         JSONObject(entries).optString("${row.target.id}|${row.number}|$field", fallback)
@@ -151,14 +172,44 @@ internal fun WorkoutPlayer(
         }
     }
 
-    BackHandler(enabled = !finished && execution.finalLog == null) { exit = true }
+    BackHandler(enabled = !finished && execution.finalLog == null) {
+        if (scopedToTable && onBackToTable != null) handleBackToTable() else exit = true
+    }
     Surface(Modifier.fillMaxSize().testTag("workout-player"), color = black, contentColor = Color.White) {
         Column(Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(bottom = 12.dp)) {
-            PlayerHeader(
-                step = execution.cursor + 1, total = execution.sets.size, audioMuted = mutedAudio,
-                settled = { execution.sets[it].disposition != SetDisposition.PENDING },
-                onMute = { mutedAudio = !mutedAudio }, onExit = { if (finished || execution.finalLog != null) onBack() else exit = true }
-            )
+            if (scopedToTable && onBackToTable != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    TextButton(
+                        onClick = ::handleBackToTable,
+                        enabled = !busy,
+                        modifier = Modifier.heightIn(min = 48.dp).testTag("player-back-to-table")
+                    ) {
+                        Text("Back to Table", color = lime, fontWeight = FontWeight.Bold)
+                    }
+                    Text(
+                        "Set ${step.number}",
+                        color = muted,
+                        fontWeight = FontWeight.Medium,
+                        style = TabularTextStyle
+                    )
+                    TextButton(
+                        onClick = { mutedAudio = !mutedAudio },
+                        modifier = Modifier.heightIn(min = 48.dp)
+                    ) {
+                        Text(if (mutedAudio) "Unmute" else "Mute", color = muted)
+                    }
+                }
+            } else {
+                PlayerHeader(
+                    step = execution.cursor + 1, total = execution.sets.size, audioMuted = mutedAudio,
+                    settled = { execution.sets[it].disposition != SetDisposition.PENDING },
+                    onMute = { mutedAudio = !mutedAudio }, onExit = { if (finished || execution.finalLog != null) onBack() else exit = true }
+                )
+            }
             if (resting && previousIndex != null) {
                 TextButton(onClick = { editIndex = previousIndex }, enabled = enabled, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                     Text("Edit previous set", color = muted)
@@ -222,7 +273,22 @@ internal fun WorkoutPlayer(
                             SlateButton("Skip Rest", enabled, Modifier.testTag("player-skip-rest")) { dispatch(PlayerEvent.SkipRest) }
                             if (displayedSeconds > 0) TextButton(onClick = {
                                 dispatch(if (running) PlayerEvent.PauseTimer else PlayerEvent.ResumeTimer)
-                            }, enabled = enabled) { Text(if (running) "Pause" else "Resume", color = muted) }
+                            }, enabled = enabled, modifier = Modifier.heightIn(min = 48.dp)) { Text(if (running) "Pause" else "Resume", color = muted) }
+                            if (scopedToTable) {
+                                val hasMoreExerciseSets = execution.sets.any {
+                                    it.target.id == step.target.id && it.disposition == SetDisposition.PENDING
+                                }
+                                if (hasMoreExerciseSets) {
+                                    Button(
+                                        onClick = { dispatch(PlayerEvent.StartNextSet(exerciseId = step.target.id, autoStartTimer = true)) },
+                                        enabled = enabled,
+                                        colors = ButtonDefaults.buttonColors(containerColor = lime, contentColor = black),
+                                        modifier = Modifier.heightIn(min = 48.dp).testTag("player-start-next-set")
+                                    ) {
+                                        Text("Start Next Set", fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
                         }
                     }
                     else -> {
@@ -241,12 +307,44 @@ internal fun WorkoutPlayer(
                             )
                             if (expired) Text(if (mode == PlayerMode.Amrap) "Time. Confirm this round and record the reps you completed."
                                 else "Time. Confirm the seconds you completed.", color = muted, textAlign = TextAlign.Center)
-                            else SlateButton(if (running) "Pause" else if (timer == null) "Start" else "Resume", enabled) {
-                                dispatch(when {
-                                    running -> PlayerEvent.PauseTimer
-                                    timer == null -> PlayerEvent.StartWorkTimer
-                                    else -> PlayerEvent.ResumeTimer
-                                })
+                            else {
+                                val pausedElapsedSec = if (timer != null && !running) {
+                                    (timer.elapsed(now) / 1000L).toInt()
+                                } else 0
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    SlateButton(
+                                        if (running) "Pause" else if (timer == null) "Play" else "Resume",
+                                        enabled,
+                                        Modifier.testTag("player-play-pause")
+                                    ) {
+                                        dispatch(when {
+                                            running -> PlayerEvent.PauseTimer
+                                            timer == null -> PlayerEvent.StartWorkTimer
+                                            else -> PlayerEvent.ResumeTimer
+                                        })
+                                    }
+                                    if (scopedToTable && !running && pausedElapsedSec >= 1) {
+                                        Button(
+                                            onClick = {
+                                                dispatch(
+                                                    PlayerEvent.CompleteSetAt(
+                                                        execution.cursor,
+                                                        SetActual(seconds = pausedElapsedSec),
+                                                        startRest = true
+                                                    )
+                                                )
+                                            },
+                                            enabled = enabled,
+                                            colors = ButtonDefaults.buttonColors(containerColor = lime, contentColor = black),
+                                            modifier = Modifier.heightIn(min = 48.dp).testTag("player-log-hold")
+                                        ) {
+                                            Text("Log ${pausedElapsedSec}s", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
                             }
                             if (mode == PlayerMode.Amrap) SlateButton("Enter round results", enabled) { editIndex = execution.cursor }
                         } else {

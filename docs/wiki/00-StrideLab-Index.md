@@ -53,7 +53,8 @@ StrideLab is an **offline-first native Android running and multi-discipline trai
 - [[ADR-03-Offline-First-Independent-Local-Ownership]] — Why `localGarminOwner` and `localPlanOwner` operate independently of StrideLab cloud authentication.
 - [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]] — Why redundant screens (`freeform/evidence`, Library tab, legacy analytics) were retired while keeping `WorkoutEvidence` and baseline calculators active.
 
-### Roadmap (Unimplemented Concepts)
+### Roadmap (Shipped Overhauls & Parked Concepts)
+- [[Strength-and-Calisthenics-Overhaul]] — `status: verified` — Set-Table default (`CoachedSetTable.kt`) over `WorkoutPlayerEngine`, scoped hold-timer handoff, effort-anchored / e1RM double progression (`StrengthCalisthenicsProgression.kt`), opt-in Calisthenics upgrades, and muscle metadata prep. Follow-ups parked: Anatomical Muscle Map and [[Main-and-Supporting-Plans]].
 - [[Main-and-Supporting-Plans]] — `status: idea` — Parked concept for pairing 1 Main Plan with up to 2 flexible Supporting tracks using 48-hour Main Plan awareness and 3-tier dynamic scaling.
 
 ## Related Nodes

@@ -58,44 +58,109 @@ internal data class PickerExerciseOption(
     val id: String?,
     val name: String,
     val subtitle: String,
-    val categories: List<String>
+    val categories: List<String>,
+    val primaryMuscles: List<String> = emptyList(),
+    val secondaryMuscles: List<String> = emptyList()
 )
 
 internal object FreeformExerciseCatalog {
     private val builtinPlyometrics = listOf(
-        builtin("plyo-pogo-hops", "Pogo hops", "Plyometrics · Ankle stiffness"),
-        builtin("plyo-box-jump", "Box jump", "Plyometrics · Lower power"),
-        builtin("plyo-broad-jump", "Broad jump", "Plyometrics · Horizontal power"),
-        builtin("plyo-depth-drop", "Depth drop", "Plyometrics · Landing mechanics"),
-        builtin("plyo-single-leg-hop", "Single-leg hop", "Plyometrics · Unilateral reactivity"),
-        builtin("plyo-split-squat-jump", "Split squat jump", "Plyometrics · Explosive stride"),
-        builtin("plyo-skater-hops", "Skater hops", "Plyometrics · Lateral reactive"),
-        builtin("plyo-bounds", "Alternate leg bounds", "Plyometrics · Running power"),
-        builtin("plyo-a-skip", "A-skip", "Plyometrics · Coordination & stiffness"),
-        builtin("plyo-tuck-jump", "Tuck jump", "Plyometrics · Vertical elastic")
+        builtin(
+            "plyo-pogo-hops", "Pogo hops", "Plyometrics · Ankle stiffness",
+            listOf("calves", "foot_stabilizers"), listOf("quadriceps", "tibialis_anterior")
+        ),
+        builtin(
+            "plyo-box-jump", "Box jump", "Plyometrics · Lower power",
+            listOf("quadriceps", "gluteus_maximus"), listOf("calves", "hamstrings")
+        ),
+        builtin(
+            "plyo-broad-jump", "Broad jump", "Plyometrics · Horizontal power",
+            listOf("gluteus_maximus", "quadriceps"), listOf("hamstrings", "calves")
+        ),
+        builtin(
+            "plyo-depth-drop", "Depth drop", "Plyometrics · Landing mechanics",
+            listOf("quadriceps", "gluteus_maximus"), listOf("calves", "trunk_stabilizers")
+        ),
+        builtin(
+            "plyo-single-leg-hop", "Single-leg hop", "Plyometrics · Unilateral reactivity",
+            listOf("calves", "quadriceps"), listOf("gluteus_medius", "foot_stabilizers")
+        ),
+        builtin(
+            "plyo-split-squat-jump", "Split squat jump", "Plyometrics · Explosive stride",
+            listOf("quadriceps", "gluteus_maximus"), listOf("calves", "gluteus_medius")
+        ),
+        builtin(
+            "plyo-skater-hops", "Skater hops", "Plyometrics · Lateral reactive",
+            listOf("gluteus_medius", "quadriceps"), listOf("calves", "adductors")
+        ),
+        builtin(
+            "plyo-bounds", "Alternate leg bounds", "Plyometrics · Running power",
+            listOf("gluteus_maximus", "hamstrings"), listOf("calves", "quadriceps")
+        ),
+        builtin(
+            "plyo-a-skip", "A-skip", "Plyometrics · Coordination & stiffness",
+            listOf("hip_flexors", "calves"), listOf("gluteus_maximus", "abdominals")
+        ),
+        builtin(
+            "plyo-tuck-jump", "Tuck jump", "Plyometrics · Vertical elastic",
+            listOf("quadriceps", "hip_flexors"), listOf("calves", "abdominals")
+        )
     )
 
     private val builtinIsometrics = listOf(
-        builtin("iso-wall-sit", "Wall sit", "Isometrics · Quad endurance"),
-        builtin("iso-calf-hold", "Single-leg calf isometric hold", "Isometrics · Achilles & soleus"),
-        builtin("iso-split-squat-hold", "Split squat isometric hold", "Isometrics · Single-leg stability"),
-        builtin("iso-glute-bridge-hold", "Glute bridge isometric hold", "Isometrics · Posterior chain"),
-        builtin("iso-forearm-plank", "Forearm plank", "Isometrics · Core bracing"),
-        builtin("iso-side-plank", "Side plank", "Isometrics · Lateral trunk"),
-        builtin("iso-dead-hang", "Dead hang", "Isometrics · Grip & shoulder"),
-        builtin("iso-hamstring-hold", "Hamstring bridge isometric hold", "Isometrics · Hamstring tendon"),
-        builtin("iso-hollow-hold", "Hollow body hold", "Isometrics · Anterior core")
+        builtin(
+            "iso-wall-sit", "Wall sit", "Isometrics · Quad endurance",
+            listOf("quadriceps"), listOf("gluteus_maximus", "calves")
+        ),
+        builtin(
+            "iso-calf-hold", "Single-leg calf isometric hold", "Isometrics · Achilles & soleus",
+            listOf("calves"), listOf("foot_stabilizers", "tibialis_anterior")
+        ),
+        builtin(
+            "iso-split-squat-hold", "Split squat isometric hold", "Isometrics · Single-leg stability",
+            listOf("quadriceps", "gluteus_maximus"), listOf("gluteus_medius", "trunk_stabilizers")
+        ),
+        builtin(
+            "iso-glute-bridge-hold", "Glute bridge isometric hold", "Isometrics · Posterior chain",
+            listOf("gluteus_maximus"), listOf("hamstrings", "spinal_extensors")
+        ),
+        builtin(
+            "iso-forearm-plank", "Forearm plank", "Isometrics · Core bracing",
+            listOf("abdominals", "trunk_stabilizers"), listOf("shoulder_stabilizers", "gluteus_maximus")
+        ),
+        builtin(
+            "iso-side-plank", "Side plank", "Isometrics · Lateral trunk",
+            listOf("obliques", "lateral_trunk_muscles"), listOf("gluteus_medius", "shoulder_stabilizers")
+        ),
+        builtin(
+            "iso-dead-hang", "Dead hang", "Isometrics · Grip & shoulder",
+            listOf("forearm_grip", "latissimus_dorsi"), listOf("shoulder_stabilizers", "lower_trapezius")
+        ),
+        builtin(
+            "iso-hamstring-hold", "Hamstring bridge isometric hold", "Isometrics · Hamstring tendon",
+            listOf("hamstrings"), listOf("gluteus_maximus", "calves")
+        ),
+        builtin(
+            "iso-hollow-hold", "Hollow body hold", "Isometrics · Anterior core",
+            listOf("abdominals"), listOf("hip_flexors", "trunk_stabilizers")
+        )
     )
 
-    private fun builtin(id: String, name: String, subtitle: String): ExerciseLibraryRecordV2 =
+    private fun builtin(
+        id: String,
+        name: String,
+        subtitle: String,
+        primaryMuscles: List<String>,
+        secondaryMuscles: List<String>
+    ): ExerciseLibraryRecordV2 =
         ExerciseLibraryRecordV2(
             id = id,
             name = name,
             kind = "exercise",
             categories = listOf(if (id.startsWith("plyo-")) "plyometrics" else "isometrics"),
             movementPatterns = listOf(subtitle),
-            primaryMuscles = emptyList(),
-            secondaryMuscles = emptyList(),
+            primaryMuscles = primaryMuscles,
+            secondaryMuscles = secondaryMuscles,
             equipmentOptions = listOf(emptySet()),
             setupNotes = emptyList(),
             difficulty = "all",
@@ -146,7 +211,10 @@ internal object FreeformExerciseCatalog {
 
     private fun subtitleFor(record: ExerciseLibraryRecordV2, fallbackDiscipline: ManualDiscipline): String {
         val primary = record.movementPatterns.firstOrNull()?.takeIf { it.isNotBlank() }
-        if (primary != null && primary.contains("·")) return primary
+        val muscleTag = ExerciseMuscleCatalog.formatPrimaryTag(record.primaryMuscles)
+        if (primary != null && primary.contains("·")) {
+            return listOfNotNull(primary, muscleTag).joinToString(" · ")
+        }
         val cat = when {
             "plyometrics" in record.categories -> "Plyometrics"
             "isometrics" in record.categories -> "Isometrics"
@@ -158,8 +226,11 @@ internal object FreeformExerciseCatalog {
             "bodyweight" in record.categories -> "Bodyweight"
             else -> fallbackDiscipline.label
         }
-        return listOfNotNull(cat, primary?.replace('_', ' ')?.replaceFirstChar { it.uppercase(Locale.ROOT) })
-            .joinToString(" · ")
+        return listOfNotNull(
+            cat,
+            primary?.replace('_', ' ')?.replaceFirstChar { it.uppercase(Locale.ROOT) },
+            muscleTag
+        ).joinToString(" · ")
     }
 
     fun filter(
@@ -180,7 +251,9 @@ internal object FreeformExerciseCatalog {
                         id = found?.id,
                         name = name,
                         subtitle = found?.let { subtitleFor(it, discipline) } ?: "${discipline.label} · Recent",
-                        categories = found?.categories.orEmpty()
+                        categories = found?.categories.orEmpty(),
+                        primaryMuscles = found?.primaryMuscles.orEmpty(),
+                        secondaryMuscles = found?.secondaryMuscles.orEmpty()
                     )
                 }
         }
@@ -201,7 +274,9 @@ internal object FreeformExerciseCatalog {
                     id = record.id,
                     name = record.name,
                     subtitle = subtitleFor(record, discipline),
-                    categories = record.categories
+                    categories = record.categories,
+                    primaryMuscles = record.primaryMuscles,
+                    secondaryMuscles = record.secondaryMuscles
                 )
             }
             .toList()

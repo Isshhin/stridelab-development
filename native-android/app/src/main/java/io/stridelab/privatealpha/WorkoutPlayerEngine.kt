@@ -81,6 +81,12 @@ internal data class WorkoutExecution(
     val canChangePrescription get() = lifecycle == ExecutionLifecycle.IN_PROGRESS && timer == null && finalLog == null &&
         sets.all { it.disposition == SetDisposition.PENDING && it.measuredWorkMs == null }
 
+    fun matchesPrescribedStructure(currentTargets: WorkoutExecution): Boolean {
+        val prescribedKeys = currentTargets.sets.map { it.target.id to it.number }.toSet()
+        val baseFiltered = sets.filter { (it.target.id to it.number) in prescribedKeys }
+        return baseFiltered.map { it.target to it.number } == currentTargets.sets.map { it.target to it.number }
+    }
+
     companion object {
         fun create(id: String, planId: String, session: PlannedSession, finalizationId: String): WorkoutExecution {
             val sets = session.effectiveExercises.flatMap { exercise ->
@@ -125,6 +131,13 @@ internal sealed interface PlayerEvent {
         val performedOn: LocalDate? = null, val minutes: Double? = null, val distanceKm: Double? = null
     ) : PlayerEvent
     data class Tick(val nowMs: Long) : PlayerEvent
+    data class FocusSet(val index: Int) : PlayerEvent
+    data class CompleteSetAt(val index: Int, val actual: SetActual, val startRest: Boolean = true) : PlayerEvent
+    data class SaveUnconfirmedPartialHold(val index: Int, val seconds: Int) : PlayerEvent
+    data class SkipSetAt(val index: Int) : PlayerEvent
+    data class UnconfirmSetAt(val index: Int) : PlayerEvent
+    data class AddExtraSet(val exerciseId: String) : PlayerEvent
+    data class StartNextSet(val exerciseId: String? = null, val autoStartTimer: Boolean = true) : PlayerEvent
 }
 
 internal fun reconcileWorkoutFinalization(plan: PlanSnapshot, sessionId: String, log: WorkoutLog): PlanSnapshot {
@@ -247,6 +260,90 @@ internal class WorkoutPlayerEngine(private val clock: () -> Long) {
                 }
                 state.copy(lifecycle = lifecycle, finalLog = log,
                     phase = if (log == null) PlayerPhase.Completed else state.phase, receipt = log == null)
+            }
+            is PlayerEvent.FocusSet -> {
+                if (event.index !in state.sets.indices) return state
+                state.copy(
+                    cursor = event.index,
+                    phase = PlayerPhase.ActiveWork,
+                    lifecycle = ExecutionLifecycle.IN_PROGRESS,
+                    timer = null
+                )
+            }
+            is PlayerEvent.CompleteSetAt -> {
+                val targetSet = state.sets.getOrNull(event.index) ?: return state
+                val updatedSet = targetSet.confirmed(event.actual)
+                val nextSets = state.replace(event.index, updatedSet)
+                if (event.startRest) {
+                    enterRest(nextSets.copy(cursor = event.index), now)
+                } else {
+                    val nextPending = nextSets.sets.indexOfFirst { it.disposition == SetDisposition.PENDING }
+                    nextSets.copy(
+                        cursor = if (nextPending >= 0) nextPending else event.index,
+                        phase = PlayerPhase.ActiveWork,
+                        lifecycle = ExecutionLifecycle.IN_PROGRESS,
+                        timer = null
+                    )
+                }
+            }
+            is PlayerEvent.SaveUnconfirmedPartialHold -> {
+                if (event.seconds < 3) return state
+                val targetSet = state.sets.getOrNull(event.index) ?: return state
+                if (targetSet.disposition != SetDisposition.PENDING) return state
+                val draftActual = (targetSet.actual ?: SetActual()).copy(seconds = event.seconds)
+                state.replace(event.index, targetSet.copy(actual = draftActual)).copy(
+                    phase = PlayerPhase.ActiveWork,
+                    lifecycle = ExecutionLifecycle.IN_PROGRESS,
+                    timer = null
+                )
+            }
+            is PlayerEvent.SkipSetAt -> {
+                val targetSet = state.sets.getOrNull(event.index) ?: return state
+                if (targetSet.disposition != SetDisposition.PENDING) return state
+                state.replace(event.index, targetSet.copy(disposition = SetDisposition.SKIPPED))
+            }
+            is PlayerEvent.UnconfirmSetAt -> {
+                val targetSet = state.sets.getOrNull(event.index) ?: return state
+                if (targetSet.disposition == SetDisposition.PENDING) return state
+                state.replace(
+                    event.index,
+                    ExecutionSet(targetSet.target, targetSet.number, SetDisposition.PENDING, targetSet.actual)
+                ).copy(lifecycle = ExecutionLifecycle.IN_PROGRESS)
+            }
+            is PlayerEvent.AddExtraSet -> {
+                val lastIdx = state.sets.indexOfLast { it.target.id == event.exerciseId }
+                if (lastIdx < 0 || state.sets.size >= 120) return state
+                val template = state.sets[lastIdx]
+                val extra = ExecutionSet(template.target, template.number + 1)
+                val expanded = state.sets.toMutableList().apply { add(lastIdx + 1, extra) }
+                val adjustedCursor = if (state.cursor > lastIdx) state.cursor + 1 else state.cursor
+                state.copy(sets = expanded, cursor = adjustedCursor, lifecycle = ExecutionLifecycle.IN_PROGRESS)
+            }
+            is PlayerEvent.StartNextSet -> {
+                val captured = captureRest(state, now)
+                val targetExercise = event.exerciseId
+                val candidate = if (targetExercise != null) {
+                    captured.sets.indices.firstOrNull {
+                        it > captured.cursor && captured.sets[it].target.id == targetExercise && captured.sets[it].disposition == SetDisposition.PENDING
+                    } ?: captured.sets.indices.firstOrNull {
+                        captured.sets[it].target.id == targetExercise && captured.sets[it].disposition == SetDisposition.PENDING
+                    }
+                } else {
+                    captured.sets.indices.firstOrNull { it > captured.cursor && captured.sets[it].disposition == SetDisposition.PENDING }
+                        ?: captured.sets.indexOfFirst { it.disposition == SetDisposition.PENDING }.takeIf { it >= 0 }
+                }
+                if (candidate == null) {
+                    captured.copy(phase = PlayerPhase.ActiveWork, timer = null, lifecycle = ExecutionLifecycle.IN_PROGRESS)
+                } else {
+                    val nextTarget = captured.sets[candidate].target
+                    val durationMs = if (event.autoStartTimer) nextTarget.seconds?.times(1000L) else null
+                    captured.copy(
+                        cursor = candidate,
+                        phase = PlayerPhase.ActiveWork,
+                        lifecycle = ExecutionLifecycle.IN_PROGRESS,
+                        timer = durationMs?.let { PlayerTimer(it, deadlineMs = now + it) }
+                    )
+                }
             }
             is PlayerEvent.Tick -> state
         }
