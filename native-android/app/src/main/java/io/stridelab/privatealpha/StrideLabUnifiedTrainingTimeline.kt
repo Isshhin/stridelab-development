@@ -398,12 +398,6 @@ internal fun StrideLabUnifiedTrainingTimeline(
                         modifier = Modifier.heightIn(min = 48.dp).testTag("training-pick-date")
                     ) { Text("Date", color = TimelineStyle.secondary) }
                 }
-                if (onAddWorkout != null) {
-                    FreeformPrimary(
-                        "Add Workout", onAddWorkout,
-                        Modifier.testTag("training-add-workout")
-                    )
-                }
             }
         }
 

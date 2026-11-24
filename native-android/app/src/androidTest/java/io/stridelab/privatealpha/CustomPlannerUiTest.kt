@@ -53,7 +53,8 @@ class CustomPlannerUiTest {
             }
         }
         node("nav-training").performClick()
-        node("training-add-workout").performClick()
+        node("nav-quick-log").performClick()
+        await("quick-log-hub").performScrollTo().performClick()
         await("freeform-open-templates").performClick()
         await("workout-template-schedule").performScrollTo().performClick()
         await("custom-repeat-weekly").performScrollTo().performClick()

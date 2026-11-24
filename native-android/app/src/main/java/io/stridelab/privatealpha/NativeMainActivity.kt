@@ -884,7 +884,8 @@ private fun NavHostController.openActivity(id: String) {
                     onOpenActivityDetail = { id -> nav.openActivity(id) },
                     onOpenMore = { nav.openTabRoot("settings") },
                     onSignIn = { nav.navigate("auth") },
-                    actions = actions.planning
+                    actions = actions.planning,
+                    freeformBoard = freeformBoard
                 )
             }
             PersistentTabSurface(active = visibleRoot == "activities") {

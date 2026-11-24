@@ -140,10 +140,11 @@ class UiModernizationAcceptanceTest {
         val returnToToday = await("training-return-today").getUnclippedBoundsInRoot()
         assertTrue("Return to Today should sit cleanly below calendar header", returnToToday.top > prevArrow.bottom + 40.dp)
         node("training-return-today").performClick()
-        assertMinTouchHeight("training-add-workout")
+        compose.onAllNodesWithTag("training-add-workout").assertCountEquals(0)
 
-        // 4. Workouts Hub: In progress row with one-tap discard + templates visible + modal bottom sheet
-        node("training-add-workout").performClick()
+        // 4. Workouts Hub via center Quick-Log sheet: In progress row with one-tap discard + templates visible + modal bottom sheet
+        node("nav-quick-log").performClick()
+        await("quick-log-hub").performScrollTo().performClick()
         await("freeform-hub").assertIsDisplayed()
         await("freeform-open-templates").performScrollTo().assertIsDisplayed()
         val draftId = runBlocking { repo.freeformAccess().read(owner).workouts.single().id }

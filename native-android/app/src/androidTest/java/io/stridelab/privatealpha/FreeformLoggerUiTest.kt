@@ -123,7 +123,8 @@ class FreeformLoggerUiTest {
 
     @Test fun runningRoutineCreateStartFinishAndSaveFromHistory() = reportUiFailure {
         node("nav-training").performClick()
-        node("training-add-workout").performClick()
+        node("nav-quick-log").performClick()
+        awaitNode("quick-log-hub").performScrollTo().performClick()
         awaitNode("freeform-open-templates").performClick()
         awaitNode("workout-template-new").performClick()
         awaitNode("workout-template-discipline-RUNNING").performScrollTo().performClick()
@@ -161,7 +162,8 @@ class FreeformLoggerUiTest {
 
     @Test fun tappingDisciplineAndLeavingWithoutEditsCreatesZeroGhostDrafts() = reportUiFailure {
         node("nav-training").performClick()
-        node("training-add-workout").performClick()
+        node("nav-quick-log").performClick()
+        awaitNode("quick-log-hub").performScrollTo().performClick()
         awaitNode("freeform-hub")
         awaitNode("freeform-open-templates").assertIsDisplayed()
         awaitNode("freeform-log").performClick()
@@ -226,7 +228,8 @@ class FreeformLoggerUiTest {
     }
 
     private fun openNew(discipline: ManualDiscipline) {
-        node("training-add-workout").performClick()
+        node("nav-quick-log").performClick()
+        awaitNode("quick-log-hub").performScrollTo().performClick()
         compose.waitUntil(10_000) {
             compose.onAllNodes(hasTestTag("freeform-log") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
         }

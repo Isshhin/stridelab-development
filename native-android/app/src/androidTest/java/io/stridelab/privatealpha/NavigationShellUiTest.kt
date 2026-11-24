@@ -205,4 +205,123 @@ class NavigationShellUiTest {
         }
         compose.onNodeWithTag("quick-log-resume-str-draft").assertIsDisplayed()
     }
+
+    @Test
+    fun trainingOmitsAddWorkoutTodayAllShowsMultiColorConsistencyAndRunningOmitsDiagnostics() {
+        val today = java.time.LocalDate.now()
+        val sameDayRun = FreeformWorkout(
+            id = "run-today",
+            owner = "local",
+            discipline = ManualDiscipline.RUNNING,
+            performedOn = today.toString(),
+            startedAt = 1_000L,
+            modifiedAt = 2_000L,
+            completedAt = 2_000L,
+            distanceKm = "5.0",
+            durationMinutes = "28",
+            workoutName = "Easy Run"
+        )
+        val sameDayStrength = FreeformWorkout(
+            id = "str-today",
+            owner = "local",
+            discipline = ManualDiscipline.STRENGTH,
+            performedOn = today.toString(),
+            startedAt = 3_000L,
+            modifiedAt = 4_000L,
+            completedAt = 4_000L,
+            workoutName = "Strength Session",
+            exercises = listOf(
+                FreeformExercise(
+                    id = "ex-sq",
+                    name = "Goblet squat",
+                    catalogId = "gs",
+                    sets = listOf(FreeformSet(actual = FreeformMeasure(quantity = "8", kg = "20"), completed = true))
+                )
+            )
+        )
+        val runActivity = ActivityRecord(
+            id = "act-run-1",
+            source = "garmin",
+            type = "Run",
+            title = "Morning Run",
+            startedAt = today.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().plusSeconds(60),
+            distanceM = 5000.0,
+            durationS = 1680.0,
+            movingTimeS = 1680.0,
+            recordedPace = null,
+            averageHr = null,
+            elevationM = null
+        )
+        val runningPlan = PlanSnapshot(
+            id = "run-plan-1",
+            owner = "local",
+            engineVersion = ENGINE15_VERSION,
+            policyId = ENGINE15_POLICY,
+            createdAt = java.time.Instant.now().minusSeconds(86_400),
+            request = PlanRequest(goal = "10K", runDays = 3, days = setOf(1, 3, 5)),
+            sessions = listOf(
+                PlannedSession(
+                    id = "run-s1",
+                    date = today,
+                    discipline = "run",
+                    title = "Easy Run",
+                    minutes = 35,
+                    distanceKm = 5.0,
+                    kind = "easy"
+                )
+            ),
+            explanations = emptyList(),
+            status = "approved"
+        )
+        val board = FreeformBoard(workouts = listOf(sameDayRun, sameDayStrength))
+
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    NativeStrideContent(
+                        state = TrainingState(
+                            initializing = false,
+                            account = null,
+                            localPlanOwner = "local",
+                            localGarminOwner = "local",
+                            localGarminIds = setOf(runActivity.id),
+                            plans = listOf(runningPlan),
+                            activities = listOf(runActivity),
+                            todayPlanReady = true,
+                            activitySummariesReady = true
+                        ),
+                        online = false,
+                        actions = testNativeActions(initialBoard = board)
+                    )
+                }
+            }
+        }
+
+        // 1. Today -> All renders multi-discipline Consistency card with split color segments
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("screen").fetchSemanticsNodes().isNotEmpty() &&
+                compose.onAllNodesWithTag("today-page-running").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("consistency-heatmap-strip"))
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("consistency-seg-$today-strength").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("consistency-day-$today").assertIsDisplayed()
+        compose.onNodeWithTag("consistency-seg-$today-running").assertExists()
+        compose.onNodeWithTag("consistency-seg-$today-strength").assertExists()
+        compose.onNodeWithTag("consistency-legend").assertIsDisplayed()
+
+        // 2. Today -> Running omits both Coaching Diagnostics and Consistency card
+        compose.onNodeWithTag("today-page-running").performClick()
+        compose.waitForIdle()
+        compose.onAllNodesWithTag("coaching-diagnostics").assertCountEquals(0)
+        compose.onAllNodesWithTag("consistency-heatmap-strip").assertCountEquals(0)
+
+        // 3. Training tab has no Add Workout button
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("training-unified-timeline").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onAllNodesWithTag("training-add-workout").assertCountEquals(0)
+    }
 }

@@ -1,7 +1,7 @@
 # StrideLab — UI Design System, Screens & Manual Logging Pack
 
-> **Generated:** 2026-11-24 14:01 UTC  
-> **Verified Commit:** `1f712a2a`  
+> **Generated:** 2026-11-24 14:35 UTC  
+> **Verified Commit:** `aaf8f51d`  
 > **Included Nodes:** 6  
 > **Purpose:** AMOLED UI system, screens map, Freeform Logger, Templates/Custom Planner, and guardrails.
 
@@ -110,6 +110,8 @@ StrideLab uses a pure AMOLED black design system (`StrideLabSurfaceTokens` in `S
 - **Workout Profile & Step Timeline (`TracksidePlannedRunningPreview.kt`, `TracksideRunningStepCards.kt`):** Pure-Compose proportional bar chart (`flattenProfileBars` + `-2..+2` difficulty selector) synced with `SingleStep` / `RepeatGroup` cards.
 - **Docked Navigation Bar (`TracksideFloatingNavigation.kt`, `QuickLogSheet.kt`):** Edge-to-edge flat `#0A0B0D` bar topped by a `1.dp` `#1F242B` `StrideLabHairline` and `navigationBarsPadding()` with 5 equal slots (`Today | Training | [ + ] | Activity | More`), solid `#D8FB70` center `+` CTA (`48.dp × 48.dp`), `>= 48.dp` touch targets, single-line labels, and `#121212` `QuickLogBottomSheet` modal; automatically hidden on full-screen detail, editor, and studio flows.
 - **Anatomical Muscle Map (`AnatomicalMuscleMap.kt`, `ExerciseInfoSheet.kt`):** Pure-Compose side-by-side `FRONT` / `BACK` vector silhouettes using `#181A1D` / `#1F242B` base geometry and the unified `#D8FB70` lime luminance scale (`0.28f..0.95f` alpha), responsive legend stacking below `340 dp`, and a `#121212` `ExerciseInfoSheet` modal. See [[Anatomical-Muscle-Map]].
+- **Multi-Discipline 28-Day Consistency Heatmap (`StrideLabVisualKit.kt`):** Hosted on `Today -> All`; fills each active day with its discipline accent color and splits multi-discipline days horizontally into crisp color-coded segments separated by `1.dp` `#000000` hairlines, paired with a dynamic legend for active disciplines.
+- **Activity Tab Discipline Pill Strip (`ActivityHistoryTabScreen.kt`):** Custom AMOLED `34.dp` capsule pills centered in `>= 48.dp` touch targets (`#121212` / `#1F242B` hairline + discipline dot when inactive; solid signature discipline fill with `#080A08` bold ink and tabular count when selected).
 
 ## Related Nodes
 - [[00-StrideLab-Index]] · [[Screens-Map]] · [[Freeform-Logger]] · [[Share-Studio]] · [[Hard-Guardrails]] · [[App-Architecture]]
@@ -129,14 +131,14 @@ All navigation routes live under `NativeMainActivity.kt` (`NavHost`) reading imm
 ## 1. Primary Tab Roots & Center Quick-Log (`showFloatingDock == true`)
 - **`home` → Today (`StrideLabTodayScreen.kt`, `TodayAdaptiveDashboard.kt`, `TodayDisciplineDashboard.kt`):**
   - Top discipline filter chips scope the Monday–Sunday strip (`TodayWeekCalendar`), selected-day training card, and adherence across all approved plans (`All`, `Running`, `Strength`, `Calisthenics`, `Conditioning`).
-  - Uses a 3-section AMOLED layout: `TodayDateContextHeader` + `TodayDailyTrainingCard` (Planned / Recorded / RestDay / Companion CTA + `180 ms` neutral skeletons), centered 3-column `TodayTrainingOverviewCard` (`Run km`, `Run hours`, `Runs` + non-running pills), and hairline-separated `TodayRecentActivitiesSection` (with `TodayCachedGpsThumbnail`, zero redundant circular shoe icons, and `See all` opening the `Activity` tab).
-  - Surfaces pending `.FIT` auto-match cards (`All` / `Running`) and controlled adaptation review banners (`All`).
+  - Uses an AMOLED layout on `All`: `TodayDateContextHeader` + `TodayDailyTrainingCard` (Planned / Recorded / RestDay / Companion CTA + `180 ms` neutral skeletons), centered 3-column `TodayTrainingOverviewCard` (`Run km`, `Run hours`, `Runs` + non-running pills), multi-discipline `28-DAY CONSISTENCY` heatmap (`ConsistencyHeatmapStrip`, splitting days with multiple disciplines into color-coded segments + dynamic discipline legend), and hairline-separated `TodayRecentActivitiesSection` (with `TodayCachedGpsThumbnail`, zero redundant circular shoe icons, and `See all` opening the `Activity` tab).
+  - Surfaces pending `.FIT` auto-match cards (`All` / `Running`) and controlled adaptation review banners (`All`); `Running` omits the standalone Coaching Diagnostics card and per-discipline Consistency card.
 - **`training` → Training (`StrideLabUnifiedTrainingTimeline.kt`, `TracksideParityTraining.kt`):**
-  - Focused on forward-looking plans, calendar-first weekly scheduling (`training-week-prev` / `training-week-next`, centered `"Return to Today"` / `"Show week"` pill separated by `StrideLabHairline`), custom schedules, Coaching Diagnostics, and athlete-approved plan adaptations.
+  - Focused on forward-looking plans, calendar-first weekly scheduling (`training-week-prev` / `training-week-next`, centered `"Return to Today"` / `"Show week"` pill separated by `StrideLabHairline`), custom schedules, Coaching Diagnostics, and athlete-approved plan adaptations. The header `Add Workout` button is removed so the center `[ + ]` Quick-Log sheet is the single primary logger.
 - **Center `[ + ]` Quick-Log (`QuickLogSheet.kt`):**
   - Opens a `#121212` `ModalBottomSheet` (`quick-log-sheet`) directly over any primary tab: conditional `In progress` drafts (resume / `48.dp` discard), 2×3 discipline empty-workout grid (`freeform/new/{discipline}` with lazy no-ghost-draft persistence), and direct shortcuts to `Workout templates` & Workouts hub.
 - **`activities` → Activity (`ActivityHistoryTabScreen.kt`):**
-  - Primary read-only history tab backed by `WorkoutEvidence.kt` (`projectWorkoutEvidence`) unifying Garmin / `.FIT`, Coached, Custom, and Freeform completions with horizontal discipline filter chips (`>= 48.dp`), tabular numerals, `TodayCachedGpsThumbnail` route previews for imported runs, and direct tap routing to `activity/{id}`, `workout/{planId}/{sessionId}`, or `freeform/history/{kind}/{id}` (signed-out capable per [[ADR-03-Offline-First-Independent-Local-Ownership]]).
+  - Primary read-only history tab backed by `WorkoutEvidence.kt` (`projectWorkoutEvidence`) unifying Garmin / `.FIT`, Coached, Custom, and Freeform completions with a StrideLab AMOLED capsule discipline filter strip (`34.dp` visual pill inside `>= 48.dp` touch target, color dot indicators, animated active discipline fills, tabular session counts), `TodayCachedGpsThumbnail` route previews for imported runs, and direct tap routing to `activity/{id}`, `workout/{planId}/{sessionId}`, or `freeform/history/{kind}/{id}` (signed-out capable per [[ADR-03-Offline-First-Independent-Local-Ownership]]).
 - **`settings` → More (`TracksideMoreScreen.kt`, `MoreFeatureUi.kt`):**
   - Account card (`AccountProfilePresentation.resolve`) displays user name or email (or `"StrideLab Account"` fallback, JWT claim extraction when needed) — never raw UUIDs as the primary title. When signed out, displays `"Not signed in · Saved on this device"` independently alongside Garmin Connect status.
   - Hosts Garmin Connection, `more/offline-maps`, `more/activity-backup`, `more/preferences`, `more/about`, and `auth/*`.

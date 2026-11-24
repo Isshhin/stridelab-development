@@ -17,12 +17,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Locale
 
 /**
@@ -694,16 +697,87 @@ internal fun ProvisionalPaceZoneStrip(
     }
 }
 
-/** 4-week (28-day) consistency heatmap strip for Running Dashboard & Today. */
+/**
+ * Collects distinct completed disciplines per local date across recorded activities,
+ * completed coached sessions, and completed freeform/manual workouts.
+ */
+internal fun projectConsistencyDisciplinesByDate(
+    activities: List<ActivityRecord>,
+    plans: List<PlanSnapshot>,
+    freeformBoard: FreeformBoard?,
+    owner: String?,
+    asOf: LocalDate,
+    zone: ZoneId = ZoneId.systemDefault()
+): Map<LocalDate, List<ManualDiscipline>> {
+    val start = asOf.minusDays(27)
+    val byDate = linkedMapOf<LocalDate, MutableSet<ManualDiscipline>>()
+    fun add(day: LocalDate, discipline: ManualDiscipline?) {
+        if (discipline == null || day.isBefore(start) || day.isAfter(asOf)) return
+        byDate.getOrPut(day) { linkedSetOf() }.add(discipline)
+    }
+    activities.forEach { act ->
+        val day = act.startedAt.atZone(zone).toLocalDate()
+        val norm = act.type.lowercase(Locale.ROOT).replace(Regex("[ _-]"), "")
+        val disc = when {
+            norm.contains("plyometric") -> ManualDiscipline.PLYOMETRICS
+            norm.contains("isometric") -> ManualDiscipline.ISOMETRICS
+            else -> TodayDiscipline.fromActivity(act.type)?.let { ManualDiscipline.valueOf(it.name) }
+        }
+        add(day, disc)
+    }
+    plans.asSequence()
+        .filter { (owner == null || it.owner == owner) && it.status != "draft" }
+        .flatMap { it.sessions.asSequence() }
+        .filter { it.isMarkedComplete }
+        .forEach { session ->
+            val day = session.log?.performedOn ?: session.date
+            val track = trainingTrack(session)
+            val disc = ManualDiscipline.entries.firstOrNull { it.trainingTrackKey == track }
+            add(day, disc)
+        }
+    freeformBoard?.workouts.orEmpty()
+        .filter { it.isComplete && (owner == null || it.owner == owner) }
+        .forEach { workout ->
+            workout.date?.let { day -> add(day, workout.discipline) }
+        }
+    freeformBoard?.legacy.orEmpty()
+        .filter { owner == null || it.owner == owner }
+        .forEach { legacy ->
+            add(legacy.performedOn, legacy.discipline)
+        }
+    return byDate.mapValues { (_, set) ->
+        ManualDiscipline.entries.filter { it in set }
+    }
+}
+
+/** 4-week (28-day) multi-discipline consistency heatmap strip for Today (All). */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ConsistencyHeatmapStrip(
-    completedDates: Set<LocalDate>,
-    plannedDates: Set<LocalDate>,
+    completedDates: Set<LocalDate> = emptySet(),
+    plannedDates: Set<LocalDate> = emptySet(),
     asOf: LocalDate,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    disciplinesByDate: Map<LocalDate, List<ManualDiscipline>> = emptyMap()
 ) {
     val start = asOf.minusDays(27)
     val days = (0L..27L).map { start.plusDays(it) }
+    val resolvedByDay = remember(days, completedDates, disciplinesByDate) {
+        days.associateWith { day ->
+            val explicit = disciplinesByDate[day].orEmpty().distinct()
+            when {
+                explicit.isNotEmpty() -> explicit
+                day in completedDates -> listOf(ManualDiscipline.RUNNING)
+                else -> emptyList()
+            }
+        }
+    }
+    val activeDayCount = resolvedByDay.values.count { it.isNotEmpty() }
+    val legendDisciplines = remember(resolvedByDay) {
+        val present = resolvedByDay.values.flatten().toSet()
+        ManualDiscipline.entries.filter { it in present }
+    }
+
     Surface(
         modifier = modifier.fillMaxWidth().testTag("consistency-heatmap-strip"),
         color = StrideLabVisualPalette.surface,
@@ -711,26 +785,106 @@ internal fun ConsistencyHeatmapStrip(
         border = BorderStroke(1.dp, StrideLabVisualPalette.border)
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("28-DAY CONSISTENCY", color = StrideLabVisualPalette.muted, fontSize = 10.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
-                Text("${days.count { it in completedDates }} active days", color = StrideLabVisualPalette.lime, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "28-DAY CONSISTENCY",
+                    color = StrideLabVisualPalette.muted,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.3.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "$activeDayCount active days",
+                    color = StrideLabVisualPalette.lime,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    style = TabularTextStyle
+                )
             }
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 days.chunked(7).forEach { week ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         week.forEach { day ->
-                            val done = day in completedDates
+                            val dayDisciplines = resolvedByDay[day].orEmpty()
                             val planned = day in plannedDates
-                            val fill = when {
-                                done -> StrideLabVisualPalette.lime
-                                planned && day.isBefore(asOf) -> StrideLabVisualPalette.highCoral.copy(alpha = 0.42f)
-                                planned -> StrideLabVisualPalette.border
-                                else -> StrideLabVisualPalette.surfaceRaised
+                            if (dayDisciplines.size > 1) {
+                                val summary = "$day: ${dayDisciplines.joinToString(", ") { it.label }}"
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(16.dp)
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(StrideLabVisualPalette.amoledBlack)
+                                        .testTag("consistency-day-$day")
+                                        .semantics { contentDescription = summary },
+                                    horizontalArrangement = Arrangement.spacedBy(1.dp)
+                                ) {
+                                    dayDisciplines.forEach { discipline ->
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight()
+                                                .background(discipline.markColor)
+                                                .testTag("consistency-seg-$day-${discipline.name.lowercase(Locale.ROOT)}")
+                                        )
+                                    }
+                                }
+                            } else if (dayDisciplines.size == 1) {
+                                val discipline = dayDisciplines.first()
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(16.dp)
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(discipline.markColor)
+                                        .testTag("consistency-day-$day")
+                                        .semantics { contentDescription = "$day: ${discipline.label}" }
+                                )
+                            } else {
+                                val fill = when {
+                                    planned && day.isBefore(asOf) -> StrideLabVisualPalette.highCoral.copy(alpha = 0.42f)
+                                    planned -> StrideLabVisualPalette.border
+                                    else -> StrideLabVisualPalette.surfaceRaised
+                                }
+                                Box(
+                                    Modifier
+                                        .weight(1f)
+                                        .height(16.dp)
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(fill)
+                                )
                             }
+                        }
+                    }
+                }
+            }
+            if (legendDisciplines.isNotEmpty()) {
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth().testTag("consistency-legend"),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    legendDisciplines.forEach { discipline ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
                             Box(
-                                Modifier.weight(1f).height(15.dp)
-                                    .clip(RoundedCornerShape(5.dp))
-                                    .background(fill)
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(discipline.markColor)
+                            )
+                            Text(
+                                text = discipline.label,
+                                color = StrideLabVisualPalette.secondary,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1
                             )
                         }
                     }

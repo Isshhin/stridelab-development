@@ -534,18 +534,6 @@ internal fun TodayDisciplineDashboard(
             }
         }
 
-        // 28-Day Consistency Heatmap across recent weeks
-        val completedDates = trend.flatMap { w ->
-            w.sessionsByDay.mapIndexedNotNull { idx, count ->
-                if (count > 0) w.start.plusDays(idx.toLong()) else null
-            }
-        }.toSet()
-        ConsistencyHeatmapStrip(
-            completedDates = completedDates,
-            plannedDates = emptySet(),
-            asOf = week.start.plusDays(6)
-        )
-
         if (discipline == TodayDiscipline.RUNNING) {
             RunningWeekReview(
                 reviews = runningReview,

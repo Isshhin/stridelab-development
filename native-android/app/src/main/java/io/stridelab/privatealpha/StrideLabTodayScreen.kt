@@ -200,7 +200,8 @@ internal fun StrideLabTodayScreen(
     onOpenActivityDetail: (String) -> Unit,
     onOpenMore: () -> Unit,
     onSignIn: () -> Unit,
-    actions: PlanActions = PlanActions()
+    actions: PlanActions = PlanActions(),
+    freeformBoard: FreeformBoard? = null
 ) {
     var reviewedProposal by rememberSaveable { mutableStateOf(false) }
     val adaptationProposal = state.activeAdaptationProposal
@@ -308,6 +309,15 @@ internal fun StrideLabTodayScreen(
             schedule = evidence
         )
     }
+    val consistencyByDate = remember(safeActivities, safeHistory, safePlans, freeformBoard, state.freeformOwner, todayDate) {
+        projectConsistencyDisciplinesByDate(
+            activities = safeActivities + safeHistory,
+            plans = safePlans,
+            freeformBoard = freeformBoard,
+            owner = state.freeformOwner,
+            asOf = todayDate
+        )
+    }
     val recentActivities = remember(state.activitySummariesReady, safeActivities, safeHistory, safePlans) {
         if (!state.activitySummariesReady) return@remember emptyList()
         TodayOverviewCalculator.buildRecentActivities(
@@ -385,7 +395,6 @@ internal fun StrideLabTodayScreen(
                 item(key = "pending-activity-matches") { PendingActivityMatchCards(state, actions) }
             }
             if (selectedPage == TodayDiscipline.RUNNING.key) {
-                item(key = "running-coaching-diagnostics") { AthleteDiagnosticsCard(state.activeAthleteDiagnostic) }
                 if (adaptationProposal?.type == AdaptationType.EASY_PACING_LOCK &&
                     state.activeAthleteDiagnostic?.recalibrationAdvisory != RecalibrationAdvisory.ADDRESS_EASY_PACING_FIRST) {
                     item(key = "running-easy-pacing-lock") { EasyPacingLockBanner() }
@@ -461,6 +470,12 @@ internal fun StrideLabTodayScreen(
                     )
                 }
                 if (selectedPage == "all") {
+                    item(key = "today-all-consistency") {
+                        ConsistencyHeatmapStrip(
+                            disciplinesByDate = consistencyByDate,
+                            asOf = todayDate
+                        )
+                    }
                     if (state.activitySummariesReady) {
                         item(key = "today-recent-activities") {
                             TodayRecentActivitiesSection(
@@ -483,6 +498,13 @@ internal fun StrideLabTodayScreen(
                             }
                         }
                     }
+                }
+            } else if (selectedPage == "all" && consistencyByDate.isNotEmpty()) {
+                item(key = "today-all-consistency") {
+                    ConsistencyHeatmapStrip(
+                        disciplinesByDate = consistencyByDate,
+                        asOf = todayDate
+                    )
                 }
             }
             if (selectedPage != "all") {
