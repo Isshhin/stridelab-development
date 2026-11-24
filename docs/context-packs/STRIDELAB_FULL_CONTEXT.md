@@ -1,8 +1,8 @@
 # StrideLab — Full Portable Context Pack
 
-> **Generated:** 2026-11-24 12:19 UTC  
-> **Verified Commit:** `5defc09e`  
-> **Included Nodes:** 19  
+> **Generated:** 2026-11-24 13:12 UTC  
+> **Verified Commit:** `75ce697e`  
+> **Included Nodes:** 20  
 > **Purpose:** Complete architecture, guardrails, active features, UI system, ADRs, and marked roadmap ideas.
 
 ## Table of Contents
@@ -23,8 +23,9 @@
 15. [ADR-02: GPS 200 m Default Privacy Trimming in Share Studio](#15-adr-02-gps-200-m-default-privacy-trimming-in-share-studio) — `decisions/ADR-02-GPS-200m-Default-Privacy-Trimming.md` (`verified`)
 16. [ADR-03: Offline-First Independent Local Ownership](#16-adr-03-offline-first-independent-local-ownership) — `decisions/ADR-03-Offline-First-Independent-Local-Ownership.md` (`verified`)
 17. [ADR-04: Retiring Redundant UI Views While Preserving Unified Data Layers](#17-adr-04-retiring-redundant-ui-views-while-preserving-unified-data-layers) — `decisions/ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers.md` (`verified`)
-18. [Main & Supporting Plans (Concept)](#18-main-supporting-plans-concept) — `roadmap/Main-and-Supporting-Plans.md` (`idea`)
-19. [Strength & Calisthenics Overhaul](#19-strength-calisthenics-overhaul) — `roadmap/Strength-and-Calisthenics-Overhaul.md` (`verified`)
+18. [Anatomical Muscle Map](#18-anatomical-muscle-map) — `roadmap/Anatomical-Muscle-Map.md` (`verified`)
+19. [Main & Supporting Plans (Concept)](#19-main-supporting-plans-concept) — `roadmap/Main-and-Supporting-Plans.md` (`idea`)
+20. [Strength & Calisthenics Overhaul](#20-strength-calisthenics-overhaul) — `roadmap/Strength-and-Calisthenics-Overhaul.md` (`verified`)
 
 ---
 
@@ -76,8 +77,9 @@ StrideLab is an **offline-first native Android running and multi-discipline trai
 - [[ADR-03-Offline-First-Independent-Local-Ownership]] — Why `localGarminOwner` and `localPlanOwner` operate independently of StrideLab cloud authentication.
 - [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]] — Why redundant screens (`freeform/evidence`, Library tab, legacy analytics) were retired while keeping `WorkoutEvidence` and baseline calculators active.
 
-### Roadmap (Shipped Overhauls & Parked Concepts)
-- [[Strength-and-Calisthenics-Overhaul]] — `status: verified` — Set-Table default (`CoachedSetTable.kt`) over `WorkoutPlayerEngine`, scoped hold-timer handoff, effort-anchored / e1RM double progression (`StrengthCalisthenicsProgression.kt`), opt-in Calisthenics upgrades, and muscle metadata prep. Follow-ups parked: Anatomical Muscle Map and [[Main-and-Supporting-Plans]].
+### Roadmap (Shipped Overhauls & Planned / Parked Concepts)
+- [[Strength-and-Calisthenics-Overhaul]] — `status: verified` — Set-Table default (`CoachedSetTable.kt`) over `WorkoutPlayerEngine`, scoped hold-timer handoff, effort-anchored / e1RM double progression (`StrengthCalisthenicsProgression.kt`), opt-in Calisthenics upgrades, and muscle metadata prep. Follow-ups: [[Anatomical-Muscle-Map]] and [[Main-and-Supporting-Plans]].
+- [[Anatomical-Muscle-Map]] — `status: verified` — Pure-Compose side-by-side Front/Back vector silhouettes (`#D8FB70` luminance scale), on-demand `ExerciseInfoSheet`, and Placement 2 planned/confirmed session focus (`MuscleFocusProjector.kt`; Placement 3 weekly heatmap parked for v2).
 - [[Main-and-Supporting-Plans]] — `status: idea` — Parked concept for pairing 1 Main Plan with up to 2 flexible Supporting tracks using 48-hour Main Plan awareness and 3-tier dynamic scaling.
 
 ## Related Nodes
@@ -288,7 +290,7 @@ The Freeform Logger enables offline, ad-hoc workout recording across **six indep
 
 ## Hevy-Style Set Logging & Exercise Picker (`FreeformEditor.kt`)
 - **True Empty Start:** Empty non-running sessions open to `+ Add exercise` plus quick-add chips (`freeform-quick-add-*`) drawn from recent same-discipline completed workouts — never auto-inserting placeholder movements.
-- **Discipline-Aware Modal Bottom-Sheet Picker (`FreeformExercisePicker`):** Filter chips swap cleanly across `<Discipline>`, `Recent`, and `All`. `FreeformExerciseCatalog` ships built-in **Plyometrics** (`Pogo hops`, bounds, depth jumps) and **Isometrics** (`Wall sit`, holds, planks) entries alongside the exercise library JSON (`ExerciseLibraryV2`). Custom named exercises can be added on the fly.
+- **Discipline-Aware Modal Bottom-Sheet Picker (`FreeformExercisePicker`):** Filter chips swap cleanly across `<Discipline>`, `Recent`, and `All`. `FreeformExerciseCatalog` ships built-in **Plyometrics** (`Pogo hops`, bounds, depth jumps) and **Isometrics** (`Wall sit`, holds, planks) entries alongside the exercise library JSON (`ExerciseLibraryV2`). Rows in the picker, `FreeformEditor`, and `WorkoutTemplateEditor` expose `>= 48.dp` info triggers opening [[Anatomical-Muscle-Map]] `ExerciseInfoSheet` without disturbing active sets or drafts; `FreeformHistoryDetail` shows confirmed-only `SessionMuscleFocusSection` when mapped muscles exist. Custom named exercises can be added on the fly.
 - **Flattened Tabular Set Grid:** Each exercise renders on `#000000` canvas separated by `StrideLabHairline` with a compact `SET | PREV | metrics | ✓` column header, `#121212` active-set focus, dimmed completed rows with `#D8FB70` checkmarks, swipe-to-dismiss / overflow actions, and expandable optional `Target` / `Rest` / `RPE` / `RIR` fields.
 - **Auto-Prefilling `+ Add set`:** Appending a set automatically prefills actuals from the previous set, removing redundant duplicate buttons.
 - **Non-Blocking Rest Timer (`FreeformRestTimerBar`):** Confirming a set starts a countdown anchored above the bottom footer without blocking edits to subsequent sets or exercises.
@@ -343,7 +345,7 @@ Guided plan execution pairs a durable AMOLED **Workout Player** for non-running 
 
 ## Durable Guided Workout Execution (`WorkoutPlayer.kt`, `WorkoutPlayerEngine.kt`, `WorkoutExecutionCheckpoint.kt`)
 - **Pure Reducer & Local Checkpoints:** `WorkoutPlayerEngine` reduces typed work/rest/skip/undo events (including table-driven `FocusSet`, `CompleteSetAt`, `SaveUnconfirmedPartialHold`, `SkipSetAt`, `UnconfirmSetAt`, `AddExtraSet`, and `StartNextSet`) against immutable prescriptions. Owner-scoped `player-exec-*` JSON checkpoints persist in `TrainingStore` (`kind = "workout"`, local-only). Confirming a set and entering rest commit together; per-second timer ticks stay in memory.
-- **Set-Table Default & Scoped Hold-Timer Handoff (`CoachedSetTable.kt`, `DurableWorkoutPlayer.kt`):** Coached Strength and Calisthenics workouts default in `WorkoutScreen.kt` to the Hevy-style flattened AMOLED set grid (`CoachedSetTable`) backed directly by `WorkoutExecution`, while timer-heavy tracks keep `WorkoutPlayer` first. Timed holds expose a `>= 48.dp` **Timer** button opening `WorkoutPlayer` in `scopedToTable` mode with three controls (**Back to Table**, **Play / Pause** + `Log Xs`, **Start Next Set**); pausing or backing out after `>= 3 s` auto-saves an unconfirmed `PENDING` hold excluded from `WorkoutLog` / `Engine15DebriefEngine` (taps `< 3 s` are ignored).
+- **Set-Table Default & Scoped Hold-Timer Handoff (`CoachedSetTable.kt`, `DurableWorkoutPlayer.kt`):** Coached Strength and Calisthenics workouts default in `WorkoutScreen.kt` to the Hevy-style flattened AMOLED set grid (`CoachedSetTable`) backed directly by `WorkoutExecution`, while timer-heavy tracks keep `WorkoutPlayer` first. Exercise headers provide `>= 48.dp` `ExerciseInfoSheet` triggers ([[Anatomical-Muscle-Map]]) alongside a collapsible `MUSCLE FOCUS` summary, never rendering inline silhouettes inside active set rows. Timed holds expose a `>= 48.dp` **Timer** button opening `WorkoutPlayer` in `scopedToTable` mode with three controls (**Back to Table**, **Play / Pause** + `Log Xs`, **Start Next Set**); pausing or backing out after `>= 3 s` auto-saves an unconfirmed `PENDING` hold excluded from `WorkoutLog` / `Engine15DebriefEngine` (taps `< 3 s` are ignored).
 - **Discipline Controls & Timers:** Supports strength reps/load, plyometric ground contacts, isometric holds, and conditioning intervals including **EMOM** (advances clock at interval boundaries without auto-confirming sets) and **AMRAP** (prompts confirmation of completed rounds/reps). Running timers anchor to elapsed realtime on the current boot and wall-clock time across reboots.
 - **Independent Receipts (`Partial · X of Y sets`):** Finalization freezes a compatibility log before updating the plan and writes a local outcome receipt separating session lifecycle (`Finish Early` vs full finish) from set coverage (`confirmed` vs `skipped`). Skipped sets stay out of performed logs; process death mid-save recovers from the frozen log match.
 
@@ -472,10 +474,10 @@ All navigation routes live under `NativeMainActivity.kt` (`NavHost`) reading imm
   - Hosts Garmin Connection, `more/offline-maps`, `more/activity-backup`, `more/preferences`, `more/about`, and `auth/*`.
 
 ## 2. Full-Screen Detail & Workflow Routes (`showFloatingDock == false`)
-- **`workout/{planId}/{sessionId}` (`WorkoutScreen.kt`):** Planned running detail (profile bar chart, `-2..+2` difficulty selector, `WORKOUT STEPS`, FIT watch export) or guided non-running [[Guided-Workout-Player-and-Debrief]] (`CoachedSetTable` default for Strength & Calisthenics with scoped `WorkoutPlayer` hold-timer handoff; `WorkoutPlayer` default for timer-heavy disciplines).
-- **`activity/{id}` & `activities` (`TracksideActivityDetailSurface.kt`, `TracksideStationaryActivityDetail.kt`):** MapLibre GPS route, moving-time telemetry charts (`Overview | Analysis | Splits | Charts`), Coach's Debrief, Training Effect, manual plan linking, and Share launcher.
+- **`workout/{planId}/{sessionId}` (`WorkoutScreen.kt`):** Planned running detail (profile bar chart, `-2..+2` difficulty selector, `WORKOUT STEPS`, FIT watch export) or guided non-running [[Guided-Workout-Player-and-Debrief]] (`CoachedSetTable` default for Strength & Calisthenics with `ExerciseInfoSheet` triggers, collapsible `SessionMuscleFocusSection`, and scoped `WorkoutPlayer` hold-timer handoff; `WorkoutPlayer` default for timer-heavy disciplines).
+- **`activity/{id}` & `activities` (`TracksideActivityDetailSurface.kt`, `TracksideStationaryActivityDetail.kt`):** MapLibre GPS route, moving-time telemetry charts (`Overview | Analysis | Splits | Charts`), Coach's Debrief, Training Effect, manual plan linking (plus confirmed-only `SessionMuscleFocusSection` when linked to a completed stationary workout), and Share launcher.
 - **Share Studio Modal (`ShareStudioScreen.kt`):** Dialog hosted from Activity Detail. See [[Share-Studio]].
-- **`builder/{discipline}` & `blueprint-workout/{planId}/{sessionId}/{generatedAt}/{loginGeneration}`:** Multi-step Engine 1.5 / Hybrid Plan Builder (`PlanBuilder.kt`, `TracksideBuilderScreens.kt`) and read-only Blueprint workout preview (`BlueprintWorkout.kt`).
+- **`builder/{discipline}` & `blueprint-workout/{planId}/{sessionId}/{generatedAt}/{loginGeneration}`:** Multi-step Engine 1.5 / Hybrid Plan Builder (`PlanBuilder.kt`, `TracksideBuilderScreens.kt`) and read-only Blueprint workout preview (`BlueprintWorkout.kt`, including `SessionMuscleFocusSection` for planned non-running workouts).
 - **`freeform/*` (`FreeformScreens.kt`, `FreeformEditor.kt`, `WorkoutTemplateScreens.kt`, `CustomPlannerScreens.kt`):** Workouts hub, `freeform/new/{discipline}`, `freeform/edit/{id}`, `freeform/history/{kind}/{id}`, template editor, and custom scheduler. See [[Freeform-Logger]] and [[Templates-and-Custom-Planner]].
 - **Schedule Management Sheets:** `manage/{planId}/{date}`, `move/{planId}/{sessionId}`, `review-move/...`, `missed/...`.
 
@@ -525,6 +527,7 @@ StrideLab uses a pure AMOLED black design system (`StrideLabSurfaceTokens` in `S
 - **Today Route Thumbnails (`ActivityThumbnailCache.kt`, `TodayStartup.kt`):** Synchronously checks the 6 MB in-memory `LruCache` on frame 1 before touching disk cache, eliminating tab-switch flicker.
 - **Workout Profile & Step Timeline (`TracksidePlannedRunningPreview.kt`, `TracksideRunningStepCards.kt`):** Pure-Compose proportional bar chart (`flattenProfileBars` + `-2..+2` difficulty selector) synced with `SingleStep` / `RepeatGroup` cards.
 - **Floating Navigation Capsule (`TracksideFloatingNavigation.kt`):** `68.dp` pill hosting `Today`, `Training`, and `More`; hidden automatically on full-screen detail, editor, and studio flows.
+- **Anatomical Muscle Map (`AnatomicalMuscleMap.kt`, `ExerciseInfoSheet.kt`):** Pure-Compose side-by-side `FRONT` / `BACK` vector silhouettes using `#181A1D` / `#1F242B` base geometry and the unified `#D8FB70` lime luminance scale (`0.28f..0.95f` alpha), responsive legend stacking below `340 dp`, and a `#121212` `ExerciseInfoSheet` modal. See [[Anatomical-Muscle-Map]].
 
 ## Related Nodes
 - [[00-StrideLab-Index]] · [[Screens-Map]] · [[Freeform-Logger]] · [[Share-Studio]] · [[Hard-Guardrails]] · [[App-Architecture]]
@@ -635,7 +638,52 @@ Consolidate the navigation shell to 3 primary tabs (`Today | Training | More`) a
 
 ---
 
-## 18. Main & Supporting Plans (Concept)
+## 18. Anatomical Muscle Map
+
+- **Source Node:** `docs/wiki/roadmap/Anatomical-Muscle-Map.md`
+- **Area / Status:** `roadmap` / `verified`
+- **Key Files:** `native-android/app/src/main/java/io/stridelab/privatealpha/MuscleFocusProjector.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/AnatomicalMuscleMap.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/ExerciseInfoSheet.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/StrengthCalisthenicsProgression.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/ExerciseLibraryV2.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/ExerciseAlternatives.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/CoachedSetTable.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/FreeformEditor.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/FreeformScreens.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/WorkoutTemplateScreens.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/BlueprintWorkout.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/WorkoutScreen.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/TracksideActivityDetailSurface.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/TracksideStationaryActivityDetail.kt`
+
+# Anatomical Muscle Map (`status: verified`)
+
+> [!NOTE]
+> **Verified Implementation (`status: verified`):** Shipped and verified across Placements 1 and 2 (`MuscleFocusProjector.kt`, `AnatomicalMuscleMap.kt`, `ExerciseInfoSheet.kt`). Preserves `PLAN_SCHEMA = 1`, offline parity ([[ADR-03-Offline-First-Independent-Local-Ownership]]), and confirmed-only set honesty ([[Hard-Guardrails]]). Placement 3 (7-day rolling heatmap on `Training`) remains parked for v2.
+
+## 1. Audited Canonical Muscle Keys (100% Coverage)
+All 66 records in `exercise-library-v2.json` and all 19 built-in Plyometrics/Isometrics entries in `FreeformExerciseCatalog` (`FreeformEditor.kt`) share the exact 28 canonical `snake_case` keys listed in `ExerciseMuscleCatalog.STANDARD_MUSCLES` (`StrengthCalisthenicsProgression.kt`):
+
+`abdominals`, `adductors`, `anterior_deltoid`, `calves`, `elbow_flexors`, `foot_stabilizers`, `forearm_grip`, `gluteus_maximus`, `gluteus_medius`, `hamstrings`, `hip_flexors`, `lateral_trunk_muscles`, `latissimus_dorsi`, `lower_trapezius`, `neck_rotators`, `obliques`, `pectoralis_major`, `posterior_deltoid`, `quadriceps`, `rhomboids`, `serratus_anterior`, `shoulder_stabilizers`, `spinal_extensors`, `tibialis_anterior`, `trapezius`, `triceps`, `trunk_rotators`, `trunk_stabilizers`.
+
+## 2. Pure-Kotlin Projection (`MuscleFocusProjector.kt`)
+- **Regions (`AnatomicalMuscleRegion`, `BodySide`):** Maps 100% of the 28 canonical keys deterministically across concrete `FRONT` and `BACK` silhouette regions with zero silently dropped keys. Resolves legacy ID aliases, `swap-*-regression` / `swap-*-progression` wrappers, and case-insensitive movement name fallbacks.
+- **Projectors (`MuscleFocusMap`):**
+  - `forExercise`: Maps `primaryMuscles` to `1.0f` and `secondaryMuscles` to `0.35f` (primary wins on region overlap).
+  - `forPlannedSession`: Weights target sets (`Primary = 1.0f * sets`, `Secondary = 0.4f * sets`) and normalizes `0f..1f`.
+  - `forConfirmedSession` / `forConfirmedExecution` / `forConfirmedFreeformWorkout`: Aggregates **confirmed sets only**, strictly excluding skipped sets and unconfirmed `SetDisposition.PENDING` partial holds (matching `Engine15DebriefEngine`). Unmapped custom exercises or empty sessions yield `isEmpty == true` so callers omit the section cleanly.
+
+## 3. Pure-Compose Side-by-Side Vector Map (`AnatomicalMuscleMap.kt`)
+- **AMOLED Visual Contract ([[UI-Design-System]]):**
+  - Side-by-side **FRONT** and **BACK** athletic silhouettes are always visible simultaneously (no Flip toggle).
+  - Base silhouette & inactive muscle groups render in `#181A1D` with `#1F242B` hairlines (`1.dp`).
+  - Active focus uses the **unified `#D8FB70` lime luminance scale** (`0.28f` secondary/low stimulus up to `0.95f` primary/peak stimulus) everywhere, keeping discipline tint strictly on small text pills.
+  - `MuscleFocusCardContent` adapts smoothly across `412 dp (1.0x)`, `360 dp (1.3x)`, and `320 dp (1.3x)` viewports with zero horizontal overflow.
+
+## 4. Scoped v1 Placements (Placements 1 & 2)
+- **Placement 1 — On-Demand Exercise Info Sheet (`ExerciseInfoSheet.kt`):**
+  - `#121212` `ModalBottomSheet` displaying exercise title, discipline pill, metric type badge, side-by-side Front/Back map, coaching cues from `ExerciseLibraryV2`, and `ExerciseAlternatives` easier/harder chips.
+  - Triggered via `>= 48.dp` controls (`exercise-info-trigger-*`) from `CoachedSetTable`, `FreeformEditor`, `FreeformExercisePicker`, and `WorkoutTemplateScreens` without rendering inline silhouettes inside active set rows or disturbing live set state / `persistMutex`.
+- **Placement 2 — Whole-Session Focus (`SessionMuscleFocusSection`):**
+  - Flat `#000000` hairline-bounded `MUSCLE FOCUS` summary with honest provenance (`"Planned session focus"` vs. `"Based on N confirmed sets"`) in `BlueprintWorkout`, non-running `WorkoutScreen` (including a compact collapsed toggle in `CoachedSetTable`), `FreeformHistoryDetail` (`FreeformScreens.kt`), and `TracksideStationaryActivityDetail`.
+
+## 5. Explicitly Parked for v2 (Out of Scope)
+- **Placement 3 (7-Day Rolling Heatmap on `Training` / `Today`):** Deferred to a future pass until hybrid running-load representation is designed, keeping [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]] and the `Today` / `Training` layouts untouched in v1.
+
+## Related Nodes
+- [[00-StrideLab-Index]] · [[Strength-and-Calisthenics-Overhaul]] · [[UI-Design-System]] · [[Screens-Map]] · [[Freeform-Logger]] · [[Guided-Workout-Player-and-Debrief]] · [[Hard-Guardrails]]
+
+---
+
+## 19. Main & Supporting Plans (Concept)
 
 - **Source Node:** `docs/wiki/roadmap/Main-and-Supporting-Plans.md`
 - **Area / Status:** `roadmap` / `idea`
@@ -662,7 +710,7 @@ Pair **1 active Main Plan** (`Running`, `Strength`, or `Calisthenics`) with **up
 
 ---
 
-## 19. Strength & Calisthenics Overhaul
+## 20. Strength & Calisthenics Overhaul
 
 - **Source Node:** `docs/wiki/roadmap/Strength-and-Calisthenics-Overhaul.md`
 - **Area / Status:** `roadmap` / `verified`
@@ -671,7 +719,7 @@ Pair **1 active Main Plan** (`Running`, `Strength`, or `Calisthenics`) with **up
 # Strength & Calisthenics Overhaul (`status: verified`)
 
 > [!NOTE]
-> **Verified Implementation (`status: verified`):** Shipped and verified across Phases 1–3. Generated plan blocks remain static across [[Engine-1.5]] while Strength & Calisthenics progression targets and opt-in level-ups project read-only overlays (`StrengthCalisthenicsProgression.kt`) over `WorkoutExecution` (`CoachedSetTable.kt`) and confirmed execution history. Follow-ups parked separately: [[Main-and-Supporting-Plans]] and the visual Anatomical Muscle Map.
+> **Verified Implementation (`status: verified`):** Shipped and verified across Phases 1–3. Generated plan blocks remain static across [[Engine-1.5]] while Strength & Calisthenics progression targets and opt-in level-ups project read-only overlays (`StrengthCalisthenicsProgression.kt`) over `WorkoutExecution` (`CoachedSetTable.kt`) and confirmed execution history. Follow-ups tracked separately: [[Anatomical-Muscle-Map]] and [[Main-and-Supporting-Plans]].
 
 ## Scope & Core Architecture
 
@@ -695,7 +743,7 @@ Pair **1 active Main Plan** (`Running`, `Strength`, or `Calisthenics`) with **up
   - Pausing partway (`elapsed >= 3 s`) and tapping **Back to Table** auto-saves elapsed seconds into the checkpoint as an **unconfirmed** partial draft (`SetDisposition.PENDING`, excluded from `WorkoutLog` and [[Guided-Workout-Player-and-Debrief]]). `< 3 s` accidental taps are ignored.
 
 ### 4. Muscle Metadata Prep for Future Muscle Map
-- Ensure standardized snake_case `primaryMuscles` and `secondaryMuscles` tags across `ExerciseLibraryV2` and `FreeformExerciseCatalog` (`FreeformEditor.kt`) so pickers display lightweight muscle tags now and the parked follow-up **Anatomical Muscle Map** pass (alongside [[Main-and-Supporting-Plans]]) can consume them directly.
+- Ensure standardized snake_case `primaryMuscles` and `secondaryMuscles` tags across `ExerciseLibraryV2` and `FreeformExerciseCatalog` (`FreeformEditor.kt`) so pickers display lightweight muscle tags now and the dedicated [[Anatomical-Muscle-Map]] pass (alongside [[Main-and-Supporting-Plans]]) can consume them directly.
 
 ## Related Nodes
-- [[00-StrideLab-Index]] · [[Engine-1.5]] · [[Guided-Workout-Player-and-Debrief]] · [[Freeform-Logger]] · [[UI-Design-System]] · [[Hard-Guardrails]] · [[Main-and-Supporting-Plans]]
+- [[00-StrideLab-Index]] · [[Engine-1.5]] · [[Guided-Workout-Player-and-Debrief]] · [[Freeform-Logger]] · [[UI-Design-System]] · [[Hard-Guardrails]] · [[Anatomical-Muscle-Map]] · [[Main-and-Supporting-Plans]]

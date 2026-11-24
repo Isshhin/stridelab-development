@@ -256,6 +256,9 @@ import kotlinx.coroutines.flow.drop
                     },
                     onSwapHarder = { exId ->
                         actions.swapHarder(plan.id, plan.revision, session.id, exId)
+                    },
+                    onSwapEasier = { exId ->
+                        actions.swap(plan.id, plan.revision, session.id, exId)
                     }
                 ) { event ->
                     if (!saving && !state.busy) {
@@ -460,6 +463,30 @@ import kotlinx.coroutines.flow.drop
                 color=TracksidePalette.textMuted)
             Text(shown.reason,style=MaterialTheme.typography.bodyLarge,
                 color=TracksidePalette.textMuted)
+        }
+        item {
+            val workoutCatalog = rememberAugmentedExerciseCatalog()
+            val nonRunningFocus = remember(done, session.log, exercises, workoutCatalog, rest) {
+                when {
+                    session.discipline == "run" || rest -> MuscleFocusMap.EMPTY
+                    done && session.log != null ->
+                        MuscleFocusProjector.forConfirmedSession(session.log.sets, exercises, workoutCatalog)
+                    exercises.isNotEmpty() ->
+                        MuscleFocusProjector.forPlannedSession(exercises, workoutCatalog)
+                    else -> MuscleFocusMap.EMPTY
+                }
+            }
+            if (!nonRunningFocus.isEmpty) {
+                val provenance = if (done && session.log != null) {
+                    "Based on ${nonRunningFocus.setCount} confirmed sets"
+                } else {
+                    "Planned session focus"
+                }
+                SessionMuscleFocusSection(
+                    focus = nonRunningFocus,
+                    provenance = provenance
+                )
+            }
         }
         session.linkedActivityId?.let { activityId -> item { LinkedSourceRunCard(activityId) } }
         if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan) && (plan.status == "approved" || current.disclosure != null)) item {

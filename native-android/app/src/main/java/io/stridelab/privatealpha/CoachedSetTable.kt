@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -62,16 +63,14 @@ internal fun CoachedSetTable(
     onOpenFullPlayer: () -> Unit,
     onOpenScopedTimer: (setIndex: Int) -> Unit,
     onSwapHarder: (exerciseId: String) -> Unit,
+    onSwapEasier: ((exerciseId: String) -> Unit)? = null,
     dispatch: (PlayerEvent) -> Unit
 ) {
-    val context = LocalContext.current
-    val library by produceState<ExerciseLibraryV2?>(null, context) {
-        value = withContext(Dispatchers.IO) {
-            runCatching { ExerciseLibraryV2.load { context.assets.open(it) } }.getOrNull()
-        }
-    }
+    val catalog = rememberAugmentedExerciseCatalog()
     var dismissedUpgradeIds by rememberSaveable(plan.id, session.id) { mutableStateOf(emptyList<String>()) }
     var tableError by remember(plan.id, session.id) { mutableStateOf<String?>(null) }
+    var inspectExercise by remember { mutableStateOf<ExercisePrescription?>(null) }
+    var showSessionMuscleFocus by rememberSaveable(plan.id, session.id) { mutableStateOf(false) }
 
     val groups = remember(execution.sets) {
         val grouped = LinkedHashMap<String, MutableList<IndexedExecutionSet>>()
@@ -205,6 +204,10 @@ internal fun CoachedSetTable(
                 )
             }
 
+            val sessionFocus = remember(groups, catalog) {
+                MuscleFocusProjector.forPlannedSession(groups.map { it.prescription }, catalog)
+            }
+
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -213,13 +216,69 @@ internal fun CoachedSetTable(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
+                if (!sessionFocus.isEmpty) {
+                    item(key = "coached-session-muscle-focus") {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { showSessionMuscleFocus = !showSessionMuscleFocus }
+                                    .padding(horizontal = 4.dp, vertical = 8.dp)
+                                    .testTag("coached-muscle-focus-toggle"),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Text(
+                                        text = "MUSCLE FOCUS",
+                                        color = StrideLabSurfaceTokens.inkMuted,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.8.sp
+                                    )
+                                    Text(
+                                        text = sessionFocus.primaryMuscles.take(3).joinToString(" · "),
+                                        color = StrideLabSurfaceTokens.inkSecondary,
+                                        fontSize = 12.5.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Text(
+                                    text = if (showSessionMuscleFocus) "Hide" else "Map",
+                                    color = StrideLabSurfaceTokens.lime,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            if (showSessionMuscleFocus) {
+                                SessionMuscleFocusSection(
+                                    focus = sessionFocus,
+                                    provenance = "Planned session focus"
+                                )
+                            } else {
+                                StrideLabHairline()
+                            }
+                        }
+                    }
+                }
                 items(groups, key = { it.prescription.id }) { group ->
                     val ex = group.prescription
                     val metricType = ex.metricType(session.discipline)
                     val isTimed = metricType == ExerciseMetricType.HOLD_SECONDS || metricType == ExerciseMetricType.WEIGHT_AND_HOLD
                     val showWeight = metricType == ExerciseMetricType.WEIGHT_AND_REPS || metricType == ExerciseMetricType.WEIGHT_AND_HOLD
 
-                    val libRecord = remember(library, ex.id) { library?.find(ex.id) }
+                    val libRecord = remember(catalog, ex.id, ex.name) {
+                        MuscleFocusProjector.resolveRecord(ex.id, ex.name, catalog)
+                    }
                     val muscleLabel = remember(libRecord) {
                         libRecord?.let { ExerciseMuscleCatalog.formatPrimaryTag(it.primaryMuscles) }
                     }
@@ -250,14 +309,18 @@ internal fun CoachedSetTable(
                             .testTag("coached-exercise-${ex.id}"),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Exercise Header + Optional Timed-Hold Player Handoff Button
+                        // Exercise Header + Info Trigger + Optional Timed-Hold Player Handoff Button
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Column(
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { inspectExercise = ex }
+                                    .padding(vertical = 4.dp),
                                 verticalArrangement = Arrangement.spacedBy(2.dp)
                             ) {
                                 Text(
@@ -277,6 +340,18 @@ internal fun CoachedSetTable(
                                     fontSize = 12.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            IconButton(
+                                onClick = { inspectExercise = ex },
+                                modifier = Modifier
+                                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                    .testTag("exercise-info-trigger-${ex.id}")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Info,
+                                    contentDescription = "Exercise info for ${ex.name}",
+                                    tint = StrideLabSurfaceTokens.inkSecondary
                                 )
                             }
                             if (isTimed) {
@@ -645,6 +720,33 @@ internal fun CoachedSetTable(
                 }
             }
         }
+    }
+
+    inspectExercise?.let { targetEx ->
+        val canSwapThis = execution.canChangePrescription &&
+            execution.sets.none { it.target.id == targetEx.id && it.isConfirmed }
+        ExerciseInfoSheet(
+            exerciseId = targetEx.id,
+            exerciseName = targetEx.name,
+            disciplineLabel = plannedDisciplineLabel(session),
+            disciplineTint = disciplineColor(session.discipline),
+            catalog = catalog,
+            prescription = targetEx,
+            disciplineCode = session.discipline,
+            canSwap = canSwapThis,
+            busy = busy,
+            onSwapEasier = onSwapEasier?.let { cb ->
+                {
+                    inspectExercise = null
+                    cb(targetEx.id)
+                }
+            },
+            onSwapHarder = {
+                inspectExercise = null
+                onSwapHarder(targetEx.id)
+            },
+            onDismiss = { inspectExercise = null }
+        )
     }
 }
 

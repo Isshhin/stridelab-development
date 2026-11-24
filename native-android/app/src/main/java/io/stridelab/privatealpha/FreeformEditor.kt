@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -186,6 +187,8 @@ internal object FreeformExerciseCatalog {
             )
         )
 
+    fun builtinRecords(): List<ExerciseLibraryRecordV2> = builtinPlyometrics + builtinIsometrics
+
     fun augment(records: List<ExerciseLibraryRecordV2>): List<ExerciseLibraryRecordV2> {
         val byName = records.mapTo(HashSet()) { it.name.trim().lowercase(Locale.ROOT) }
         val additions = (builtinPlyometrics + builtinIsometrics).filter {
@@ -308,6 +311,8 @@ internal fun FreeformEditor(
     var picker by rememberSaveable(initial.id) { mutableStateOf(false) }
     var details by rememberSaveable(initial.id) { mutableStateOf(false) }
     var discard by rememberSaveable(initial.id) { mutableStateOf(false) }
+    var inspectExercise by remember(initial.id) { mutableStateOf<FreeformExercise?>(null) }
+    val exerciseCatalog = rememberAugmentedExerciseCatalog()
 
     // Unobtrusive non-blocking rest timer state (session-scoped)
     var restPresetSeconds by rememberSaveable(initial.id) { mutableIntStateOf(90) }
@@ -648,6 +653,7 @@ internal fun FreeformEditor(
                             delete = {
                                 edit(draft.copy(exercises = draft.exercises.filterNot { it.id == exercise.id }))
                             },
+                            onInspect = { inspectExercise = exercise },
                             onSetConfirmed = {
                                 restRemainingSeconds = restPresetSeconds
                                 restRunning = true
@@ -849,6 +855,16 @@ internal fun FreeformEditor(
             picker = false
         }
     }
+    inspectExercise?.let { target ->
+        ExerciseInfoSheet(
+            exerciseId = target.catalogId,
+            exerciseName = target.name,
+            disciplineLabel = draft.discipline.label,
+            disciplineTint = draft.discipline.markColor,
+            catalog = exerciseCatalog,
+            onDismiss = { inspectExercise = null }
+        )
+    }
     if (discard) {
         AlertDialog(
             onDismissRequest = { discard = false },
@@ -979,6 +995,7 @@ internal fun FreeformExercisePanel(
     move: (Int) -> Unit,
     delete: () -> Unit,
     authoring: Boolean = false,
+    onInspect: (() -> Unit)? = null,
     onSetConfirmed: () -> Unit = {}
 ) {
     var menu by remember { mutableStateOf(false) }
@@ -996,7 +1013,19 @@ internal fun FreeformExercisePanel(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(
+                Modifier
+                    .weight(1f)
+                    .then(
+                        if (onInspect != null) {
+                            Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(onClick = onInspect)
+                                .padding(vertical = 4.dp)
+                        } else Modifier
+                    ),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 Text(
                     exercise.name,
                     color = StrideLabSurfaceTokens.ink,
@@ -1011,6 +1040,20 @@ internal fun FreeformExercisePanel(
                         color = StrideLabSurfaceTokens.inkMuted,
                         fontSize = 12.sp,
                         style = TabularTextStyle
+                    )
+                }
+            }
+            if (onInspect != null) {
+                IconButton(
+                    onClick = onInspect,
+                    modifier = Modifier
+                        .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                        .testTag("exercise-info-trigger-${exercise.catalogId ?: exercise.id}")
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription = "Exercise info for ${exercise.name}",
+                        tint = StrideLabSurfaceTokens.inkSecondary
                     )
                 }
             }
@@ -1700,6 +1743,7 @@ internal fun FreeformExercisePicker(
     var query by rememberSaveable { mutableStateOf("") }
     var scopeFilter by rememberSaveable(discipline) { mutableStateOf(PickerScope.DISCIPLINE) }
     var loadingCatalog by remember { mutableStateOf(true) }
+    var inspectOption by remember { mutableStateOf<PickerExerciseOption?>(null) }
     val catalog by produceState<List<ExerciseLibraryRecordV2>>(emptyList(), context) {
         value = withContext(Dispatchers.IO) {
             freeformAttempt { ExerciseLibraryV2.load { context.assets.open(it) }.records }
@@ -1707,6 +1751,7 @@ internal fun FreeformExercisePicker(
         }
         loadingCatalog = false
     }
+    val augmentedCatalog = remember(catalog) { FreeformExerciseCatalog.augment(catalog) }
     val showSkeleton = rememberDelayedSkeletonVisible(loadingCatalog && catalog.isEmpty())
     val matches = remember(catalog, query, discipline, scopeFilter, recentExerciseNames) {
         FreeformExerciseCatalog.filter(catalog, discipline, scopeFilter, query, recentExerciseNames)
@@ -1836,7 +1881,18 @@ internal fun FreeformExercisePicker(
                                     select(FreeformExercise(name = option.name, catalogId = option.id))
                                 },
                                 trailing = {
-                                    Text("›", color = StrideLabSurfaceTokens.inkMuted, fontSize = 18.sp)
+                                    IconButton(
+                                        onClick = { inspectOption = option },
+                                        modifier = Modifier
+                                            .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                                            .testTag("exercise-info-trigger-${option.id ?: option.name}")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Info,
+                                            contentDescription = "Exercise info for ${option.name}",
+                                            tint = StrideLabSurfaceTokens.inkSecondary
+                                        )
+                                    }
                                 }
                             )
                         }
@@ -1844,5 +1900,15 @@ internal fun FreeformExercisePicker(
                 }
             }
         }
+    }
+    inspectOption?.let { option ->
+        ExerciseInfoSheet(
+            exerciseId = option.id,
+            exerciseName = option.name,
+            disciplineLabel = discipline.label,
+            disciplineTint = discipline.markColor,
+            catalog = augmentedCatalog,
+            onDismiss = { inspectOption = null }
+        )
     }
 }

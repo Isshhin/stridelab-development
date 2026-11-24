@@ -20,7 +20,7 @@ tags: [stridelab, roadmap, strength, calisthenics, progression, workout-player]
 # Strength & Calisthenics Overhaul (`status: verified`)
 
 > [!NOTE]
-> **Verified Implementation (`status: verified`):** Shipped and verified across Phases 1–3. Generated plan blocks remain static across [[Engine-1.5]] while Strength & Calisthenics progression targets and opt-in level-ups project read-only overlays (`StrengthCalisthenicsProgression.kt`) over `WorkoutExecution` (`CoachedSetTable.kt`) and confirmed execution history. Follow-ups parked separately: [[Main-and-Supporting-Plans]] and the visual Anatomical Muscle Map.
+> **Verified Implementation (`status: verified`):** Shipped and verified across Phases 1–3. Generated plan blocks remain static across [[Engine-1.5]] while Strength & Calisthenics progression targets and opt-in level-ups project read-only overlays (`StrengthCalisthenicsProgression.kt`) over `WorkoutExecution` (`CoachedSetTable.kt`) and confirmed execution history. Follow-ups tracked separately: [[Anatomical-Muscle-Map]] and [[Main-and-Supporting-Plans]].
 
 ## Scope & Core Architecture
 
@@ -44,7 +44,7 @@ tags: [stridelab, roadmap, strength, calisthenics, progression, workout-player]
   - Pausing partway (`elapsed >= 3 s`) and tapping **Back to Table** auto-saves elapsed seconds into the checkpoint as an **unconfirmed** partial draft (`SetDisposition.PENDING`, excluded from `WorkoutLog` and [[Guided-Workout-Player-and-Debrief]]). `< 3 s` accidental taps are ignored.
 
 ### 4. Muscle Metadata Prep for Future Muscle Map
-- Ensure standardized snake_case `primaryMuscles` and `secondaryMuscles` tags across `ExerciseLibraryV2` and `FreeformExerciseCatalog` (`FreeformEditor.kt`) so pickers display lightweight muscle tags now and the parked follow-up **Anatomical Muscle Map** pass (alongside [[Main-and-Supporting-Plans]]) can consume them directly.
+- Ensure standardized snake_case `primaryMuscles` and `secondaryMuscles` tags across `ExerciseLibraryV2` and `FreeformExerciseCatalog` (`FreeformEditor.kt`) so pickers display lightweight muscle tags now and the dedicated [[Anatomical-Muscle-Map]] pass (alongside [[Main-and-Supporting-Plans]]) can consume them directly.
 
 ## Related Nodes
-- [[00-StrideLab-Index]] · [[Engine-1.5]] · [[Guided-Workout-Player-and-Debrief]] · [[Freeform-Logger]] · [[UI-Design-System]] · [[Hard-Guardrails]] · [[Main-and-Supporting-Plans]]
+- [[00-StrideLab-Index]] · [[Engine-1.5]] · [[Guided-Workout-Player-and-Debrief]] · [[Freeform-Logger]] · [[UI-Design-System]] · [[Hard-Guardrails]] · [[Anatomical-Muscle-Map]] · [[Main-and-Supporting-Plans]]

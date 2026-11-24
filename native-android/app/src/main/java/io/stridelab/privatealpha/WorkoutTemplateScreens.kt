@@ -384,6 +384,8 @@ internal fun WorkoutTemplateEditor(
     var leaving by rememberSaveable { mutableStateOf(false) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var inspectExercise by remember(seed.id) { mutableStateOf<FreeformExercise?>(null) }
+    val exerciseCatalog = rememberAugmentedExerciseCatalog()
     val scope = rememberCoroutineScope()
     fun goBack() {
         if (!saving) {
@@ -455,7 +457,8 @@ internal fun WorkoutTemplateEditor(
                     delete = {
                         editor = editor.copy(exercises = editor.exercises.filterNot { it.id == exercise.id })
                     },
-                    authoring = true
+                    authoring = true,
+                    onInspect = { inspectExercise = exercise }
                 )
             }
             if (seed.discipline != ManualDiscipline.RUNNING) {
@@ -513,6 +516,16 @@ internal fun WorkoutTemplateEditor(
             editor = editor.copy(exercises = editor.exercises + it)
             picker = false
         }
+    }
+    inspectExercise?.let { target ->
+        ExerciseInfoSheet(
+            exerciseId = target.catalogId,
+            exerciseName = target.name,
+            disciplineLabel = seed.discipline.label,
+            disciplineTint = seed.discipline.markColor,
+            catalog = exerciseCatalog,
+            onDismiss = { inspectExercise = null }
+        )
     }
     if (leaving) {
         AlertDialog(

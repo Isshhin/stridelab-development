@@ -574,6 +574,16 @@ internal fun FreeformHistoryDetail(
                         StrideLabHairline()
                     }
                 }
+                item(key = "freeform-history-muscle-focus") {
+                    val catalog = rememberAugmentedExerciseCatalog()
+                    val workoutFocus = remember(workout, catalog) {
+                        MuscleFocusProjector.forConfirmedFreeformWorkout(workout, catalog)
+                    }
+                    SessionMuscleFocusSection(
+                        focus = workoutFocus,
+                        provenance = "Based on ${workoutFocus.setCount} confirmed sets"
+                    )
+                }
                 if (onSaveAsTemplate != null || (onRepeatWorkout != null && workout.custom != null)) {
                     item {
                         Row(
