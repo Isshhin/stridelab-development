@@ -11,7 +11,7 @@ Read @[Core Engine Spec](F:/StrideLab/Workflow Vault/Isshhin/10-Architecture/Eng
 ## Scope & Git Policy
 - Completely ignore `F:\StrideLab\Legacy-And-Archives` and `F:\StrideLab\DriveBackup` in all searches, audits, and edits.
 - Read only target files, their direct tests, and `Engine-Rules.md`; keep diffs tightly scoped with no unrelated refactors.
-- Work exclusively on `dev` (never edit, reset, force-push, or push `main`). Never stage `native-android/.idea/`, credentials, or FIT exports, and never push without explicit owner approval.
+- Work exclusively on `dev` (never edit, reset, force-push, or push `main` unless told). Never stage `native-android/.idea/`, credentials, or FIT exports, and never push without explicit owner approval.
 
 ## Protected Regression Guards
 - **Engine 1.5 Invariants**: Preserve weekly budget equality (`sum(week.distanceKm) == week.proposedKm` within `1e-6`), immutable `PlannedSession.difficultyBaseline` round-trip validation, and pure preview + explicit user-approval coaching flows.
@@ -23,6 +23,11 @@ Read @[Core Engine Spec](F:/StrideLab/Workflow Vault/Isshhin/10-Architecture/Eng
 - Report exact PASS/FAIL/BLOCKED results; never claim device verification from unit tests or builds alone.
 
 ## Project Memory (`docs/wiki/`)
-- **Read First:** At the start of any planning, refactoring, or debugging task, read `docs/wiki/index.md` and only the specific topic page(s) relevant to the request before scanning source files.
-- **Keep Updated:** After completing any architectural change, engine rule tweak, or UI refactor, update the affected `docs/wiki/*.md` page(s) in the same turn so the wiki always matches the codebase.
-- **Stay Concise:** Keep wiki pages modular and under ~150 lines. Record *why* key constraints exist (e.g., warm-up caps, removed UI blocks) so future sessions do not regress them.
+- **Read First:** At the start of any planning, refactoring, or debugging task, read `docs/wiki/00-StrideLab-Index.md` and only the specific topic page(s) relevant to the request before scanning source files.
+- **Keep Updated:** After completing any architectural change, engine rule tweak, or UI refactor, update the affected `docs/wiki/` node(s) in the same turn so the graph always matches the codebase.
+- **Stay Concise:** Keep wiki nodes focused, sanitized, and modular with unique stems and YAML frontmatter. Record *why* key constraints exist (e.g., warm-up caps, retired UI blocks, GPS trimming) so future sessions do not regress them.
+
+## Knowledge Graph & Context Pack Maintenance
+- Whenever a task changes screens, architecture, features, or contracts, update the affected `docs/wiki/` node(s) and bump `last_verified_commit`.
+- Re-run `python scripts/compile_context_packs.py` from the repository root so `docs/context-packs/` and `F:\StrideLab\Workflow Vault` (`Knowledge-Graph/` and `Context-Packs/`) stay automatically synced.
+- Confirm `0` broken `[[wikilinks]]`, `0` filename collisions, `0` orphan nodes, and `0` PII/secret findings before committing.
