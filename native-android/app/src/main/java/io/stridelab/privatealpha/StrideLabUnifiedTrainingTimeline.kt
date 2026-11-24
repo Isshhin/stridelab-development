@@ -1090,7 +1090,11 @@ private fun TimelineRecordedCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .strideLabPressFeedback(
+                shape = RoundedCornerShape(14.dp),
+                highlightBorderColor = StrideLabSurfaceTokens.lime,
+                onClick = onClick
+            )
             .testTag("timeline-recorded-${activity.id}")
             .semantics {
                 contentDescription = buildString {
@@ -1228,7 +1232,11 @@ private fun TimelinePlannedCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .strideLabPressFeedback(
+                shape = RoundedCornerShape(14.dp),
+                highlightBorderColor = accent,
+                onClick = onClick
+            )
             .testTag("timeline-planned-${session.id}")
             .semantics {
                 contentDescription = "${session.effectiveTitle}, $details"

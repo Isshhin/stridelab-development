@@ -746,7 +746,15 @@ private fun PlannedDailySessionRow(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
+            .strideLabPressFeedback(
+                shape = RoundedCornerShape(14.dp),
+                highlightBorderColor = accent,
+                onClick = { onOpenWorkout(item.planId, session.id) }
+            )
+            .padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
@@ -807,22 +815,6 @@ private fun PlannedDailySessionRow(
             }
         }
 
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterEnd
-        ) {
-            Text(
-                text = "View Workout",
-                color = TodayAdaptivePalette.runningLime,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { onOpenWorkout(item.planId, session.id) }
-                    .padding(horizontal = 4.dp, vertical = 4.dp)
-            )
-        }
     }
 }
 
@@ -854,9 +846,14 @@ private fun RecordedDailySessionRow(
     val subtitle = listOfNotNull(dur, pace, hr).joinToString(" • ")
 
     Row(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
             .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
-            .clickable { onOpenActivityDetail(act.id) }
+            .strideLabPressFeedback(
+                shape = RoundedCornerShape(14.dp),
+                highlightBorderColor = TodayAdaptivePalette.runningLime,
+                onClick = { onOpenActivityDetail(act.id) }
+            )
             .padding(contentPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -924,7 +921,15 @@ private fun ConfirmedLogDailySessionRow(
     val subtitle = listOfNotNull(dist, dur, item.discipline.title).joinToString(" • ")
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
+            .strideLabPressFeedback(
+                shape = RoundedCornerShape(14.dp),
+                highlightBorderColor = accent,
+                onClick = { onOpenWorkout(workout.planId, workout.sessionId) }
+            )
+            .padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Surface(
@@ -955,22 +960,6 @@ private fun ConfirmedLogDailySessionRow(
                 fontSize = 13.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
-            )
-        }
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterEnd
-        ) {
-            Text(
-                text = "View Workout",
-                color = TodayAdaptivePalette.runningLime,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { onOpenWorkout(workout.planId, workout.sessionId) }
-                    .padding(horizontal = 4.dp, vertical = 4.dp)
             )
         }
     }
@@ -1280,8 +1269,12 @@ private fun TodayRecentActivityListRow(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+            .strideLabPressFeedback(
+                shape = RoundedCornerShape(12.dp),
+                highlightBorderColor = TodayAdaptivePalette.runningLime,
+                onClick = onClick
+            )
+            .padding(horizontal = 4.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {

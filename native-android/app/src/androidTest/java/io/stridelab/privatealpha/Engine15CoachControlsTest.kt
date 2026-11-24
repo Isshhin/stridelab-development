@@ -124,14 +124,12 @@ class Engine15CoachControlsTest {
         }
         compose.onNodeWithTag("workout-planned-title")
             .assertTextEquals("Easy run")
-        compose.onNodeWithTag("workout-recommendations-accordion").assertExists()
+        compose.onNodeWithTag("workout-recommendations-accordion").assertDoesNotExist()
+        compose.onNodeWithText("Preview recommendations").assertDoesNotExist()
         compose.onNodeWithTag("workout-record-form").assertDoesNotExist()
         compose.onNodeWithTag("workout-log-toggle").performClick()
         compose.onNodeWithTag("workout-record-form").assertExists()
         compose.onNodeWithTag("workout-actual-date").assertExists()
-        compose.onNodeWithTag("workout-recommendations-accordion-toggle")
-            .performScrollTo().performClick()
-        compose.onNodeWithText("Preview recommendations").assertExists()
     }
 
     @Test fun plannedRunPreviewHasReadableTargetsAndOmitsCoachNotes() {

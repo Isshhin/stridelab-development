@@ -1,7 +1,7 @@
 # StrideLab — Share Studio & Privacy Architecture Pack
 
-> **Generated:** 2026-11-24 14:35 UTC  
-> **Verified Commit:** `aaf8f51d`  
+> **Generated:** 2026-11-24 16:01 UTC  
+> **Verified Commit:** `c0703101`  
 > **Included Nodes:** 5  
 > **Purpose:** Share Studio canvas renderer, dark studio tray, privacy trimming, pixel invariants, and UI design system.
 
@@ -145,7 +145,8 @@ StrideLab uses a pure AMOLED black design system (`StrideLabSurfaceTokens` in `S
 - **Docked Navigation Bar (`TracksideFloatingNavigation.kt`, `QuickLogSheet.kt`):** Edge-to-edge flat `#0A0B0D` bar topped by a `1.dp` `#1F242B` `StrideLabHairline` and `navigationBarsPadding()` with 5 equal slots (`Today | Training | [ + ] | Activity | More`), solid `#D8FB70` center `+` CTA (`48.dp × 48.dp`), `>= 48.dp` touch targets, single-line labels, and `#121212` `QuickLogBottomSheet` modal; automatically hidden on full-screen detail, editor, and studio flows.
 - **Anatomical Muscle Map (`AnatomicalMuscleMap.kt`, `ExerciseInfoSheet.kt`):** Pure-Compose side-by-side `FRONT` / `BACK` vector silhouettes using `#181A1D` / `#1F242B` base geometry and the unified `#D8FB70` lime luminance scale (`0.28f..0.95f` alpha), responsive legend stacking below `340 dp`, and a `#121212` `ExerciseInfoSheet` modal. See [[Anatomical-Muscle-Map]].
 - **Multi-Discipline 28-Day Consistency Heatmap (`StrideLabVisualKit.kt`):** Hosted on `Today -> All`; fills each active day with its discipline accent color and splits multi-discipline days horizontally into crisp color-coded segments separated by `1.dp` `#000000` hairlines, paired with a dynamic legend for active disciplines.
-- **Activity Tab Discipline Pill Strip (`ActivityHistoryTabScreen.kt`):** Custom AMOLED `34.dp` capsule pills centered in `>= 48.dp` touch targets (`#121212` / `#1F242B` hairline + discipline dot when inactive; solid signature discipline fill with `#080A08` bold ink and tabular count when selected).
+- **Activity Tab Discipline Pill Strip & Summary Cards (`ActivityHistoryTabScreen.kt`):** Custom AMOLED `34.dp` capsule pills centered in `>= 48.dp` touch targets (`#121212` / `#1F242B` hairline + discipline dot when inactive; solid signature discipline fill with `#080A08` bold ink and tabular count when selected), paired with `#121212` `ActivitySummaryCard`s showing top `EEE | MMM d` (`Mon | Nov 23`) date headers, real source provider pills (never `IMPORTED`), `TodayCachedGpsThumbnail` previews, and 3-column tabular metric strips (`DISTANCE | AVG PACE | AVG HR` for runs).
+- **App-Wide Press Highlight & Visual Coaching Cards (`StrideLabUiPrimitives.kt`, `Engine15CoachControls.kt`, `Engine15ScheduleReview.kt`, `NativeMainActivity.kt`):** Interactive cards and flat rows use `StrideLabInteractiveCard` / `Modifier.strideLabPressFeedback` (`0.978f` spring press scale, elevated press fill, accent border highlight, haptic tap, reduced-motion safe), paired with fluid `NavHost` detail/editor push/pop slide+scale+fade transitions (instant bottom-tab root switches) and low-text `#121212` coaching cards (KPI meter tiles, 5-segment fatigue selector bar, and 7-day visual availability/off-day strips).
 
 ## Related Nodes
 - [[00-StrideLab-Index]] · [[Screens-Map]] · [[Freeform-Logger]] · [[Share-Studio]] · [[Hard-Guardrails]] · [[App-Architecture]]

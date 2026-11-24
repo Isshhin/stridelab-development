@@ -49,26 +49,7 @@ internal fun PendingActivityMatchCards(state: TrainingState, actions: PlanAction
 @Composable
 internal fun AthleteDiagnosticsCard(diagnostic: AthleteDiagnosticSnapshot?, modifier: Modifier = Modifier) {
     if (diagnostic == null) return
-    SignalCard(modifier.testTag("coaching-diagnostics")) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("COACHING DIAGNOSTICS", style = MaterialTheme.typography.labelMedium, color = CoachingMuted)
-            CoachingBadge(diagnostic.overallConfidence.name)
-        }
-        val volume = diagnostic.volumeTolerance
-        Text("Volume · ${volume.completedKm.oneDecimal()} / ${volume.plannedKm.oneDecimal()} km · ${volume.completedSessions}/${volume.plannedSessions} sessions · ${volume.exposureStatus.name.prettyLabel()}", color = CoachingInk, style = MaterialTheme.typography.bodySmall)
-        val quality = diagnostic.qualityExecution
-        val hitRate = quality.verifiedHitRatePct?.let { "${it.toInt()}% verified hit rate" } ?: "${quality.verifiedHitCount}/${quality.evaluatedQualityCount} verified quality sessions"
-        val easy = diagnostic.easyDiscipline
-        Text("Quality · $hitRate · Easy days in zone ${easy.evaluatedEasyCount - easy.tooFastCount}/${easy.evaluatedEasyCount}", color = CoachingMuted, style = MaterialTheme.typography.bodySmall)
-        val hr = diagnostic.aerobicEfficiency
-        if (hr.hrDataAvailable) {
-            Text("HR efficiency · ${hr.trend.name.prettyLabel()}${hr.efChangePct?.let { " · ${it.oneDecimal()}%" } ?: ""}", color = CoachingMuted, style = MaterialTheme.typography.bodySmall)
-        }
-        diagnostic.insights.sortedBy { when (it.severity) { DiagnosticInsightSeverity.ACTIONABLE -> 0; DiagnosticInsightSeverity.CAUTION -> 1; DiagnosticInsightSeverity.INFO -> 2 } }.take(2).forEach { insight ->
-            Text("${insight.severity.name.prettyLabel()} · ${insight.message}", color = if (insight.severity == DiagnosticInsightSeverity.INFO) CoachingMuted else CoachingInk, style = MaterialTheme.typography.bodySmall)
-        }
-        if (diagnostic.recalibrationAdvisory == RecalibrationAdvisory.ADDRESS_EASY_PACING_FIRST) EasyPacingLockBanner()
-    }
+    AthleteDiagnosticsVisualCard(diagnostic = diagnostic, modifier = modifier)
 }
 
 @Composable

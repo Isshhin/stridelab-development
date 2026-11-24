@@ -74,7 +74,6 @@ internal fun TracksideManagePlanScreen(
     var confirmDraft by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmPause by rememberSaveable(plan.id) { mutableStateOf(false) }
     var confirmDelete by rememberSaveable(plan.id) { mutableStateOf(false) }
-    var showRecommendations by rememberSaveable(plan.id) { mutableStateOf(false) }
 
     Screen("Manage plan", "CURRENT TRAINING PLAN", compactTitle = true, dense = true) {
         item {
@@ -160,35 +159,6 @@ internal fun TracksideManagePlanScreen(
         if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan)) {
             item { Engine15CoachReviewCard(plan, actions, busy) }
             item { Engine15ScheduleReview(plan, actions, busy) }
-            item {
-                Surface(
-                    onClick = { showRecommendations = !showRecommendations },
-                    modifier = Modifier.fillMaxWidth().testTag("manage-recommendations"),
-                    color = StrideLabVisualPalette.surface,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, StrideLabVisualPalette.border)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(15.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Workout recommendations",
-                            modifier = Modifier.weight(1f),
-                            color = StrideLabVisualPalette.ink,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            if (showRecommendations) "Hide" else "Review ›",
-                            color = StrideLabVisualPalette.lime,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-            if (showRecommendations) item { Engine15RecommendationReview(plan, actions, busy) }
         }
         item {
             Text(

@@ -56,7 +56,6 @@ import kotlinx.coroutines.flow.drop
     }
     val plannedRun=session.discipline=="run" && session.status in setOf("planned","in_progress")
     var recordingOpen by rememberSaveable(plan.owner,session.id) { mutableStateOf(!plannedRun) }
-    var recommendationsOpen by rememberSaveable(plan.owner,session.id) { mutableStateOf(false) }
     var selectedStepIndex by rememberSaveable(plan.owner,session.id) { mutableStateOf<Int?>(null) }
     LaunchedEffect(session.id, session.difficultyStep) { selectedStepIndex = null }
     var minutes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.minutes ?: session.log?.minutes?.toString() ?: "") };var distance by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.distance ?: session.log?.distanceKm?.toString() ?: "") };var effort by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.effort ?: session.coachingLog()?.effort?.toString() ?: "") };var notes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.notes ?: session.log?.notes ?: "") }
@@ -402,19 +401,6 @@ import kotlinx.coroutines.flow.drop
                 session.linkedActivityId?.let { activityId ->
                     item { LinkedSourceRunCard(activityId) }
                 }
-                if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan) && (plan.status == "approved" || current.disclosure != null)) {
-                    item {
-                        TracksideWorkoutAccordion(
-                            title = "Workout recommendations",
-                            subtitle = "Optional coaching adjustments and guidance",
-                            expanded = recommendationsOpen,
-                            onToggle = { recommendationsOpen = !recommendationsOpen },
-                            tag = "workout-recommendations-accordion"
-                        ) {
-                            Engine15RecommendationReview(plan, actions, state.busy, session.id, embedded = true)
-                        }
-                    }
-                }
                 session.suggestion?.takeUnless { current.disclosure != null }?.let { suggestion ->
                     item { PendingSuggestionCard(suggestion) }
                 }
@@ -489,9 +475,6 @@ import kotlinx.coroutines.flow.drop
             }
         }
         session.linkedActivityId?.let { activityId -> item { LinkedSourceRunCard(activityId) } }
-        if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan) && (plan.status == "approved" || current.disclosure != null)) item {
-            Engine15RecommendationReview(plan, actions, state.busy, session.id)
-        }
         session.suggestion?.takeUnless { current.disclosure != null }?.let { suggestion -> item { PendingSuggestionCard(suggestion) } }
         if(!rest && Engine1Engines.canManage(plan) &&
             plan.status in setOf("approved","paused") &&

@@ -324,4 +324,137 @@ class NavigationShellUiTest {
         }
         compose.onAllNodesWithTag("training-add-workout").assertCountEquals(0)
     }
+
+    @Test
+    fun todayTappableHeroAndActivityCardsReturnToOriginAndShowRealSources() {
+        val today = java.time.LocalDate.now()
+        val activityDate = java.time.LocalDate.of(2026, 11, 23)
+        val garminRun = ActivityRecord(
+            id = "garmin-run-nov23",
+            source = "garmin",
+            type = "Run",
+            title = "Threshold Garmin Run",
+            startedAt = activityDate.atTime(7, 30)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toInstant(),
+            distanceM = 7450.0,
+            durationS = 2460.0,
+            movingTimeS = 2400.0,
+            recordedPace = 322.0,
+            averageHr = 152.0,
+            elevationM = 40.0
+        )
+        val plan = PlanSnapshot(
+            id = "plan-hero",
+            owner = "local",
+            engineVersion = ENGINE15_VERSION,
+            policyId = ENGINE15_POLICY,
+            createdAt = java.time.Instant.now().minusSeconds(86_400),
+            request = PlanRequest(policyChoice = ENGINE15_POLICY, goal = "Half Marathon", runDays = 4, days = setOf(1, 3, 5, 7)),
+            sessions = listOf(
+                PlannedSession(
+                    id = "today-s1",
+                    date = today,
+                    discipline = "run",
+                    title = "Easy Aerobic Run",
+                    minutes = 68,
+                    distanceKm = 9.9,
+                    kind = "easy"
+                )
+            ),
+            explanations = emptyList(),
+            status = "approved"
+        )
+
+        compose.runOnUiThread {
+            compose.activity.setContent {
+                StrideTheme {
+                    NativeStrideContent(
+                        state = TrainingState(
+                            initializing = false,
+                            account = null,
+                            localPlanOwner = "local",
+                            localGarminOwner = "local",
+                            localGarminIds = setOf(garminRun.id),
+                            plans = listOf(plan),
+                            activities = listOf(garminRun),
+                            todayPlanReady = true,
+                            activitySummariesReady = true
+                        ),
+                        online = false,
+                        actions = testNativeActions()
+                    )
+                }
+            }
+        }
+
+        // 1. Today hero card is tappable without "View Workout" and Back returns to Today
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("today-workout-action").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onAllNodesWithText("View Workout").assertCountEquals(0)
+        compose.onNodeWithTag("today-workout-action").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("workout-planned-title").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("floating-navigation-overlay").assertDoesNotExist()
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("today-workout-action").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("nav-home").assertIsSelected()
+
+        // 2. Activity card shows "Mon | Nov 23", real provider "GARMIN" (no "IMPORTED"), 3 metrics, and Back returns to Activity
+        compose.onNodeWithTag("nav-activities").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("activity-evidence-import:garmin-run-nov23").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("nav-activities").assertIsSelected()
+        compose.onNodeWithText("Mon | Nov 23").assertExists()
+        compose.onNodeWithText("GARMIN").assertExists()
+        compose.onAllNodesWithText("IMPORTED").assertCountEquals(0)
+        compose.onNodeWithText("DISTANCE").assertExists()
+        compose.onNodeWithText("AVG PACE").assertExists()
+        compose.onNodeWithText("AVG HR").assertExists()
+        compose.onNodeWithText("7.45 km").assertExists()
+        compose.onNodeWithText("5:22 /km").assertExists()
+        compose.onNodeWithText("152 bpm").assertExists()
+
+        compose.onNodeWithTag("activity-evidence-import:garmin-run-nov23").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("floating-navigation-overlay").fetchSemanticsNodes().isEmpty()
+        }
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("activity-history-tab").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("nav-activities").assertIsSelected()
+
+        // 3. Training tab shows revamped visual cards and omits Workout recommendations
+        compose.onNodeWithTag("nav-training").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("training-unified-timeline").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onAllNodesWithTag("workout-recommendations-accordion").assertCountEquals(0)
+        compose.onAllNodesWithText("Workout recommendations").assertCountEquals(0)
+        compose.onNodeWithTag("training-unified-timeline").performScrollToNode(hasTestTag("coach-week-review"))
+        compose.onNodeWithTag("coach-week-review").assertExists()
+
+        // 4. Manage plan renders Training Availability, omits Workout recommendations, and Back returns to Training
+        compose.onNodeWithTag("training-unified-timeline").performScrollToIndex(0)
+        compose.onNodeWithTag("training-manage-plan").assertIsDisplayed().performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("manage-back").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("manage-training-availability"))
+        compose.onNodeWithTag("manage-training-availability").assertExists()
+        compose.onAllNodesWithTag("manage-recommendations").assertCountEquals(0)
+        compose.onAllNodesWithText("Workout recommendations").assertCountEquals(0)
+        compose.onNodeWithTag("screen").performScrollToNode(hasTestTag("manage-back"))
+        compose.onNodeWithTag("manage-back").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithTag("training-unified-timeline").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithTag("nav-training").assertIsSelected()
+    }
 }

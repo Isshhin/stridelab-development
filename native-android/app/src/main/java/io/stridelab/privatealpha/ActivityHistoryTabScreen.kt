@@ -36,7 +36,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private val ActivityCardDateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("EEE | MMM d", Locale.ENGLISH)
 
 private val activityFilterDisciplines = listOf(
     ManualDiscipline.RUNNING,
@@ -228,7 +232,7 @@ internal fun ActivityHistoryTabScreen(
             }
         } else {
             items(filtered, key = { it.key }) { item ->
-                ActivityEvidenceRow(
+                ActivitySummaryCard(
                     item = item,
                     details = details,
                     onClick = {
@@ -340,95 +344,206 @@ private fun ActivityModernFilterPill(
 }
 
 @Composable
-private fun ActivityEvidenceRow(
+private fun ActivitySummaryCard(
     item: WorkoutEvidence,
     details: Map<String, ActivityDetail>,
     onClick: () -> Unit
 ) {
     val accent = item.discipline?.markColor ?: StrideLabSurfaceTokens.lime
-    val eyebrow = listOfNotNull(
-        item.discipline?.label ?: "Workout",
-        item.sourceLabel.takeIf { it.isNotBlank() }
-    ).joinToString(" · ").uppercase(Locale.ROOT)
-    val summaryMetrics = item.detail.ifBlank {
-        listOfNotNull(
-            item.durationMinutes?.takeIf { it > 0.0 }?.let { "${freeformNumber(it)} min" },
-            item.distanceKm?.takeIf { it > 0.0 }?.let { "${freeformNumber(it)} km" }
-        ).joinToString(" · ")
+    val dateLabel = remember(item.date) { item.date.format(ActivityCardDateFormatter) }
+    val isCoached = WorkoutEvidenceSource.ENGINE15 in item.sources
+    val providerLabel = remember(item.sourceLabel, isCoached) {
+        val raw = item.sourceLabel.ifBlank { if (isCoached) "Coached" else "Freeform" }
+        raw.uppercase(Locale.ENGLISH)
     }
-    val subline = listOfNotNull(
-        item.date.toString(),
-        summaryMetrics.takeIf { it.isNotBlank() }
-    ).joinToString(" · ")
-
     val importedId = (item.link as? WorkoutEvidenceLink.Imported)?.id
+    val cachedDetail = importedId?.let { details[it] }
     val showGpsThumb = importedId != null && item.discipline == ManualDiscipline.RUNNING
 
-    Column(
+    val totalSec = item.movingTimeSeconds?.takeIf { it.isFinite() && it > 0.0 }
+        ?: item.durationMinutes?.takeIf { it.isFinite() && it > 0.0 }?.times(60.0)
+    val distKm = item.distanceKm?.takeIf { it.isFinite() && it > 0.0 }
+    val avgPaceSec = item.avgPaceSecPerKm?.takeIf { it.isFinite() && it > 0.0 }
+        ?: if (item.discipline == ManualDiscipline.RUNNING && distKm != null && distKm >= 0.05 && totalSec != null) {
+            totalSec / distKm
+        } else null
+    val avgHr = item.avgHrBpm?.takeIf { it.isFinite() && it > 0.0 }
+
+    val metrics: List<Pair<String, String>> = if (item.discipline == ManualDiscipline.RUNNING) {
+        val distStr = distKm?.let { String.format(Locale.US, "%.2f km", it) } ?: "—"
+        val paceStr = avgPaceSec?.let { formatActivityPace(it) } ?: "—"
+        val hrStr = avgHr?.let { "${it.toInt()} bpm" } ?: "—"
+        listOf(
+            "DISTANCE" to distStr,
+            "AVG PACE" to paceStr,
+            "AVG HR" to hrStr
+        )
+    } else {
+        val durStr = formatActivityDuration(totalSec, item.durationMinutes)
+        val setsMatch = Regex("""(\d+)\s+sets?""", RegexOption.IGNORE_CASE).find(item.detail)?.groupValues?.getOrNull(1)
+        val secondMetric = when {
+            distKm != null -> "DISTANCE" to String.format(Locale.US, "%.2f km", distKm)
+            setsMatch != null -> "SETS" to "$setsMatch sets"
+            else -> "DISCIPLINE" to (item.discipline?.label ?: "Workout")
+        }
+        val thirdMetric = when {
+            avgHr != null -> "AVG HR" to "${avgHr.toInt()} bpm"
+            else -> "TYPE" to (if (isCoached) "Coached" else "Freeform")
+        }
+        listOf(
+            "DURATION" to durStr,
+            secondMetric,
+            thirdMetric
+        )
+    }
+
+    StrideLabInteractiveCard(
+        onClick = onClick,
+        accentColor = accent,
+        containerColor = StrideLabSurfaceTokens.surfaceElevated,
+        shape = RoundedCornerShape(18.dp),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("activity-evidence-${item.key}")
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 64.dp)
-                .clickable(onClick = onClick)
-                .padding(vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height(38.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(accent)
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = eyebrow,
-                    color = StrideLabSurfaceTokens.inkMuted,
-                    fontSize = 10.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.7.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = item.title,
-                    color = StrideLabSurfaceTokens.ink,
-                    fontSize = 15.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = subline,
-                    color = StrideLabSurfaceTokens.inkSecondary,
-                    fontSize = 12.5.sp,
-                    style = TabularTextStyle,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(width = 10.dp, height = 4.dp)
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(accent)
+                    )
+                    Text(
+                        text = dateLabel,
+                        color = StrideLabSurfaceTokens.inkSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        style = TabularTextStyle,
+                        maxLines = 1
+                    )
+                }
+                Surface(
+                    color = StrideLabSurfaceTokens.surfaceMuted,
+                    shape = RoundedCornerShape(100.dp),
+                    border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+                ) {
+                    Text(
+                        text = providerLabel,
+                        color = accent,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.8.sp,
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
+                    )
+                }
             }
-            if (showGpsThumb) {
-                TodayCachedGpsThumbnail(
-                    activityId = importedId,
-                    detail = details[importedId],
-                    modifier = Modifier.size(width = 64.dp, height = 40.dp)
-                )
-            } else {
-                Text(
-                    text = "›",
-                    color = StrideLabSurfaceTokens.inkMuted,
-                    fontSize = 18.sp
-                )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(
+                        text = (item.discipline?.label ?: "Workout").uppercase(Locale.ENGLISH),
+                        color = StrideLabSurfaceTokens.inkMuted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.9.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = item.title,
+                        color = StrideLabSurfaceTokens.ink,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (showGpsThumb) {
+                    TodayCachedGpsThumbnail(
+                        activityId = importedId,
+                        detail = cachedDetail,
+                        modifier = Modifier.size(width = 68.dp, height = 42.dp)
+                    )
+                } else {
+                    Text(
+                        text = "›",
+                        color = StrideLabSurfaceTokens.inkMuted,
+                        fontSize = 18.sp
+                    )
+                }
+            }
+
+            StrideLabHairline()
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                metrics.forEach { (label, value) ->
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = label,
+                            color = StrideLabSurfaceTokens.inkMuted,
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.8.sp,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = value,
+                            color = StrideLabSurfaceTokens.ink,
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            style = TabularTextStyle,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
             }
         }
-        StrideLabHairline()
+    }
+}
+
+private fun formatActivityPace(secPerKm: Double): String {
+    val totalSec = secPerKm.toInt().coerceAtLeast(1)
+    val mins = totalSec / 60
+    val secs = totalSec % 60
+    return String.format(Locale.US, "%d:%02d /km", mins, secs)
+}
+
+private fun formatActivityDuration(movingSeconds: Double?, durationMinutes: Double?): String {
+    val sec = movingSeconds?.takeIf { it.isFinite() && it > 0.0 }?.toInt()
+        ?: durationMinutes?.takeIf { it.isFinite() && it > 0.0 }?.let { (it * 60.0).toInt() }
+        ?: return "—"
+    val hrs = sec / 3600
+    val mins = (sec % 3600) / 60
+    val remSec = sec % 60
+    return when {
+        hrs > 0 -> String.format(Locale.US, "%d:%02d:%02d", hrs, mins, remSec)
+        else -> String.format(Locale.US, "%d:%02d", mins, remSec)
     }
 }

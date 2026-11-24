@@ -43,7 +43,6 @@ internal fun TracksideParityPausedPlan(
         }
         if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan)) {
             item { Engine15ScheduleReview(plan, actions, busy) }
-            item { Engine15RecommendationReview(plan, actions, busy) }
         }
         item {
             Surface(

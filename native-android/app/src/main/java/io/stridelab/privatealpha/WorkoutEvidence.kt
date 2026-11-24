@@ -6,7 +6,7 @@ import java.util.Locale
 import kotlin.math.round
 
 internal enum class WorkoutEvidenceSource(val label: String) {
-    ENGINE15("Coached"), CUSTOM_PLANNED("Custom"), FREEFORM("Freeform"), GARMIN_IMPORTED("Imported")
+    ENGINE15("Coached"), CUSTOM_PLANNED("Custom"), FREEFORM("Freeform"), GARMIN_IMPORTED("Garmin")
 }
 
 internal sealed interface WorkoutEvidenceLink {
@@ -47,7 +47,11 @@ internal data class WorkoutEvidence(
     val durationMinutes: Double? = null,
     val effort: Int? = null,
     val movements: List<ConfirmedMovement> = emptyList(),
-    val legacySets: Int? = null
+    val legacySets: Int? = null,
+    val originLabel: String? = null,
+    val avgPaceSecPerKm: Double? = null,
+    val avgHrBpm: Double? = null,
+    val movingTimeSeconds: Double? = null
 ) {
     val sources: Set<WorkoutEvidenceSource> get() =
         if (link is WorkoutEvidenceLink.Imported && link.coached.isNotEmpty()) {
@@ -56,7 +60,10 @@ internal data class WorkoutEvidence(
 
     val sourceLabel: String get() =
         if (link is WorkoutEvidenceLink.Manual && link.legacy) "Manual"
-        else sources.joinToString(" · ") { it.label }
+        else sources.joinToString(" · ") { s ->
+            if (s == WorkoutEvidenceSource.GARMIN_IMPORTED) originLabel?.takeIf { it.isNotBlank() } ?: s.label
+            else s.label
+        }
 
     val detail: String get() = evidenceMetrics(listOf(this), discipline).joinToString(" · ")
 }
@@ -88,6 +95,19 @@ internal fun projectWorkoutEvidence(
             WorkoutEvidenceLink.Coached(planId, session.id)
         }
         val matched = matches.singleOrNull()?.second
+        val origin = when {
+            recording.source.equals("garmin", ignoreCase = true) -> "Garmin"
+            recording.source.equals("fit", ignoreCase = true) -> "FIT"
+            else -> recording.sourceLabel.removeSuffix(" import").trim().ifBlank { "Garmin" }
+        }
+        val movingSec = (recording.movingTimeS ?: recording.durationS)?.takeIf { it.isFinite() && it > 0.0 }
+        val distM = recording.distanceM?.takeIf { it.isFinite() && it > 0.0 }
+        val avgPace = if (recording.supportsPace) {
+            recording.recordedPace?.takeIf { it.isFinite() && it > 0.0 }
+                ?: recording.garminMovingPaceSPerKm?.takeIf { it.isFinite() && it > 0.0 }
+                ?: if (distM != null && distM >= 50.0 && movingSec != null) movingSec / (distM / 1000.0) else null
+        } else null
+        val avgHr = recording.averageHr?.takeIf { it.isFinite() && it > 0.0 }
         WorkoutEvidence(
             "import:${recording.id}", WorkoutEvidenceSource.GARMIN_IMPORTED,
             WorkoutEvidenceLink.Imported(recording.id, ids, references),
@@ -96,7 +116,11 @@ internal fun projectWorkoutEvidence(
             (recording.distanceM?.div(1000.0)).positive() ?: matched?.log?.distanceKm.positive(),
             (recording.durationS?.div(60.0)).positive() ?: matched?.log?.minutes.positive(),
             actualEffort(matched?.runResponse?.effort ?: matched?.log?.effort),
-            matched?.let(::coachedMovements).orEmpty()
+            matched?.let(::coachedMovements).orEmpty(),
+            originLabel = origin,
+            avgPaceSecPerKm = avgPace,
+            avgHrBpm = avgHr,
+            movingTimeSeconds = movingSec
         )
     }
     val standaloneCoached = coached.filterNot { (planId, session) -> (planId to session.id) in linkedCoachKeys }
@@ -108,17 +132,19 @@ internal fun projectWorkoutEvidence(
                 log?.performedOn ?: log?.at?.atZone(zone)?.toLocalDate() ?: session.date,
                 log?.at?.toEpochMilli() ?: 0, session.effectiveTitle, coachedDiscipline(session),
                 log?.distanceKm.positive(), log?.minutes.positive(),
-                actualEffort(session.runResponse?.effort ?: log?.effort), coachedMovements(session)
+                actualEffort(session.runResponse?.effort ?: log?.effort), coachedMovements(session),
+                movingTimeSeconds = log?.minutes?.takeIf { it.isFinite() && it > 0.0 }?.times(60.0)
             )
         }
     val logged = board?.workouts.orEmpty().filter { it.owner == owner && it.isComplete }.mapNotNull { workout ->
         val date = workout.date ?: return@mapNotNull null
+        val durationMin = workout.durationMinutes.actualDecimal()
         WorkoutEvidence(
             "manual:${workout.id}",
             if (workout.custom == null) WorkoutEvidenceSource.FREEFORM else WorkoutEvidenceSource.CUSTOM_PLANNED,
             WorkoutEvidenceLink.Manual(workout.id), date, workout.completedAt ?: workout.modifiedAt,
             workout.title, workout.discipline,
-            workout.distanceKm.actualDecimal(), workout.durationMinutes.actualDecimal(), actualEffort(workout.effort.trim().toIntOrNull()),
+            workout.distanceKm.actualDecimal(), durationMin, actualEffort(workout.effort.trim().toIntOrNull()),
             workout.exercises.mapNotNull { exercise ->
                 val actual = exercise.sets.filter { it.completed }.map { set ->
                     ConfirmedWorkoutSet(
@@ -129,7 +155,8 @@ internal fun projectWorkoutEvidence(
                     )
                 }
                 if (actual.isNotEmpty()) ConfirmedMovement(exercise.name, actual) else null
-            }
+            },
+            movingTimeSeconds = durationMin?.takeIf { it.isFinite() && it > 0.0 }?.times(60.0)
         )
     }
     val legacy = board?.legacy.orEmpty().filter { it.owner == owner }.map {

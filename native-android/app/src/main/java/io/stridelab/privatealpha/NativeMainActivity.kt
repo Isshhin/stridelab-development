@@ -13,6 +13,11 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -144,10 +149,9 @@ internal data class NativeActions(val signOut: () -> Unit, val signIn: (String, 
     val restoreLocalArchive: (suspend (LocalActivityArchiveScope,java.io.File) -> LocalActivityArchiveCounts)? = null,
     val freeform: FreeformAccess? = null)
 
-/** Primary destinations switch immediately while retaining Navigation Compose transitions. */
+/** Primary tab roots switch cleanly with zero flash; detail/editor screens animate smoothly. */
 private val mainTabRoutes = setOf("home", "training", "activities", "settings")
-private fun immediateTransition(from: String?, to: String?) =
-    to in mainTabRoutes || from?.startsWith("freeform/") == true || to?.startsWith("freeform/") == true
+private fun isTabRootSwitch(from: String?, to: String?) = to in mainTabRoutes
 
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
@@ -164,9 +168,10 @@ private fun NavHostController.openTabRoot(path: String) {
     if(currentDestination?.route != path) popBackStack(path, inclusive = false)
 }
 
-private fun NavHostController.openWorkout(planId:String,sessionId:String) {
-    openTabRoot("training")
-    navigate("workout/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}")
+private fun NavHostController.openWorkout(planId: String, sessionId: String) {
+    navigate("workout/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}") {
+        launchSingleTop = true
+    }
 }
 
 private fun NavHostController.openActivity(id: String) {
@@ -317,31 +322,39 @@ private fun NavHostController.openActivity(id: String) {
             Column(Modifier.fillMaxSize()) {
             // Keep the signed-out primary screens composed independently of
             // NavHost so their remembered state survives tab switches.
+            val reducedNavMotion = remember(settingsContext) { isSystemReducedMotion(settingsContext) }
             Box(Modifier.weight(1f)) {
             NavHost(
                 navController = nav,
                 startDestination = "home",
-                // Content is laid out behind the dock, not pushed upward into
-                // a blank bottom stripe. Scrollable roots reserve their own
-                // ending padding so their final actions remain reachable.
                 modifier = Modifier.fillMaxSize(),
-                // Navigation Compose's default 700 ms fade made the bottom tabs
-                // feel like a flash. The lime dock pill is the only tab motion.
                 enterTransition = {
-                    if (immediateTransition(initialState.destination.route, targetState.destination.route)) EnterTransition.None
-                    else fadeIn(animationSpec = tween(700))
+                    val from = initialState.destination.route
+                    val to = targetState.destination.route
+                    if (reducedNavMotion || isTabRootSwitch(from, to)) EnterTransition.None
+                    else slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { it / 6 } +
+                        fadeIn(tween(200))
                 },
                 exitTransition = {
-                    if (immediateTransition(initialState.destination.route, targetState.destination.route)) ExitTransition.None
-                    else fadeOut(animationSpec = tween(700))
+                    val from = initialState.destination.route
+                    val to = targetState.destination.route
+                    if (reducedNavMotion || isTabRootSwitch(from, to)) ExitTransition.None
+                    else scaleOut(targetScale = 0.96f, animationSpec = tween(260)) +
+                        fadeOut(tween(180))
                 },
                 popEnterTransition = {
-                    if (immediateTransition(initialState.destination.route, targetState.destination.route)) EnterTransition.None
-                    else fadeIn(animationSpec = tween(700))
+                    val from = initialState.destination.route
+                    val to = targetState.destination.route
+                    if (reducedNavMotion || (from in mainTabRoutes && to in mainTabRoutes)) EnterTransition.None
+                    else scaleIn(initialScale = 0.96f, animationSpec = tween(240)) +
+                        fadeIn(tween(200))
                 },
                 popExitTransition = {
-                    if (immediateTransition(initialState.destination.route, targetState.destination.route)) ExitTransition.None
-                    else fadeOut(animationSpec = tween(700))
+                    val from = initialState.destination.route
+                    val to = targetState.destination.route
+                    if (reducedNavMotion || (from in mainTabRoutes && to in mainTabRoutes)) ExitTransition.None
+                    else slideOutHorizontally(tween(220, easing = FastOutSlowInEasing)) { it / 5 } +
+                        fadeOut(tween(170))
                 }
             ) {
                 composable("home") { /* Root content is retained below NavHost. */ }
@@ -600,7 +613,7 @@ private fun NavHostController.openActivity(id: String) {
                                 leave = { nav.popBackStack() },
                                 saved = { completedId ->
                                     nav.navigate("freeform/history/freeform/${android.net.Uri.encode(completedId)}") {
-                                        popUpTo("training") { inclusive = false }
+                                        popUpTo(destination.id) { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 }
@@ -623,7 +636,7 @@ private fun NavHostController.openActivity(id: String) {
                                 leave = { nav.popBackStack() },
                                 saved = { completedId ->
                                     nav.navigate("freeform/history/freeform/${android.net.Uri.encode(completedId)}") {
-                                        popUpTo("training") { inclusive = false }
+                                        popUpTo(destination.id) { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 }
@@ -658,9 +671,7 @@ private fun NavHostController.openActivity(id: String) {
                         plan = plan, selected = selected, busy = state.busy,
                         actions = actions.planning,
                         onBack = {
-                            // Return to Training explicitly. A saved tab destination may
-                            // not be the immediate prior NavHost entry after tab restore.
-                            if (!nav.popBackStack("training", inclusive = false)) {
+                            if (!nav.popBackStack()) {
                                 nav.openTabRoot("training")
                             }
                         },
