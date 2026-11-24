@@ -1,7 +1,7 @@
 # StrideLab — Full Portable Context Pack
 
-> **Generated:** 2026-11-24 13:12 UTC  
-> **Verified Commit:** `75ce697e`  
+> **Generated:** 2026-11-24 14:01 UTC  
+> **Verified Commit:** `1f712a2a`  
 > **Included Nodes:** 20  
 > **Purpose:** Complete architecture, guardrails, active features, UI system, ADRs, and marked roadmap ideas.
 
@@ -40,7 +40,7 @@
 StrideLab is an **offline-first native Android running and multi-discipline training coach** built in Kotlin and Jetpack Compose (`compileSdk 36`, `targetSdk 35`, `minSdk 26`, Gradle JDK 21). It combines deterministic periodized coaching (**Engine 1.5**), signed-out-capable **Garmin Personal API / `.FIT` ingestion & watch workout export**, a **6-discipline Freeform Logger & Custom Workout Planner**, an **AMOLED Guided Workout Player & Coach's Debrief**, and a **canvas-first Share Studio**.
 
 ## Architecture Snapshot
-- **Navigation Shell:** 3-tab floating capsule (`Today | Training | More`) backed by `TrainingViewModel` (`StateFlow<TrainingState>`) and single-mutex `TrainingRepository`.
+- **Navigation Shell:** Edge-to-edge 5-slot docked AMOLED bar (`Today | Training | [ + ] | Activity | More`) with center Quick-Log bottom sheet (`QuickLogSheet.kt`) and read-only `Activity` history tab (`ActivityHistoryTabScreen.kt`), backed by `TrainingViewModel` (`StateFlow<TrainingState>`) and single-mutex `TrainingRepository`.
 - **Storage Separation:** `TrainingStore` (`stridelab-athlete-v1.db`) stores plans, activities, drafts, diagnostics, adaptations, and checkpoints; `ManualDisciplineStore` (`stridelab-standalone-sessions-v1.db`) isolates Freeform workouts, templates, and custom schedules; `SharePresetStore` (`share-studio-v1`) stores visual design preferences only.
 - **Offline & Privacy First:** Garmin sync, FIT decoding/export, Engine 1.5 generation, Freeform logging, and Share Studio work with `state.account == null`. GPS route sharing defaults to `200 m` endpoint trimming.
 
@@ -54,7 +54,7 @@ StrideLab is an **offline-first native Android running and multi-discipline trai
 ## Knowledge Graph Map
 
 ### Architecture & Guardrails
-- [[App-Architecture]] — 3-tab Compose shell, `TrainingRepository` mutex pipeline, offline ownership, background workers, and JDK 21 verification commands.
+- [[App-Architecture]] — 5-slot docked Compose shell (`Today | Training | [ + ] | Activity | More`), `TrainingRepository` mutex pipeline, offline ownership, background workers, and JDK 21 verification commands.
 - [[Engine-1.5]] — Deterministic running & multi-discipline planning, proportional periodization, 14-archetype workout library, difficulty scaling, `.FIT` auto-matcher, diagnostics, and controlled adaptation with rollback.
 - [[Storage-and-FIT-Contracts]] — `PLAN_SCHEMA = 1`, `TrainingStore.java`, `ManualDisciplineStore` (DB v4 / archive v5), Garmin `.FIT` intake/export contracts, `SharePresetStore` v1, and two-tier GPS thumbnail `LruCache`.
 - [[Hard-Guardrails]] — Non-negotiable engineering, scientific, privacy, offline, and UI invariants enforced across code and tests.
@@ -75,7 +75,7 @@ StrideLab is an **offline-first native Android running and multi-discipline trai
 - [[ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging]] — Why Freeform workouts, templates, and custom schedules live in an isolated store and never mutate Engine 1.5 plans.
 - [[ADR-02-GPS-200m-Default-Privacy-Trimming]] — Why Share Studio trims 200 m from GPS start/finish by default while keeping full-activity stats intact.
 - [[ADR-03-Offline-First-Independent-Local-Ownership]] — Why `localGarminOwner` and `localPlanOwner` operate independently of StrideLab cloud authentication.
-- [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]] — Why redundant screens (`freeform/evidence`, Library tab, legacy analytics) were retired while keeping `WorkoutEvidence` and baseline calculators active.
+- [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]] — Why redundant views (`freeform/evidence`, Library tab, legacy analytics) stay retired while promoting the read-only `Activity` tab (`WorkoutEvidence.kt`) and center Quick-Log sheet in the 5-slot docked bar.
 
 ### Roadmap (Shipped Overhauls & Planned / Parked Concepts)
 - [[Strength-and-Calisthenics-Overhaul]] — `status: verified` — Set-Table default (`CoachedSetTable.kt`) over `WorkoutPlayerEngine`, scoped hold-timer handoff, effort-anchored / e1RM double progression (`StrengthCalisthenicsProgression.kt`), opt-in Calisthenics upgrades, and muscle metadata prep. Follow-ups: [[Anatomical-Muscle-Map]] and [[Main-and-Supporting-Plans]].
@@ -91,7 +91,7 @@ StrideLab is an **offline-first native Android running and multi-discipline trai
 
 - **Source Node:** `docs/wiki/architecture/App-Architecture.md`
 - **Area / Status:** `architecture` / `verified`
-- **Key Files:** `native-android/app/src/main/java/io/stridelab/privatealpha/StrideApplication.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/TrainingRepository.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/NativeMainActivity.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/PlanActions.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFloatingNavigation.kt`
+- **Key Files:** `native-android/app/src/main/java/io/stridelab/privatealpha/StrideApplication.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/TrainingRepository.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/NativeMainActivity.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/PlanActions.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFloatingNavigation.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/QuickLogSheet.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/ActivityHistoryTabScreen.kt`
 
 # App Architecture & Data Flow
 
@@ -108,14 +108,16 @@ TrainingRepository (Mutex + Dispatchers.IO) ──► Engine 1.5 Pure Planners &
 TrainingViewModel (StrideApplication.kt) ──► PlanActions / NativeActions / FreeformAccess
         │
         ▼
-NativeMainActivity NavHost ──► Jetpack Compose Screens (3-Tab Shell + Detail Routes)
+NativeMainActivity NavHost ──► Jetpack Compose Screens (5-Slot Docked Shell + Detail Routes)
 ```
 
 ## Navigation Shell (`NativeMainActivity.kt`)
-- **3 Retained Tab Roots** hosted beneath `TracksideFloatingNavigation` (`68.dp` floating capsule, animated lime indicator):
+- **4 Retained Tab Roots + Center Quick-Log CTA** hosted above `TracksideFloatingNavigation` (edge-to-edge `#0A0B0D` docked AMOLED bar with `1.dp` `#1F242B` hairline):
   1. `home` → **Today** (`StrideLabTodayScreen.kt`, `TodayAdaptiveDashboard.kt`, `TodayDisciplineDashboard.kt`)
   2. `training` → **Training** (`StrideLabUnifiedTrainingTimeline.kt`, `TracksideParityTraining.kt`)
-  3. `settings` → **More** (`TracksideMoreScreen.kt`, `MoreFeatureUi.kt`)
+  3. Center `[ + ]` Quick-Log (`nav-quick-log`) → opens `#121212` `QuickLogBottomSheet` (`QuickLogSheet.kt`)
+  4. `activities` → **Activity** (`ActivityHistoryTabScreen.kt`, backed read-only by `WorkoutEvidence.kt`, signed-out capable)
+  5. `settings` → **More** (`TracksideMoreScreen.kt`, `MoreFeatureUi.kt`)
 - **Full-Screen Detail & Workflow Routes** (`showFloatingDock == false`): Workout Detail, Guided Workout Player, Activity Detail, Share Studio dialog, Plan Builder / Blueprint preview, Freeform Logger / Templates / Custom Planner, and More subpages. See [[Screens-Map]].
 
 ## State Management & Ownership
@@ -263,7 +265,7 @@ These invariants are non-negotiable contracts enforced across StrideLab's coachi
 - **Workout Recap Provenance Honesty:** Recorded laps are explicitly labeled with provenance and never misrepresented as verified `WORK/RECOVERY` intervals unless classified.
 
 ## 4. UI, Accessibility & Telemetry Guardrails
-- **3-Tab Shell:** Retain `Today | Training | More` (`TracksideFloatingNavigation`); never reintroduce retired `nav-library`, concentric TSS rings, or Intervals.icu sync. See [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]].
+- **5-Slot Docked Shell:** Retain the edge-to-edge AMOLED docked bar `Today | Training | [ + ] | Activity | More` (`TracksideFloatingNavigation`); never reintroduce retired `nav-library`, concentric TSS rings on `Today`, legacy standalone running analytics/comparison pages, or Intervals.icu sync. See [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]].
 - **Moving-Time Telemetry Charts:** Activity Detail charts render continuous source-measured lines on a pause-compressed moving-time x-axis (`ActivityChartMovingTimeAxis.kt`).
 - **Accessibility & Touch Targets:** Primary interactive controls maintain `>= 48.dp` touch targets, tabular numerals (`tnum`), and zero horizontal overflow across `320 dp`, `360 dp`, and `412 dp` viewports up to `1.3x` font scale.
 
@@ -379,8 +381,9 @@ StrideLab aggregates completed workouts across Coached plans, Custom schedules, 
   - Longest confirmed run from the past 30 days.
 - Values populate plan-builder inputs only on explicit athlete tap — never silently overwriting manual entries or inventing mileage for zero-history runners (see [[Engine-1.5]]).
 
-## Retirement of Standalone `Workout history` UI
-- The standalone `Workout history` sub-screen (`freeform/evidence` and `training-workout-history` header link) was retired during UI Modernization to keep history unified directly inside **Today** (`Recent Activities` → `See all`) and **Training** (`StrideLabUnifiedTrainingTimeline`). `WorkoutEvidence.kt` and `HistoryBaselineCard` remain active underneath. See [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]].
+## Dedicated `Activity` Tab & Retirement of Legacy `Workout history` UI
+- **Dedicated `Activity` Tab (`ActivityHistoryTabScreen.kt`):** Completed workout history across Garmin / `.FIT`, Coached, Custom, and Freeform sources now lives in the primary **`Activity`** tab (`activities` in the 5-slot docked bar) backed read-only by `projectWorkoutEvidence`, with discipline filter chips (`>= 48.dp`), `TodayCachedGpsThumbnail` previews, and signed-out parity (`ADR-03`). **Training** stays focused on forward-looking plans and schedules, and **Today** (`Recent Activities` → `See all`) jumps straight to `Activity`.
+- **Legacy Retired Routes:** The older redundant `freeform/evidence` and `training-workout-history` screens, concentric TSS rings, and legacy running analytics pages remain permanently retired while keeping `WorkoutEvidence.kt` and `HistoryBaselineCard` active. See [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]].
 
 ## Related Nodes
 - [[00-StrideLab-Index]] · [[Freeform-Logger]] · [[Templates-and-Custom-Planner]] · [[Garmin-and-Activity-Import]] · [[Engine-1.5]] · [[Screens-Map]] · [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]]
@@ -461,14 +464,17 @@ Templates and Custom Schedules allow athletes to author reusable multi-disciplin
 
 All navigation routes live under `NativeMainActivity.kt` (`NavHost`) reading immutable `TrainingState` (`TrainingRepository`) and dispatching through `PlanActions`, `NativeActions`, and `FreeformAccess`.
 
-## 1. Three Primary Tab Roots (`showFloatingDock == true`)
+## 1. Primary Tab Roots & Center Quick-Log (`showFloatingDock == true`)
 - **`home` → Today (`StrideLabTodayScreen.kt`, `TodayAdaptiveDashboard.kt`, `TodayDisciplineDashboard.kt`):**
   - Top discipline filter chips scope the Monday–Sunday strip (`TodayWeekCalendar`), selected-day training card, and adherence across all approved plans (`All`, `Running`, `Strength`, `Calisthenics`, `Conditioning`).
-  - Uses a 3-section AMOLED layout: `TodayDateContextHeader` + `TodayDailyTrainingCard` (Planned / Recorded / RestDay / Companion CTA + `180 ms` neutral skeletons), centered 3-column `TodayTrainingOverviewCard` (`Run km`, `Run hours`, `Runs` + non-running pills), and hairline-separated `TodayRecentActivitiesSection` (with `TodayCachedGpsThumbnail`, zero redundant circular shoe icons).
+  - Uses a 3-section AMOLED layout: `TodayDateContextHeader` + `TodayDailyTrainingCard` (Planned / Recorded / RestDay / Companion CTA + `180 ms` neutral skeletons), centered 3-column `TodayTrainingOverviewCard` (`Run km`, `Run hours`, `Runs` + non-running pills), and hairline-separated `TodayRecentActivitiesSection` (with `TodayCachedGpsThumbnail`, zero redundant circular shoe icons, and `See all` opening the `Activity` tab).
   - Surfaces pending `.FIT` auto-match cards (`All` / `Running`) and controlled adaptation review banners (`All`).
 - **`training` → Training (`StrideLabUnifiedTrainingTimeline.kt`, `TracksideParityTraining.kt`):**
-  - Calendar-first weekly header with symmetrically aligned `<` / `>` week navigation arrows (`training-week-prev` / `training-week-next`) and a centered bottom `"Return to Today"` / `"Show week"` pill (`training-return-today`) separated by `StrideLabHairline`.
-  - Flattened hairline-separated timeline rows mixing **Coached**, **Custom**, **Freeform**, and **Garmin / FIT** sessions, plus plan management, Coaching Diagnostics, adaptation review/undo, paused plans, and **Add workout** (`training-add-workout` → Workouts hub).
+  - Focused on forward-looking plans, calendar-first weekly scheduling (`training-week-prev` / `training-week-next`, centered `"Return to Today"` / `"Show week"` pill separated by `StrideLabHairline`), custom schedules, Coaching Diagnostics, and athlete-approved plan adaptations.
+- **Center `[ + ]` Quick-Log (`QuickLogSheet.kt`):**
+  - Opens a `#121212` `ModalBottomSheet` (`quick-log-sheet`) directly over any primary tab: conditional `In progress` drafts (resume / `48.dp` discard), 2×3 discipline empty-workout grid (`freeform/new/{discipline}` with lazy no-ghost-draft persistence), and direct shortcuts to `Workout templates` & Workouts hub.
+- **`activities` → Activity (`ActivityHistoryTabScreen.kt`):**
+  - Primary read-only history tab backed by `WorkoutEvidence.kt` (`projectWorkoutEvidence`) unifying Garmin / `.FIT`, Coached, Custom, and Freeform completions with horizontal discipline filter chips (`>= 48.dp`), tabular numerals, `TodayCachedGpsThumbnail` route previews for imported runs, and direct tap routing to `activity/{id}`, `workout/{planId}/{sessionId}`, or `freeform/history/{kind}/{id}` (signed-out capable per [[ADR-03-Offline-First-Independent-Local-Ownership]]).
 - **`settings` → More (`TracksideMoreScreen.kt`, `MoreFeatureUi.kt`):**
   - Account card (`AccountProfilePresentation.resolve`) displays user name or email (or `"StrideLab Account"` fallback, JWT claim extraction when needed) — never raw UUIDs as the primary title. When signed out, displays `"Not signed in · Saved on this device"` independently alongside Garmin Connect status.
   - Hosts Garmin Connection, `more/offline-maps`, `more/activity-backup`, `more/preferences`, `more/about`, and `auth/*`.
@@ -526,7 +532,7 @@ StrideLab uses a pure AMOLED black design system (`StrideLabSurfaceTokens` in `S
 ## Shared Visualization Components
 - **Today Route Thumbnails (`ActivityThumbnailCache.kt`, `TodayStartup.kt`):** Synchronously checks the 6 MB in-memory `LruCache` on frame 1 before touching disk cache, eliminating tab-switch flicker.
 - **Workout Profile & Step Timeline (`TracksidePlannedRunningPreview.kt`, `TracksideRunningStepCards.kt`):** Pure-Compose proportional bar chart (`flattenProfileBars` + `-2..+2` difficulty selector) synced with `SingleStep` / `RepeatGroup` cards.
-- **Floating Navigation Capsule (`TracksideFloatingNavigation.kt`):** `68.dp` pill hosting `Today`, `Training`, and `More`; hidden automatically on full-screen detail, editor, and studio flows.
+- **Docked Navigation Bar (`TracksideFloatingNavigation.kt`, `QuickLogSheet.kt`):** Edge-to-edge flat `#0A0B0D` bar topped by a `1.dp` `#1F242B` `StrideLabHairline` and `navigationBarsPadding()` with 5 equal slots (`Today | Training | [ + ] | Activity | More`), solid `#D8FB70` center `+` CTA (`48.dp × 48.dp`), `>= 48.dp` touch targets, single-line labels, and `#121212` `QuickLogBottomSheet` modal; automatically hidden on full-screen detail, editor, and studio flows.
 - **Anatomical Muscle Map (`AnatomicalMuscleMap.kt`, `ExerciseInfoSheet.kt`):** Pure-Compose side-by-side `FRONT` / `BACK` vector silhouettes using `#181A1D` / `#1F242B` base geometry and the unified `#D8FB70` lime luminance scale (`0.28f..0.95f` alpha), responsive legend stacking below `340 dp`, and a `#121212` `ExerciseInfoSheet` modal. See [[Anatomical-Muscle-Map]].
 
 ## Related Nodes
@@ -616,7 +622,7 @@ Maintain independent local owner namespaces (`localGarminOwner`, `localPlanOwner
 
 - **Source Node:** `docs/wiki/decisions/ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers.md`
 - **Area / Status:** `decision` / `verified`
-- **Key Files:** `native-android/app/src/main/java/io/stridelab/privatealpha/NativeMainActivity.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/WorkoutEvidence.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/TodayAdaptiveDashboard.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/StrideLabUnifiedTrainingTimeline.kt`
+- **Key Files:** `native-android/app/src/main/java/io/stridelab/privatealpha/NativeMainActivity.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFloatingNavigation.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/QuickLogSheet.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/ActivityHistoryTabScreen.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/WorkoutEvidence.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/TodayAdaptiveDashboard.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/StrideLabUnifiedTrainingTimeline.kt`
 
 # ADR-04: Retiring Redundant UI Views While Preserving Unified Data Layers
 
@@ -624,10 +630,16 @@ Maintain independent local owner namespaces (`localGarminOwner`, `localPlanOwner
 Iterative feature additions accumulated overlapping navigation destinations (standalone `Workout history` screen `freeform/evidence`, a 4th Library tab, separate running analytics/comparison pages, and synthetic TSS ring cards) that duplicated **Today** and **Training** views.
 
 ## Decision
-Consolidate the navigation shell to 3 primary tabs (`Today | Training | More`) and retire redundant UI routes while retaining underlying pure-Kotlin calculation and storage layers:
-- Retired `freeform/evidence` and `training-workout-history`, keeping `WorkoutEvidence.kt` and `HistoryBaselineCard` intact to feed **Today**, **Training**, and Running Plan baseline setup.
+Consolidate overlapping views and retire redundant UI routes while retaining underlying pure-Kotlin calculation and storage layers:
+- Retired `freeform/evidence` and `training-workout-history`, keeping `WorkoutEvidence.kt` and `HistoryBaselineCard` intact to feed **Today**, **Activity**, **Training**, and Running Plan baseline setup.
 - Replaced concentric weekly TSS rings on `Today` with verified running totals (`Run km`, `Run hours`, `Runs`), active discipline pills, and strict link-gated adherence.
 - Removed duplicate header/list adornments (`WorkoutHistory` header link, redundant recent-row circular icons) and Intervals.icu UI.
+
+## Amendment — 5-Slot Docked Navigation Shell & Unified Activity Tab
+To separate forward-looking **Training** (coached plans, upcoming weeks, custom schedules, diagnostics, and adaptations) from chronological completed history without reintroducing `nav-library` or legacy standalone analytics:
+- Evolved the primary shell in `TracksideFloatingNavigation.kt` and `NativeMainActivity.kt` from a 3-tab floating capsule (`Today | Training | More`) to an edge-to-edge docked AMOLED bar with 5 balanced slots: **`Today | Training | [ + ] | Activity | More`**.
+- The center `#D8FB70` `[ + ]` button opens a `#121212` `QuickLogBottomSheet` over the current tab (in-progress drafts, 2×3 empty workout discipline grid, and templates/custom scheduler shortcuts).
+- **Activity** (`activities`) is promoted to a primary read-only tab (`ActivityHistoryTabScreen.kt`) backed directly by `projectWorkoutEvidence` (`WorkoutEvidence.kt`), keeping `Today`'s verified 3-section layout untouched and preserving offline/signed-out parity ([[ADR-03-Offline-First-Independent-Local-Ownership]]).
 
 ## Consequences
 - Cleaner navigation, fewer screen hops, and zero duplicate workout lists to keep synchronized.

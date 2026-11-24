@@ -9,6 +9,8 @@ key_files:
   - "native-android/app/src/main/java/io/stridelab/privatealpha/NativeMainActivity.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/PlanActions.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/TracksideFloatingNavigation.kt"
+  - "native-android/app/src/main/java/io/stridelab/privatealpha/QuickLogSheet.kt"
+  - "native-android/app/src/main/java/io/stridelab/privatealpha/ActivityHistoryTabScreen.kt"
 tags: [stridelab, architecture, compose, mvvm, offline-first]
 ---
 
@@ -27,14 +29,16 @@ TrainingRepository (Mutex + Dispatchers.IO) ──► Engine 1.5 Pure Planners &
 TrainingViewModel (StrideApplication.kt) ──► PlanActions / NativeActions / FreeformAccess
         │
         ▼
-NativeMainActivity NavHost ──► Jetpack Compose Screens (3-Tab Shell + Detail Routes)
+NativeMainActivity NavHost ──► Jetpack Compose Screens (5-Slot Docked Shell + Detail Routes)
 ```
 
 ## Navigation Shell (`NativeMainActivity.kt`)
-- **3 Retained Tab Roots** hosted beneath `TracksideFloatingNavigation` (`68.dp` floating capsule, animated lime indicator):
+- **4 Retained Tab Roots + Center Quick-Log CTA** hosted above `TracksideFloatingNavigation` (edge-to-edge `#0A0B0D` docked AMOLED bar with `1.dp` `#1F242B` hairline):
   1. `home` → **Today** (`StrideLabTodayScreen.kt`, `TodayAdaptiveDashboard.kt`, `TodayDisciplineDashboard.kt`)
   2. `training` → **Training** (`StrideLabUnifiedTrainingTimeline.kt`, `TracksideParityTraining.kt`)
-  3. `settings` → **More** (`TracksideMoreScreen.kt`, `MoreFeatureUi.kt`)
+  3. Center `[ + ]` Quick-Log (`nav-quick-log`) → opens `#121212` `QuickLogBottomSheet` (`QuickLogSheet.kt`)
+  4. `activities` → **Activity** (`ActivityHistoryTabScreen.kt`, backed read-only by `WorkoutEvidence.kt`, signed-out capable)
+  5. `settings` → **More** (`TracksideMoreScreen.kt`, `MoreFeatureUi.kt`)
 - **Full-Screen Detail & Workflow Routes** (`showFloatingDock == false`): Workout Detail, Guided Workout Player, Activity Detail, Share Studio dialog, Plan Builder / Blueprint preview, Freeform Logger / Templates / Custom Planner, and More subpages. See [[Screens-Map]].
 
 ## State Management & Ownership

@@ -25,8 +25,9 @@ StrideLab aggregates completed workouts across Coached plans, Custom schedules, 
   - Longest confirmed run from the past 30 days.
 - Values populate plan-builder inputs only on explicit athlete tap — never silently overwriting manual entries or inventing mileage for zero-history runners (see [[Engine-1.5]]).
 
-## Retirement of Standalone `Workout history` UI
-- The standalone `Workout history` sub-screen (`freeform/evidence` and `training-workout-history` header link) was retired during UI Modernization to keep history unified directly inside **Today** (`Recent Activities` → `See all`) and **Training** (`StrideLabUnifiedTrainingTimeline`). `WorkoutEvidence.kt` and `HistoryBaselineCard` remain active underneath. See [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]].
+## Dedicated `Activity` Tab & Retirement of Legacy `Workout history` UI
+- **Dedicated `Activity` Tab (`ActivityHistoryTabScreen.kt`):** Completed workout history across Garmin / `.FIT`, Coached, Custom, and Freeform sources now lives in the primary **`Activity`** tab (`activities` in the 5-slot docked bar) backed read-only by `projectWorkoutEvidence`, with discipline filter chips (`>= 48.dp`), `TodayCachedGpsThumbnail` previews, and signed-out parity (`ADR-03`). **Training** stays focused on forward-looking plans and schedules, and **Today** (`Recent Activities` → `See all`) jumps straight to `Activity`.
+- **Legacy Retired Routes:** The older redundant `freeform/evidence` and `training-workout-history` screens, concentric TSS rings, and legacy running analytics pages remain permanently retired while keeping `WorkoutEvidence.kt` and `HistoryBaselineCard` active. See [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]].
 
 ## Related Nodes
 - [[00-StrideLab-Index]] · [[Freeform-Logger]] · [[Templates-and-Custom-Planner]] · [[Garmin-and-Activity-Import]] · [[Engine-1.5]] · [[Screens-Map]] · [[ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers]]

@@ -114,7 +114,7 @@ class AnatomicalMuscleMapUiTest {
         compose.onNodeWithTag("coached-muscle-focus-toggle").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("session-muscle-focus").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("coached-set-list").performScrollToNode(hasTestTag("session-muscle-focus"))
-        compose.onNodeWithText("Planned session focus").assertIsDisplayed()
+        compose.onNodeWithText("Planned session focus").performScrollTo().assertIsDisplayed()
         val sessionFocusBounds = compose.onNodeWithTag("session-muscle-focus").getUnclippedBoundsInRoot()
         assertTrue(sessionFocusBounds.right <= root.right + 1.dp)
     }

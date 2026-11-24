@@ -5,6 +5,7 @@ import android.os.Bundle
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -143,20 +144,15 @@ internal data class NativeActions(val signOut: () -> Unit, val signIn: (String, 
     val restoreLocalArchive: (suspend (LocalActivityArchiveScope,java.io.File) -> LocalActivityArchiveCounts)? = null,
     val freeform: FreeformAccess? = null)
 
-/** Primary destinations switch immediately; the legacy Activity history route remains available.
- * retain the existing Navigation Compose transitions.
- */
-private val mainTabRoutes = setOf("home", "training", "settings")
+/** Primary destinations switch immediately while retaining Navigation Compose transitions. */
+private val mainTabRoutes = setOf("home", "training", "activities", "settings")
 private fun immediateTransition(from: String?, to: String?) =
     to in mainTabRoutes || from?.startsWith("freeform/") == true || to?.startsWith("freeform/") == true
 
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
-    // Do not dispatch another navigation transaction when the selected
-    // tab is already visible. Repeated taps must not rebuild its destination
-    // and interrupt the floating navigation pill's animation.
     if (currentDestination?.route == path) return
-    while(currentDestination?.route in setOf("activities", "activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "more/activity-backup", "builder/{discipline}", "workout/{planId}/{sessionId}", "manage/{planId}/{date}")) {
+    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "more/activity-backup", "builder/{discipline}", "workout/{planId}/{sessionId}", "manage/{planId}/{date}")) {
         if(!popBackStack()) break
     }
     navigate(path) {
@@ -227,6 +223,8 @@ private fun NavHostController.openActivity(id: String) {
     // still owns the back stack, restoration and child destination lifecycle;
     // the dock's animation never gates which retained root is laid out.
     var requestedTab by remember { mutableStateOf<String?>(null) }
+    var quickLogOpen by rememberSaveable { mutableStateOf(false) }
+    val quickLogScope = rememberCoroutineScope()
     val settingsContext = LocalContext.current.applicationContext
     var garminSheetOpen by remember { mutableStateOf(false) }
     var garminBusy by remember { mutableStateOf(false) }
@@ -266,7 +264,7 @@ private fun NavHostController.openActivity(id: String) {
     }
     val visibleActivities = remember(groupedActivities) { groupedActivities.map { it.primary } }
     val evidenceDate = LocalDate.now()
-    val evidence = if (route == "builder/{discipline}") {
+    val evidence = if (route == "builder/{discipline}" || visibleRoot == "activities") {
         key(freeformOwner, state.loginGeneration) {
             val rows by produceState<List<WorkoutEvidence>?>(
                 null, state.plans, freeformBoard, groupedActivities, state.initializing, freeformReadError
@@ -306,7 +304,7 @@ private fun NavHostController.openActivity(id: String) {
             route == "home" || route == null -> Brush.verticalGradient(
                 listOf(TodayAdaptivePalette.bg, TodayAdaptivePalette.bg)
             )
-            route == "training" || route == "settings" || route.startsWith("more/") -> {
+            route == "training" || route == "activities" || route == "settings" || route.startsWith("more/") -> {
                 Brush.verticalGradient(listOf(Color.Black, Color.Black))
             }
             else -> {
@@ -347,9 +345,7 @@ private fun NavHostController.openActivity(id: String) {
                 }
             ) {
                 composable("home") { /* Root content is retained below NavHost. */ }
-                composable("activities") {
-                    LaunchedEffect(Unit) { nav.openTabRoot("training") }
-                }
+                composable("activities") { /* Retained tab surface. */ }
                 composable("activity/{id}") { detail ->
                     val activity = state.activities.firstOrNull {
                         it.id == detail.arguments?.getString("id") &&
@@ -883,12 +879,23 @@ private fun NavHostController.openActivity(id: String) {
                     visibleActivities = visibleActivities,
                     online = online,
                     onOpenTraining = { nav.openTabRoot("training") },
-                    onOpenActivity = { nav.openTabRoot("training") },
+                    onOpenActivity = { onDockTab("activities") },
                     onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
                     onOpenActivityDetail = { id -> nav.openActivity(id) },
                     onOpenMore = { nav.openTabRoot("settings") },
                     onSignIn = { nav.navigate("auth") },
                     actions = actions.planning
+                )
+            }
+            PersistentTabSurface(active = visibleRoot == "activities") {
+                ActivityHistoryTabScreen(
+                    evidence = evidence,
+                    loading = evidence == null,
+                    details = state.details,
+                    onOpenActivityDetail = { id -> nav.openActivity(id) },
+                    onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
+                    onOpenFreeformHistory = openFreeformHistory,
+                    onOpenQuickLog = { quickLogOpen = true }
                 )
             }
             if (state.account != null) {
@@ -988,15 +995,42 @@ private fun NavHostController.openActivity(id: String) {
     }
     if (showFloatingDock) {
         Box(
-            modifier = Modifier.align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 10.dp)
-                .fillMaxWidth(.94f)
-                .widthIn(max = 410.dp)
-                .testTag("floating-navigation-overlay")
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
         ) {
-            TracksideFloatingNavigation(visibleRoot, onDockTab)
+            TracksideFloatingNavigation(
+                route = visibleRoot,
+                onTab = onDockTab,
+                onQuickLog = { quickLogOpen = true }
+            )
         }
+    }
+    if (quickLogOpen) {
+        QuickLogBottomSheet(
+            owner = freeformOwner,
+            board = freeformBoard,
+            onStartEmpty = { discipline ->
+                nav.navigate("freeform/new/${discipline.name}") { launchSingleTop = true }
+            },
+            onResumeDraft = { id ->
+                nav.navigate("freeform/edit/${android.net.Uri.encode(id)}") { launchSingleTop = true }
+            },
+            onDiscardDraft = if (freeformOwner != null && freeformAccess != null) { id ->
+                quickLogScope.launch(Dispatchers.Main.immediate) {
+                    freeformAttempt { freeformAccess.discard(freeformOwner, id) }.onSuccess { removed ->
+                        if (removed) freeformBoard = freeformBoard?.without(id)
+                    }
+                }
+            } else null,
+            onOpenTemplates = {
+                nav.navigate("freeform/templates") { launchSingleTop = true }
+            },
+            onOpenWorkoutsHub = {
+                nav.navigate("freeform/add") { launchSingleTop = true }
+            },
+            onDismiss = { quickLogOpen = false }
+        )
     }
     if (garminSheetOpen) {
         val localOwner = state.localGarminOwner ?: state.account
