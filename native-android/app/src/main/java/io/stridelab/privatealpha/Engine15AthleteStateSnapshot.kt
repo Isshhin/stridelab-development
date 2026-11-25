@@ -72,13 +72,11 @@ internal class DisciplineStateSummary(
     }
 
     internal fun canonicalRecord(): String = buildString {
-        append("disc=").append(discipline.code)
-        append("|cov=").append(coverage.name)
-        append("|wkVol=").append(weeklyVolumeBelief.canonicalRepresentation())
-        append("|longSess=").append(longestSessionBelief.canonicalRepresentation())
-        append("|ev=[")
-        append(evidenceIds.joinToString(",") { "${it.length}:$it" })
-        append("]")
+        append("disc=").append(AthleteStateSnapshot.canonicalSegment(discipline.code))
+        append("|cov=").append(AthleteStateSnapshot.canonicalSegment(coverage.name))
+        append("|wkVol=").append(AthleteStateSnapshot.canonicalSegment(weeklyVolumeBelief.canonicalRepresentation()))
+        append("|longSess=").append(AthleteStateSnapshot.canonicalSegment(longestSessionBelief.canonicalRepresentation()))
+        append("|ev=").append(AthleteStateSnapshot.canonicalList(evidenceIds))
     }
 
     override fun equals(other: Any?): Boolean =
@@ -127,7 +125,7 @@ internal class AthleteStateSnapshot(
     init {
         RecordPolicy.identifier(accountId)
         require(schemaVersion > 0) { "schemaVersion must be positive" }
-        require(policyVersion.isNotBlank()) { "policyVersion must be non-blank" }
+        RecordPolicy.identifier(policyVersion)
 
         val sortedDisciplines = TreeMap<AthleteDiscipline, DisciplineStateSummary>()
         for ((key, summary) in disciplines) {
@@ -156,15 +154,38 @@ internal class AthleteStateSnapshot(
 
     internal fun canonicalPayload(): String = buildString {
         append("schema=").append(schemaVersion)
-        append("|policy=").append("${policyVersion.length}:$policyVersion")
-        append("|account=").append("${accountId.length}:$accountId")
-        append("|disciplines=[")
-        append(disciplines.values.joinToString(";") { it.canonicalRecord() })
-        append("]|evidence=[")
-        append(evidenceIds.joinToString(",") { "${it.length}:$it" })
-        append("]|restrictions=[")
-        append(activeRestrictionIds.joinToString(",") { "${it.length}:$it" })
-        append("]")
+        append("|policy=").append(canonicalSegment(policyVersion))
+        append("|account=").append(canonicalSegment(accountId))
+        append("|disciplines=").append(canonicalList(disciplines.values.map { it.canonicalRecord() }))
+        append("|evidence=").append(canonicalList(evidenceIds))
+        append("|restrictions=").append(canonicalList(activeRestrictionIds))
+    }
+
+    /**
+     * Cache/decision authorization key combining content identity with evaluation timestamp,
+     * schema version, and policy version. Future decision caches MUST NOT treat `contentHash`
+     * alone as proof of temporal freshness or current policy applicability.
+     */
+    fun evaluationAuthorizationKey(): String {
+        val authPayload = buildString {
+            append("content=").append(canonicalSegment(contentHash))
+            append("|evalUtc=").append(canonicalSegment(evaluatedAtUtc.toString()))
+            append("|schema=").append(schemaVersion)
+            append("|policy=").append(canonicalSegment(policyVersion))
+        }
+        return computeSha256(authPayload)
+    }
+
+    /**
+     * Checks temporal freshness explicitly against [referenceUtc] and [maxAgeSeconds].
+     * Future-dated evaluation timestamps fail closed (return false).
+     */
+    fun isWithinFreshnessWindow(referenceUtc: Instant, maxAgeSeconds: Long): Boolean {
+        require(maxAgeSeconds >= 0L) { "maxAgeSeconds must be non-negative, was $maxAgeSeconds" }
+        if (evaluatedAtUtc.isAfter(referenceUtc)) return false
+        val ageSeconds = referenceUtc.epochSecond - evaluatedAtUtc.epochSecond
+        val nanoAdjust = if (referenceUtc.nano < evaluatedAtUtc.nano) 1L else 0L
+        return (ageSeconds - nanoAdjust) <= maxAgeSeconds
     }
 
     override fun equals(other: Any?): Boolean =
@@ -190,7 +211,23 @@ internal class AthleteStateSnapshot(
 
     companion object {
         const val CURRENT_SCHEMA_VERSION = 1
-        const val CURRENT_POLICY_VERSION = "policy-registry-1.5.0-v1"
+
+        /**
+         * Canonical specification registry version identified in Track-9-Part-3-source.md
+         * alongside CANONICAL-ERRATA.md (superseding COACHING-POLICY-REGISTRY.md's v1 header).
+         */
+        const val CANONICAL_SPEC_POLICY_VERSION = "policy-registry-1.5.0-v1.1"
+
+        /**
+         * Active runtime identifier scoped strictly to the implemented M1 foundation contracts.
+         * Does NOT imply deferred M2-M9 policies (POL-009..064) or Tier B/C models are active.
+         */
+        const val CURRENT_POLICY_VERSION = "policy-registry-1.5.0-v1.1-m1-foundation"
+
+        internal fun canonicalSegment(raw: String): String = "${raw.length}:$raw"
+
+        internal fun canonicalList(items: Collection<String>): String =
+            "${items.size}:[${items.joinToString(",") { canonicalSegment(it) }}]"
 
         private fun computeSha256(payload: String): String {
             val digest = MessageDigest.getInstance("SHA-256")

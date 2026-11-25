@@ -2,6 +2,8 @@ package io.stridelab.privatealpha
 
 import org.junit.Assert.*
 import org.junit.Test
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.time.Instant
 import java.time.LocalDate
 
@@ -91,12 +93,71 @@ class Engine15M1AFoundationTest {
         assertThrows(IllegalArgumentException::class.java) {
             BeliefState.Estimated(Meters.fromKilometers(50.0), EvidenceAuthorityClass.UNOBSERVED)
         }
-        // Tier A Estimated cannot claim statistical intervals.
+        // Tier A Estimated cannot claim statistical intervals or contradictory NONE spread > 1.0.
         assertThrows(IllegalArgumentException::class.java) {
             BeliefState.Estimated(
                 Meters.fromKilometers(40.0),
                 EvidenceAuthorityClass.COACH_OR_RACE_VERIFIED,
                 UncertaintyKind.STATISTICAL_INTERVAL_RESERVED
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BeliefState.Estimated(
+                Meters.fromKilometers(40.0),
+                EvidenceAuthorityClass.COACH_OR_RACE_VERIFIED,
+                UncertaintyKind.NONE,
+                guidanceSpreadFactor = 1.25
+            )
+        }
+        // Exhaustive zone authorization contract.
+        assertFalse(unknown.authorizesZones)
+        assertFalse(bounded.authorizesZones)
+        assertFalse(prior.authorizesZones)
+        assertFalse(stale.authorizesZones)
+        assertFalse(conflicting.authorizesZones)
+        assertFalse(
+            BeliefState.Estimated(
+                Meters.fromKilometers(25.0),
+                EvidenceAuthorityClass.SELF_REPORTED_PROVISIONAL
+            ).authorizesZones
+        )
+        assertTrue(estimated.authorizesZones)
+        assertTrue(estimated.isAuthoritativeObserved)
+        // Bounded rejects PROJECTED_NON_AUTHORITATIVE, STATISTICAL_INTERVAL_RESERVED, and mixed SI units.
+        assertThrows(IllegalArgumentException::class.java) {
+            BeliefState.Bounded(
+                lower = Meters.of(1000.0),
+                authority = EvidenceAuthorityClass.PROJECTED_NON_AUTHORITATIVE
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BeliefState.Bounded(
+                lower = Meters.of(1000.0),
+                authority = EvidenceAuthorityClass.SENSOR_SUPPORTED,
+                uncertaintyKind = UncertaintyKind.STATISTICAL_INTERVAL_RESERVED
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BeliefState.Bounded<CanonicalSiQuantity>(
+                lower = Meters.of(10.0),
+                upper = Seconds.of(20.0),
+                authority = EvidenceAuthorityClass.SENSOR_SUPPORTED
+            )
+        }
+        // Stale rejects PROJECTED_NON_AUTHORITATIVE; Conflicting rejects mixed SI units and identical duplicates.
+        assertThrows(IllegalArgumentException::class.java) {
+            BeliefState.Stale(Meters.of(1000.0), 5, EvidenceAuthorityClass.PROJECTED_NON_AUTHORITATIVE)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BeliefState.Conflicting<CanonicalSiQuantity>(
+                listOf(Meters.of(1000.0), Seconds.of(300.0)),
+                "MIXED_DIMENSIONS"
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            BeliefState.Conflicting(
+                listOf(Meters.of(1000.0), Meters.of(1000.0)),
+                "IDENTICAL_NOT_CONFLICTING"
             )
         }
         // Bounded requires lower <= upper and at least one bound.
@@ -325,9 +386,107 @@ class Engine15M1AFoundationTest {
         assertEquals(setOf("hold-1"), snapshot.activeRestrictionIds)
     }
 
-    @Test fun featureFlagDefaultsFalseAndBaselineGenerationRemainsIdentical() {
+    @Test fun policyVersionAndFreshnessAuthorizationAreExplicitAndBounded() {
+        assertEquals("policy-registry-1.5.0-v1.1", AthleteStateSnapshot.CANONICAL_SPEC_POLICY_VERSION)
+        assertEquals("policy-registry-1.5.0-v1.1-m1-foundation", AthleteStateSnapshot.CURRENT_POLICY_VERSION)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            AthleteStateSnapshot(
+                accountId = "owner-policy-check",
+                evaluatedAtUtc = Instant.parse("2026-11-25T00:00:00Z"),
+                disciplines = emptyMap(),
+                policyVersion = "bad\npolicy"
+            )
+        }
+
+        val t0 = Instant.parse("2026-11-25T08:00:00Z")
+        val t1 = Instant.parse("2026-11-26T08:00:00Z")
+        val summary = DisciplineStateSummary(
+            discipline = AthleteDiscipline.RUN,
+            coverage = HistoryCoverageStatus.PARTIAL_COVERAGE,
+            weeklyVolumeBelief = BeliefState.Estimated(Meters.fromKilometers(24.0), EvidenceAuthorityClass.SENSOR_SUPPORTED),
+            longestSessionBelief = BeliefState.Estimated(Meters.fromKilometers(10.0), EvidenceAuthorityClass.SENSOR_SUPPORTED)
+        )
+        val snapT0 = AthleteStateSnapshot("owner-fresh", t0, mapOf(AthleteDiscipline.RUN to summary))
+        val snapT1 = AthleteStateSnapshot("owner-fresh", t1, mapOf(AthleteDiscipline.RUN to summary))
+
+        assertEquals(snapT0.contentHash, snapT1.contentHash)
+        assertEquals(snapT0.snapshotId, snapT1.snapshotId)
+        assertNotEquals(snapT0.evaluationAuthorizationKey(), snapT1.evaluationAuthorizationKey())
+        assertTrue(snapT0.isWithinFreshnessWindow(t0.plusSeconds(3600), maxAgeSeconds = 3600))
+        assertFalse(snapT0.isWithinFreshnessWindow(t0.plusSeconds(3601), maxAgeSeconds = 3600))
+        assertFalse(snapT1.isWithinFreshnessWindow(t0, maxAgeSeconds = 86400))
+    }
+
+    @Test fun canonicalSerializationPreventsDelimiterInjectionAndNestedMutation() {
+        val summaryA = DisciplineStateSummary(
+            discipline = AthleteDiscipline.RUN,
+            coverage = HistoryCoverageStatus.MISSING_UNOBSERVED,
+            weeklyVolumeBelief = BeliefState.Unknown("A|cov=CONTINUOUS_COVERAGE"),
+            longestSessionBelief = BeliefState.Unknown("B")
+        )
+        val summaryB = DisciplineStateSummary(
+            discipline = AthleteDiscipline.RUN,
+            coverage = HistoryCoverageStatus.MISSING_UNOBSERVED,
+            weeklyVolumeBelief = BeliefState.Unknown("A"),
+            longestSessionBelief = BeliefState.Unknown("cov=CONTINUOUS_COVERAGE|B")
+        )
+        val s1 = AthleteStateSnapshot(
+            accountId = "owner-delim",
+            evaluatedAtUtc = Instant.parse("2026-11-25T00:00:00Z"),
+            disciplines = mapOf(AthleteDiscipline.RUN to summaryA),
+            evidenceIds = setOf("ev1"),
+            activeRestrictionIds = setOf("res2")
+        )
+        val s2 = AthleteStateSnapshot(
+            accountId = "owner-delim",
+            evaluatedAtUtc = Instant.parse("2026-11-25T00:00:00Z"),
+            disciplines = mapOf(AthleteDiscipline.RUN to summaryB),
+            evidenceIds = setOf("ev1", "res2"),
+            activeRestrictionIds = emptySet()
+        )
+        assertNotEquals(s1.canonicalPayload(), s2.canonicalPayload())
+        assertNotEquals(s1.contentHash, s2.contentHash)
+
+        // Nested collections reject direct mutation with UnsupportedOperationException.
+        @Suppress("UNCHECKED_CAST")
+        val discMap = s1.disciplines as MutableMap<AthleteDiscipline, DisciplineStateSummary>
+        try {
+            discMap.clear()
+            fail("Expected UnsupportedOperationException when mutating snapshot.disciplines")
+        } catch (_: UnsupportedOperationException) { }
+        @Suppress("UNCHECKED_CAST")
+        val evSet = s1.evidenceIds as MutableSet<String>
+        try {
+            evSet.add("tampered")
+            fail("Expected UnsupportedOperationException when mutating snapshot.evidenceIds")
+        } catch (_: UnsupportedOperationException) { }
+        @Suppress("UNCHECKED_CAST")
+        val resSet = s1.activeRestrictionIds as MutableSet<String>
+        try {
+            resSet.add("tampered")
+            fail("Expected UnsupportedOperationException when mutating snapshot.activeRestrictionIds")
+        } catch (_: UnsupportedOperationException) { }
+        @Suppress("UNCHECKED_CAST")
+        val sumEv = summaryA.evidenceIds as MutableSet<String>
+        try {
+            sumEv.add("tampered")
+            fail("Expected UnsupportedOperationException when mutating summary.evidenceIds")
+        } catch (_: UnsupportedOperationException) { }
+        val conflicting = BeliefState.Conflicting(listOf(Meters.of(1000.0), Meters.of(2000.0)), "TEST")
+        @Suppress("UNCHECKED_CAST")
+        val candList = conflicting.candidates as MutableList<Meters>
+        try {
+            candList.add(Meters.of(3000.0))
+            fail("Expected UnsupportedOperationException when mutating conflicting.candidates")
+        } catch (_: UnsupportedOperationException) { }
+    }
+
+    @Test fun featureFlagDefaultsFalseAndBaselineGenerationMatchesFrozenM02Fixtures() {
         assertFalse(FeatureFlags.USE_UNIFIED_ATHLETE_STATE_V1)
-        val request = PlanRequest(
+        val fixedNow = Instant.parse("2026-11-25T00:00:00Z")
+
+        val experiencedReq = PlanRequest(
             goal = "Improve 10K",
             experience = 1,
             start = LocalDate.of(2026, 11, 30),
@@ -342,14 +501,50 @@ class Engine15M1AFoundationTest {
             recentMileageBasis = "SELF_REPORTED_AVERAGE",
             policyChoice = "engine15"
         )
-        val fixedNow = Instant.parse("2026-11-25T00:00:00Z")
-        val first = Engine15IndependentPlanGenerator.previewAutoReconciled(
-            request, "owner-flag-check", "plan-flag-check", fixedNow
+        val starterReq = PlanRequest(
+            goal = "Start Running",
+            experience = 0,
+            start = LocalDate.of(2026, 11, 30),
+            weeks = 4,
+            days = setOf(1, 3, 5),
+            runDays = 3,
+            longDay = 5,
+            minutes = 45,
+            qualityCount = 0,
+            weeklyKm = 0.0,
+            longestKm = 0.0,
+            recentMileageBasis = "CONFIRMED_ZERO",
+            policyChoice = "engine15"
         )
-        val second = Engine15IndependentPlanGenerator.previewAutoReconciled(
-            request, "owner-flag-check", "plan-flag-check", fixedNow
+
+        val expResult = Engine15IndependentPlanGenerator.previewAutoReconciled(
+            experiencedReq, "owner-flag-check", "plan-flag-check", fixedNow
+        ) as Engine15IndependentPlanDecision.Candidate
+        val starterSnap = Engine15TimeOnlyRunWalkBuilder.compose(
+            starterReq, "owner-starter-check", "plan-starter-check", fixedNow
         )
-        assertTrue(first is Engine15IndependentPlanDecision.Candidate)
-        assertEquals(first, second)
+
+        fun scheduleSignature(snap: PlanSnapshot): String {
+            val raw = snap.sessions.joinToString("\n") { s ->
+                "${s.date}|${s.discipline}|${s.kind}|${s.title}|${s.distanceKm}|${s.minutes}|${s.quality}|${s.runningPrescription?.role}"
+            }
+            val digest = MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(StandardCharsets.UTF_8))
+            return digest.joinToString("") { "%02x".format(it.toInt() and 0xFF) }
+        }
+
+        val expSig = "${expResult.plan.sessions.size}:${scheduleSignature(expResult.plan)}"
+        val stSig = "${starterSnap.sessions.size}:${scheduleSignature(starterSnap)}"
+        assertEquals(16, expResult.plan.sessions.size)
+        assertTrue(expResult.plan.sessions.all { it.discipline == "run" })
+        assertEquals(
+            "16:86d0a01d5e0972bbc983d0f1642b69512538987bb5a45e1cc19ba1920b0fe332",
+            expSig
+        )
+        assertEquals(12, starterSnap.sessions.size)
+        assertTrue(starterSnap.sessions.all { it.discipline == "run" && it.distanceKm == null })
+        assertEquals(
+            "12:4e10945117f360596c48530b53023257ecbc9c2e0ee087e32a29f8eda398efcd",
+            stSig
+        )
     }
 }
