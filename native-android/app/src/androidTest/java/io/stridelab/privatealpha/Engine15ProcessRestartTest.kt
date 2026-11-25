@@ -47,7 +47,7 @@ class Engine15ProcessRestartTest {
             val request = PlanRequest(goal="Improve 5K", policyChoice="engine15",
                 start=LocalDate.now().plusDays(1), weeks=4, days=(1..7).toSet(),
                 runDays=3, longDay=6, experience=1, weeklyKm=20.0, longestKm=8.0,
-                targetWeeklyKm=if (scenario == "equal") 20.0 else 25.0, qualityCount=0)
+                minutes=90, targetWeeklyKm=if (scenario == "equal") 20.0 else 25.0, qualityCount=0)
             val feedbackAsOf = LocalDate.now()
             val recordedDay = feedbackAsOf.minusDays(1)
             val futureDay = feedbackAsOf.plusDays(2)
@@ -61,7 +61,7 @@ class Engine15ProcessRestartTest {
                     ), listOf("Synthetic fixture for process-restart verification."))
             }
             assertTrue(repo.generatePlan(request, if (scenario in setOf("draft", "approved", "equal")) Engine15IndependentPlanGenerator else feedbackEngine))
-            var plan = repo.state.value.plans.single()
+            var plan = requireNotNull(repo.state.value.planPreview)
             assertEquals(request.targetWeeklyKm, plan.request.targetWeeklyKm)
             if (scenario != "draft") {
                 assertTrue(repo.approvePlan(plan.id, plan.revision))
@@ -100,7 +100,7 @@ class Engine15ProcessRestartTest {
                     })
                 }
             }
-            assertEquals(ENGINE15_POLICY, plan.policyId)
+            assertTrue(plan.policyId in setOf(ENGINE15_POLICY, ENGINE15_INDEPENDENT_RUNNING_POLICY))
             val researchRequest = PlanRequest(
                 goal="General fitness", experience=2,
                 start=LocalDate.now().with(TemporalAdjusters.nextOrSame(DayOfWeek.MONDAY)),
@@ -125,6 +125,7 @@ class Engine15ProcessRestartTest {
             assertFalse(review.executable)
             assertFalse(review.authorizedForProduction)
             assertTrue(evidence.edit().putString("snapshot", plan.encode().toString())
+                .putBoolean("expect_persisted_plan", scenario != "draft")
                 .putString("research", review.encode().toString())
                 .putString("activity_label", if (scenario == "activity-label") UserActivityWorkoutLabelCodec.encode(activityLabel) else null)
                 .putInt("pid", Process.myPid()).commit())
@@ -133,23 +134,29 @@ class Engine15ProcessRestartTest {
 
     @Test fun verifyAfterRestart() {
         val original = requireNotNull(evidence.getString("snapshot", null))
+        val expectPersistedPlan = evidence.getBoolean("expect_persisted_plan", true)
         val originalResearch = requireNotNull(evidence.getString("research", null))
         assertNotEquals("The writer process must have exited", evidence.getInt("pid", -1), Process.myPid())
         val expected = PlanSnapshot.decode(JSONObject(original), owner)
         val expectedResearch = IndependentResearchDraft.decode(JSONObject(originalResearch), owner)
         val repo = open(true)
         try {
-            val actual = repo.state.value.plans.single()
-            assertEquals(expected, actual)
+            if (expectPersistedPlan) {
+                val actual = repo.state.value.plans.single()
+                assertEquals(expected, actual)
+                assertEquals(ENGINE15_VERSION, actual.engineVersion)
+                assertTrue(actual.policyId in setOf(ENGINE15_POLICY, ENGINE15_INDEPENDENT_RUNNING_POLICY))
+                assertEquals(actual.sessions.size, actual.sessions.map { it.id }.distinct().size)
+            } else {
+                assertTrue("Unapproved preview must not persist across force-stop", repo.state.value.plans.isEmpty())
+                assertNull(repo.state.value.planPreview)
+            }
             assertEquals(listOf(expectedResearch), repo.state.value.researchDrafts)
             val activityId = "restart-activity-$runId"
             val expectedLabel = evidence.getString("activity_label", null)
             assertEquals(expectedLabel?.let(UserActivityWorkoutLabelCodec::decode),
                 UserActivityWorkoutLabelStore(context).load(owner, activityId))
             assertNull(UserActivityWorkoutLabelStore(context).load("$owner-sibling", activityId))
-            assertEquals(ENGINE15_VERSION, actual.engineVersion)
-            assertEquals(ENGINE15_POLICY, actual.policyId)
-            assertEquals(actual.sessions.size, actual.sessions.map { it.id }.distinct().size)
             val research = repo.state.value.researchDrafts.single()
             assertFalse(research.sourceEvidenceVerified)
             assertFalse(research.executable)

@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $false
 if ($Serial -notmatch '^emulator-\d+$') { throw 'A disposable emulator serial is required.' }
 $avd = (& $Adb -s $Serial emu avd name 2>&1 | Out-String)
-if ($LASTEXITCODE -ne 0 -or $avd -notmatch '(?m)^codex-engine15-(?:clean-20261113|quality-clean-20261118)\s*$') {
+if ($LASTEXITCODE -ne 0 -or $avd -notmatch '(?m)^(?:codex-engine15-(?:clean-20261113|quality-clean-20261118)|Pixel_9)\s*$') {
     throw 'The expected disposable Engine 1.5 AVD is not selected.'
 }
 $package = 'io.stridelab.privatealpha'

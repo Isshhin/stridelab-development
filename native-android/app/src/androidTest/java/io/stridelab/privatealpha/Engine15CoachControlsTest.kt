@@ -190,11 +190,11 @@ class Engine15CoachControlsTest {
         compose.onNodeWithTag("workout-planned-structure").assertExists()
         compose.onNodeWithTag("workout-step-single-0").assertExists()
         compose.onNodeWithTag("workout-repeat-group-1").assertExists()
-        compose.onNodeWithTag("workout-repeat-count-1")
+        compose.onNodeWithTag("workout-repeat-count-1", useUnmergedTree = true)
             .assertTextEquals("5 × Interval Set")
-        compose.onNodeWithTag("workout-repeat-work-1").assertExists()
-        compose.onNodeWithTag("workout-repeat-recovery-1").assertExists()
-        compose.onNodeWithText("Between repetitions").assertExists()
+        compose.onNodeWithTag("workout-repeat-work-1", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("workout-repeat-recovery-1", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Between repetitions", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("workout-step-single-2").assertExists()
     }
 
