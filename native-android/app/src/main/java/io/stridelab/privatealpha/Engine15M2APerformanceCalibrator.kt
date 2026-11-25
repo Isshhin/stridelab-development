@@ -39,9 +39,26 @@ internal enum class M2APerformanceIntent {
 }
 
 /**
- * Explicit temporal compatibility policy for combining two races in MOD-05 (DEF-02 / DEF-10).
- * No unapproved production day-window constant is hardcoded; default requires an explicit
- * shared fitnessEpochId or identical date unless an approved maxSeparationDays is configured.
+ * Structured provenance contract required to grant COACH_OR_RACE_VERIFIED authority (R2-05).
+ * Neither wearable provenance nor a user-assigned race label independently establishes certified authority.
+ */
+internal sealed interface M2ARaceCertificationProvenance {
+    data object UncertifiedWearableOrSelfReport : M2ARaceCertificationProvenance
+
+    data class CertifiedExternalRaceResult(
+        val certificationAuthority: String,
+        val externalResultId: String
+    ) : M2ARaceCertificationProvenance {
+        init {
+            RecordPolicy.identifier(certificationAuthority)
+            RecordPolicy.identifier(externalResultId)
+        }
+    }
+}
+
+/**
+ * Explicit temporal compatibility policy for combining two races in MOD-05 (DEF-02 / DEF-10 / R2-02).
+ * Matching fitnessEpochId NEVER bypasses freshness equality or MaxSeparationDays bounds.
  */
 internal sealed interface M2ATemporalCompatibilityPolicy {
     data object ExplicitSharedEpochOrSameDate : M2ATemporalCompatibilityPolicy
@@ -53,14 +70,17 @@ internal sealed interface M2ATemporalCompatibilityPolicy {
     }
 
     fun areCompatible(a: M2ASelectedBenchmark, b: M2ASelectedBenchmark): Boolean {
-        if (a.fitnessEpochId != null && b.fitnessEpochId != null) {
-            return a.fitnessEpochId == b.fitnessEpochId
+        if (a.hasConflictingFitnessEpoch || b.hasConflictingFitnessEpoch) return false
+        if (a.freshness != b.freshness) return false
+        if (a.fitnessEpochId != null && b.fitnessEpochId != null && a.fitnessEpochId != b.fitnessEpochId) {
+            return false
         }
         return when (this) {
-            is ExplicitSharedEpochOrSameDate -> a.performedOn == b.performedOn
+            is ExplicitSharedEpochOrSameDate ->
+                a.performedOn == b.performedOn ||
+                    (a.fitnessEpochId != null && a.fitnessEpochId == b.fitnessEpochId)
             is MaxSeparationDays ->
-                a.freshness == b.freshness &&
-                    abs(ChronoUnit.DAYS.between(a.performedOn, b.performedOn)) <= maxDays.toLong()
+                abs(ChronoUnit.DAYS.between(a.performedOn, b.performedOn)) <= maxDays.toLong()
         }
     }
 }
@@ -235,20 +255,29 @@ internal class M2ARacePerformanceInput(
     companion object {
         /**
          * Adapter converting an M1B CanonicalActivity into M2ARacePerformanceInput ONLY when
-         * explicit maximal performance intent is provided (DEF-13).
-         * Keeps authority strictly at SENSOR_SUPPORTED unless official certified verification is declared.
+         * explicit maximal performance intent and eligible non-manual provenance are supplied (DEF-13 / R2-05).
+         * Requires typed CertifiedExternalRaceResult alongside VERIFIED_OFFICIAL_RACE for COACH_OR_RACE_VERIFIED.
          */
         fun fromVerifiedMaximalCanonicalActivity(
             activity: CanonicalActivity,
             zoneId: ZoneId,
             performanceIntent: M2APerformanceIntent,
-            officiallyCertifiedRace: Boolean = false,
+            certificationProvenance: M2ARaceCertificationProvenance =
+                M2ARaceCertificationProvenance.UncertifiedWearableOrSelfReport,
             courseDifficulty: VickersCourseDifficulty = VickersCourseDifficulty.AVERAGE,
             fitnessEpochId: String? = null,
             corroborationToken: String? = null
         ): M2ARacePerformanceInput? {
             if (performanceIntent != M2APerformanceIntent.VERIFIED_OFFICIAL_RACE &&
                 performanceIntent != M2APerformanceIntent.VERIFIED_TIME_TRIAL
+            ) {
+                return null
+            }
+            if (activity.primarySource.trim().equals("manual", ignoreCase = true)) {
+                return null
+            }
+            if (activity.calibrationEligibility != CalibrationEligibility.ELIGIBLE_OBSERVED &&
+                activity.calibrationEligibility != CalibrationEligibility.ELIGIBLE_NON_HR_ONLY
             ) {
                 return null
             }
@@ -267,7 +296,9 @@ internal class M2ARacePerformanceInput(
                 }
             }.toSet()
             val primarySha = activity.rawComponents.mapNotNull { it.sha256?.lowercase(Locale.ROOT) }.sorted().firstOrNull()
-            val auth = if (officiallyCertifiedRace && performanceIntent == M2APerformanceIntent.VERIFIED_OFFICIAL_RACE) {
+            val auth = if (certificationProvenance is M2ARaceCertificationProvenance.CertifiedExternalRaceResult &&
+                performanceIntent == M2APerformanceIntent.VERIFIED_OFFICIAL_RACE
+            ) {
                 EvidenceAuthorityClass.COACH_OR_RACE_VERIFIED
             } else {
                 EvidenceAuthorityClass.SENSOR_SUPPORTED
@@ -301,6 +332,7 @@ internal class M2ARacePerformanceInput(
  */
 internal class M2ASelectedBenchmark(
     val representativeId: String,
+    val sourceProvider: String,
     val performedOn: LocalDate,
     val ageDays: Int,
     val freshness: M2ABenchmarkFreshness,
@@ -311,13 +343,21 @@ internal class M2ASelectedBenchmark(
     val performanceIntent: M2APerformanceIntent,
     val courseDifficulty: VickersCourseDifficulty,
     val fitnessEpochId: String?,
+    val hasConflictingFitnessEpoch: Boolean,
     mergedEvidenceIds: Set<String>
 ) {
+    val normalizedSourceProvider: String = sourceProvider.trim().lowercase(Locale.ROOT)
     val mergedEvidenceIds: Set<String>
 
     init {
         RecordPolicy.identifier(representativeId)
+        require(normalizedSourceProvider.isNotBlank() && normalizedSourceProvider.length <= 128)
         require(ageDays >= 0) { "ageDays must be >= 0" }
+        if (hasConflictingFitnessEpoch) {
+            require(fitnessEpochId == null) {
+                "R2-08: hasConflictingFitnessEpoch requires fitnessEpochId == null"
+            }
+        }
         require(mergedEvidenceIds.isNotEmpty()) { "mergedEvidenceIds must be non-empty" }
         val sorted = mergedEvidenceIds.map { id ->
             RecordPolicy.identifier(id)
@@ -328,6 +368,7 @@ internal class M2ASelectedBenchmark(
 
     fun canonicalRepresentation(): String = buildString {
         append("id=").append(AthleteStateSnapshot.canonicalSegment(representativeId))
+        append("|prov=").append(AthleteStateSnapshot.canonicalSegment(normalizedSourceProvider))
         append("|date=").append(performedOn)
         append("|age=").append(ageDays)
         append("|fresh=").append(freshness.name)
@@ -337,12 +378,14 @@ internal class M2ASelectedBenchmark(
         append("|intent=").append(performanceIntent.name)
         append("|course=").append(courseDifficulty.name)
         append("|epoch=").append(fitnessEpochId?.let { AthleteStateSnapshot.canonicalSegment(it) } ?: "0:NONE")
+        append("|epConf=").append(hasConflictingFitnessEpoch)
         append("|ev=").append(AthleteStateSnapshot.canonicalList(mergedEvidenceIds))
     }
 
     override fun equals(other: Any?): Boolean =
         other is M2ASelectedBenchmark &&
             representativeId == other.representativeId &&
+            normalizedSourceProvider == other.normalizedSourceProvider &&
             performedOn == other.performedOn &&
             ageDays == other.ageDays &&
             freshness == other.freshness &&
@@ -353,10 +396,12 @@ internal class M2ASelectedBenchmark(
             performanceIntent == other.performanceIntent &&
             courseDifficulty == other.courseDifficulty &&
             fitnessEpochId == other.fitnessEpochId &&
+            hasConflictingFitnessEpoch == other.hasConflictingFitnessEpoch &&
             mergedEvidenceIds == other.mergedEvidenceIds
 
     override fun hashCode(): Int {
         var r = representativeId.hashCode()
+        r = 31 * r + normalizedSourceProvider.hashCode()
         r = 31 * r + performedOn.hashCode()
         r = 31 * r + ageDays
         r = 31 * r + freshness.hashCode()
@@ -367,6 +412,7 @@ internal class M2ASelectedBenchmark(
         r = 31 * r + performanceIntent.hashCode()
         r = 31 * r + courseDifficulty.hashCode()
         r = 31 * r + (fitnessEpochId?.hashCode() ?: 0)
+        r = 31 * r + hasConflictingFitnessEpoch.hashCode()
         r = 31 * r + mergedEvidenceIds.hashCode()
         return r
     }
@@ -502,9 +548,7 @@ internal data class M2APerformanceCalibrationRequest(
     val asOfUtc: Instant? = null,
     val athleteStateSnapshot: AthleteStateSnapshot? = null,
     val temporalCompatibilityPolicy: M2ATemporalCompatibilityPolicy =
-        M2ATemporalCompatibilityPolicy.ExplicitSharedEpochOrSameDate,
-    val allowUnverifiedSecondaryCourseAdjustments: Boolean =
-        Engine15M2APolicyRegistry.VV_COURSE_ADJUSTMENTS_PRIMARY_VERIFIED
+        M2ATemporalCompatibilityPolicy.ExplicitSharedEpochOrSameDate
 ) {
     init {
         RecordPolicy.identifier(accountId)
@@ -666,11 +710,10 @@ internal object Engine15M2APerformanceCalibrator {
         val staleAll = deduplicated.filter { it.freshness == M2ABenchmarkFreshness.STALE }
 
         if (activeAll.isEmpty()) {
-            val latestStale = staleAll.sortedWith(
+            val latestStale = staleAll.sortedWith(benchmarkTotalOrderComparator(
                 compareByDescending<M2ASelectedBenchmark> { it.performedOn }
                     .thenByDescending { authorityRank(it.authority) }
-                    .thenBy { it.representativeId }
-            ).first()
+            )).first()
             flags += "ALL_BENCHMARKS_STALE_OVER_180D"
             val staleThrSpeed = when (val thrRes = Engine15M2AOperationalThresholdModel.estimate(latestStale.distance, latestStale.duration, refDuration)) {
                 is M2AModelResult.Computed -> thrRes.value.operationalThresholdSpeed
@@ -692,49 +735,25 @@ internal object Engine15M2APerformanceCalibrator {
             )
         }
 
-        // Step 5: Prefer verified observed pool over self-reported provisional pool (never silently promote self-report).
+        // Step 5 (R2-06): Separate verified vs provisional pools WITHOUT discarding domain-eligible provisional fallback globally!
         val verifiedActive = activeAll.filter { it.authority.isObservedAuthoritative }
         val selfReportActive = activeAll.filter { !it.authority.isObservedAuthoritative }
-        val activePool = if (verifiedActive.isNotEmpty()) {
-            if (selfReportActive.isNotEmpty()) flags += "VERIFIED_BENCHMARK_SUPERSEDED_SELF_REPORT"
-            verifiedActive
-        } else {
-            flags += "PROVISIONAL_SELF_REPORT_BENCHMARK_ONLY"
-            selfReportActive
-        }
 
-        // Step 6: Detect ONLY genuine mathematical contradictions (velocity inversion within temporally compatible pair, DEF-02 & DEF-11).
-        // Legitimate endurance drop-offs (k_between > 1.20) or temporally separated improvements are NOT global conflicts!
-        val contradiction = detectCompatibleVelocityInversion(activePool, request.temporalCompatibilityPolicy, refDuration)
-        if (contradiction != null) {
-            flags += "TEMPORALLY_COMPATIBLE_VELOCITY_INVERSION_CONFLICT"
-            val allEv = activePool.flatMap { it.mergedEvidenceIds }.toSet()
-            return buildFallbackResult(
-                request = request,
-                endurance = endurance,
-                refDuration = refDuration,
-                thresholdBelief = contradiction,
-                abstainReason = "CONFLICTING_RACE_BENCHMARKS",
-                abstainDetail = "Temporally compatible races exhibit a velocity inversion (longer distance faster or equal speed to shorter distance).",
-                flags = flags,
-                evidenceIds = allEv
-            )
+        // Step 6 & Step 7 (R2-03, R2-06, R2-09): Model-specific filtering BEFORE authority fallback for MOD-06 [720, 7200] s.
+        val (thrEligiblePool, thrUsedProvisional) = selectModelEligiblePool(
+            verified = verifiedActive,
+            provisional = selfReportActive,
+            flags = flags
+        ) { b ->
+            b.duration.value in
+                Engine15M2APolicyRegistry.POL_020_MIN_BENCHMARK_DURATION_SECONDS..Engine15M2APolicyRegistry.POL_020_MAX_BENCHMARK_DURATION_SECONDS
         }
-
-        // Step 7: Model-specific anchor selection for MOD-06 Operational Threshold (DEF-06).
-        // Filters strictly to POL-020 [720, 7200] s BEFORE ranking so an ineligible 10-min 3K never suppresses a valid 10K!
-        val thrAnchor = activePool
-            .filter {
-                it.duration.value in
-                    Engine15M2APolicyRegistry.POL_020_MIN_BENCHMARK_DURATION_SECONDS..Engine15M2APolicyRegistry.POL_020_MAX_BENCHMARK_DURATION_SECONDS
-            }
-            .sortedWith(
+        val thrAnchor = thrEligiblePool
+            .sortedWith(benchmarkTotalOrderComparator(
                 compareBy<M2ASelectedBenchmark> { it.freshness.ordinal }
                     .thenByDescending { it.performedOn }
                     .thenBy { abs(it.duration.value - refDuration.value) }
-                    .thenByDescending { it.distance.value }
-                    .thenBy { it.representativeId }
-            )
+            ))
             .firstOrNull()
 
         val thrBandFactor = thrAnchor?.let { guidanceFactorFor(it) }
@@ -760,27 +779,33 @@ internal object Engine15M2APerformanceCalibrator {
             BeliefState.Unknown("NO_BENCHMARK_IN_POL020_DURATION_DOMAIN")
         }
 
-        // Step 8: Model-specific predictions for 5K, 10K, HM (DEF-04, DEF-06, DEF-07).
+        // Step 8: Model-specific predictions for 5K, 10K, HM with per-model provisional fallback (DEF-04, R2-06, DEF-07).
         val predictions = TreeMap<M2ATargetRaceDistance, M2ARacePredictionOutcome>()
         for (target in listOf(
             M2ATargetRaceDistance.RACE_5K,
             M2ATargetRaceDistance.RACE_10K,
             M2ATargetRaceDistance.HALF_MARATHON
         )) {
-            predictions[target] = predictShortOrMidDistance(target, activePool)
+            predictions[target] = predictShortOrMidDistance(target, verifiedActive, selfReportActive, flags)
         }
 
-        // Step 9: Model-specific Marathon prediction (MOD-05 compatible pair -> MOD-04 longest eligible -> Abstained) (DEF-02,04,05,06,11,12).
+        // Step 9: Model-specific Marathon prediction (MOD-05 pair -> MOD-04 longest eligible -> Abstained) (R2-02, R2-03, R2-06, R2-07).
         val (marOutcome, marPrim, marSec) = predictMarathon(
-            activePool = activePool,
+            verifiedActive = verifiedActive,
+            selfReportActive = selfReportActive,
             endurance = endurance,
             temporalPolicy = request.temporalCompatibilityPolicy,
-            allowUnverifiedCourseAdj = request.allowUnverifiedSecondaryCourseAdjustments,
             flags = flags
         )
         predictions[M2ATargetRaceDistance.MARATHON] = marOutcome
 
-        // Step 10: Assemble separated authority & authorization contract (DEF-03).
+        if (verifiedActive.isEmpty() && selfReportActive.isNotEmpty()) {
+            flags += "PROVISIONAL_SELF_REPORT_BENCHMARK_ONLY"
+        } else if (verifiedActive.isNotEmpty() && selfReportActive.isNotEmpty() && !thrUsedProvisional) {
+            flags += "VERIFIED_BENCHMARK_SUPERSEDED_SELF_REPORT"
+        }
+
+        // Step 10: Assemble separated authority & authorization contract (DEF-03 / R2-06).
         val authorityMode = when {
             thrAnchor != null && thrBelief is BeliefState.Estimated -> when {
                 thrAnchor.authority.isObservedAuthoritative && thrAnchor.freshness == M2ABenchmarkFreshness.FRESH ->
@@ -903,7 +928,11 @@ internal object Engine15M2APerformanceCalibrator {
             compareByDescending<M2ARacePerformanceInput> { it.performedOn!! }
                 .thenByDescending { authorityRank(it.authority) }
                 .thenBy { RawSourceComponent.providerPriority(it.sourceProvider) }
+                .thenBy { it.sourceProvider.trim().lowercase(Locale.ROOT) }
+                .thenBy { it.distance.value }
+                .thenBy { it.duration.value }
                 .thenBy { it.performanceId }
+                .thenBy { it.canonicalActivityId ?: "" }
         )
 
         val n = ordered.size
@@ -939,7 +968,33 @@ internal object Engine15M2APerformanceCalibrator {
             }
         }
 
-        // Any group transitively touching a collided record is quarantined from calibration.
+        // R2-01: Check full connected-component pairwise diameter (never rely on single-edge chaining alone).
+        val preliminaryGroups = linkedMapOf<Int, MutableList<Int>>()
+        val directCollidedRoots = collidedIndices.map { find(it) }.toSet()
+        for (i in 0 until n) {
+            val root = find(i)
+            if (root !in directCollidedRoots) {
+                preliminaryGroups.getOrPut(root) { mutableListOf() }.add(i)
+            }
+        }
+        for ((_, memberIndices) in preliminaryGroups) {
+            var consistentDiameter = true
+            for (ii in memberIndices.indices) {
+                for (jj in ii + 1 until memberIndices.size) {
+                    if (!isConsistentIdentityMatch(ordered[memberIndices[ii]], ordered[memberIndices[jj]])) {
+                        consistentDiameter = false
+                        break
+                    }
+                }
+                if (!consistentDiameter) break
+            }
+            if (!consistentDiameter) {
+                collidedIndices.addAll(memberIndices)
+                flags += "SOURCE_IDENTIFIER_COLLISION_EXCLUDED"
+            }
+        }
+
+        // Any group transitively touching a collided or diameter-inconsistent record is quarantined from calibration.
         val collidedRoots = collidedIndices.map { find(it) }.toSet()
         val collisionSpeeds = mutableListOf<MetersPerSecond>()
         val groups = linkedMapOf<Int, MutableList<M2ARacePerformanceInput>>()
@@ -958,7 +1013,11 @@ internal object Engine15M2APerformanceCalibrator {
             val primary = group.sortedWith(
                 compareByDescending<M2ARacePerformanceInput> { authorityRank(it.authority) }
                     .thenBy { RawSourceComponent.providerPriority(it.sourceProvider) }
+                    .thenBy { it.sourceProvider.trim().lowercase(Locale.ROOT) }
+                    .thenBy { it.distance.value }
+                    .thenBy { it.duration.value }
                     .thenBy { it.performanceId }
+                    .thenBy { it.canonicalActivityId ?: "" }
             ).first()
             val performed = primary.performedOn!!
             val ageDays = ChronoUnit.DAYS.between(performed, asOfDate).toInt().coerceAtLeast(0)
@@ -967,16 +1026,25 @@ internal object Engine15M2APerformanceCalibrator {
                 ageDays <= Engine15M2APolicyRegistry.POL_018_BENCHMARK_AGING_MAX_DAYS -> M2ABenchmarkFreshness.AGING
                 else -> M2ABenchmarkFreshness.STALE
             }
+            // R2-04: Always preserve provider/source qualification across all evidence IDs and representativeId.
             val mergedIds = group.flatMap { item ->
                 buildList {
-                    add(item.performanceId)
+                    add(sourceQualifiedToken(item.sourceProvider, item.performanceId))
                     if (item.canonicalActivityId != null) add(item.canonicalActivityId)
-                    addAll(item.sourceQualifiedAliases.map { it.externalId })
+                    addAll(item.sourceQualifiedAliases.map { sourceQualifiedToken(it.normalizedProvider, it.externalId) })
                 }
             }.toSet()
-            val epoch = group.mapNotNull { it.fitnessEpochId }.distinct().sorted().firstOrNull()
+            // R2-08: Never silently pick one epoch from contradictory epoch metadata inside a group.
+            val distinctEpochs = group.mapNotNull { it.fitnessEpochId }.distinct().sorted()
+            val hasEpochConflict = distinctEpochs.size > 1
+            if (hasEpochConflict) {
+                flags += "CONFLICTING_FITNESS_EPOCH_IN_DUPLICATE_GROUP"
+            }
+            val epoch = if (hasEpochConflict) null else distinctEpochs.firstOrNull()
+            val normProvider = primary.sourceProvider.trim().lowercase(Locale.ROOT)
             M2ASelectedBenchmark(
-                representativeId = primary.canonicalActivityId ?: primary.performanceId,
+                representativeId = primary.canonicalActivityId ?: sourceQualifiedToken(normProvider, primary.performanceId),
+                sourceProvider = normProvider,
                 performedOn = performed,
                 ageDays = ageDays,
                 freshness = freshness,
@@ -987,10 +1055,17 @@ internal object Engine15M2APerformanceCalibrator {
                 performanceIntent = primary.performanceIntent,
                 courseDifficulty = primary.courseDifficulty,
                 fitnessEpochId = epoch,
+                hasConflictingFitnessEpoch = hasEpochConflict,
                 mergedEvidenceIds = mergedIds
             )
         }
         return DedupOutput(benchmarks, collisionSpeeds)
+    }
+
+    private fun sourceQualifiedToken(provider: String, id: String): String {
+        val normProvider = provider.trim().lowercase(Locale.ROOT)
+        val prefix = "$normProvider:"
+        return if (id.startsWith(prefix)) id else "$prefix$id"
     }
 
     private fun sharesCorroboratedIdentity(a: M2ARacePerformanceInput, b: M2ARacePerformanceInput): Boolean {
@@ -1015,52 +1090,6 @@ internal object Engine15M2APerformanceCalibrator {
         return distDiff <= Engine15M1PolicyRegistry.POL_002_MAX_DISTANCE_DIFF_RATIO &&
             durDiff <= Engine15M1PolicyRegistry.POL_002_MAX_DURATION_DIFF_RATIO
     }
-
-    /**
-     * Detects ONLY genuine velocity inversions (D2 > D1 with v2 >= v1, i.e., k_between <= 1.00)
-     * across temporally compatible pairs (DEF-02 & DEF-11).
-     * Never misclassifies historical improvement or legitimate endurance drop-off (k_between > 1.20) as conflict!
-     */
-    private fun detectCompatibleVelocityInversion(
-        activePool: List<M2ASelectedBenchmark>,
-        temporalPolicy: M2ATemporalCompatibilityPolicy,
-        refDuration: Seconds
-    ): BeliefState.Conflicting<MetersPerSecond>? {
-        if (activePool.size < 2) return null
-        val sorted = activePool.sortedWith(
-            compareBy<M2ASelectedBenchmark> { it.distance.value }
-                .thenBy { it.performedOn }
-                .thenBy { it.representativeId }
-        )
-        for (i in sorted.indices) {
-            for (j in i + 1 until sorted.size) {
-                val shorter = sorted[i]
-                val longer = sorted[j]
-                if (!temporalPolicy.areCompatible(shorter, longer)) continue
-                if (longer.distance.value <= shorter.distance.value + Engine15M2APolicyRegistry.DIRECT_ANCHOR_EXACT_DISTANCE_TOLERANCE_METERS) {
-                    continue
-                }
-                if (longer.speed.value >= shorter.speed.value) {
-                    val sA = impliedThresholdOrRawSpeed(shorter, refDuration)
-                    val sB = impliedThresholdOrRawSpeed(longer, refDuration)
-                    val cands = if (sA.value != sB.value) listOf(sA, sB) else listOf(shorter.speed, longer.speed)
-                    if (cands.map { it.value }.distinct().size >= 2) {
-                        return BeliefState.Conflicting(
-                            candidates = cands,
-                            conflictReason = "TEMPORALLY_COMPATIBLE_VELOCITY_INVERSION"
-                        )
-                    }
-                }
-            }
-        }
-        return null
-    }
-
-    private fun impliedThresholdOrRawSpeed(b: M2ASelectedBenchmark, refDuration: Seconds): MetersPerSecond =
-        when (val r = Engine15M2AOperationalThresholdModel.estimate(b.distance, b.duration, refDuration)) {
-            is M2AModelResult.Computed -> r.value.operationalThresholdSpeed
-            else -> b.speed
-        }
 
     /**
      * Strictly separates all 6 endurance mileage semantics (DEF-05).
@@ -1155,20 +1184,48 @@ internal object Engine15M2APerformanceCalibrator {
     }
 
     /**
-     * Model-specific short/mid-distance prediction (DEF-04, DEF-06, DEF-07, DEF-12).
-     * Exact DIRECT_ANCHOR triggers strictly within 1.0 m; near-distances like 4,950 m normalize via MOD-03.
+     * Model-specific short/mid-distance prediction (R2-06, R2-09, DEF-04, DEF-06, DEF-07, DEF-12).
+     * Applies verified-first authority selection AFTER MOD-03 / DIRECT_ANCHOR model eligibility filtering.
      */
     private fun predictShortOrMidDistance(
         target: M2ATargetRaceDistance,
-        activePool: List<M2ASelectedBenchmark>
+        verifiedPool: List<M2ASelectedBenchmark>,
+        provisionalPool: List<M2ASelectedBenchmark>,
+        flags: MutableSet<String>
     ): M2ARacePredictionOutcome {
-        // Exact certified match (<= 1.0 m, DEF-07): prefer FRESH over AGING, then most recent.
-        val exactMatch = activePool
+        val isShortMidEligible: (M2ASelectedBenchmark) -> Boolean = { b ->
+            val exact = abs(b.distance.value - target.meters) <=
+                Engine15M2APolicyRegistry.DIRECT_ANCHOR_EXACT_DISTANCE_TOLERANCE_METERS
+            val ratio = max(target.meters / b.distance.value, b.distance.value / target.meters)
+            val mod03 = b.distance.value in
+                Engine15M2APolicyRegistry.POL_017_MIN_DISTANCE_METERS..Engine15M2APolicyRegistry.POL_017_MAX_DISTANCE_METERS &&
+                ratio <= Engine15M2APolicyRegistry.POL_017_MAX_DISTANCE_RATIO
+            exact || mod03
+        }
+        val (eligiblePool, usedProvisionalFallback) = selectModelEligiblePool(
+            verified = verifiedPool,
+            provisional = provisionalPool,
+            flags = flags,
+            predicate = isShortMidEligible
+        )
+        if (usedProvisionalFallback) {
+            flags += "MOD03_PROVISIONAL_FALLBACK_${target.name}"
+        }
+        if (eligiblePool.isEmpty()) {
+            return M2ARacePredictionOutcome.Abstained(
+                target,
+                "NO_MOD03_ELIGIBLE_BENCHMARK",
+                "No active benchmark meets MOD-03 distance [3000, 21097.5] m and ratio <= 4.25 bounds for ${target.label}."
+            )
+        }
+
+        // Exact certified match (<= 1.0 m, DEF-07): prefer FRESH over AGING, then most recent, with total tie-break (R2-09).
+        val exactMatch = eligiblePool
             .filter { abs(it.distance.value - target.meters) <= Engine15M2APolicyRegistry.DIRECT_ANCHOR_EXACT_DISTANCE_TOLERANCE_METERS }
             .sortedWith(
-                compareBy<M2ASelectedBenchmark> { it.freshness.ordinal }
-                    .thenByDescending { it.performedOn }
-                    .thenBy { it.representativeId }
+                benchmarkTotalOrderComparator(
+                    compareBy<M2ASelectedBenchmark> { it.freshness.ordinal }
+                )
             )
             .firstOrNull()
 
@@ -1193,17 +1250,17 @@ internal object Engine15M2APerformanceCalibrator {
             )
         }
 
-        // Model-specific MOD-03 filter FIRST (DEF-06): only eligible [3,000, 21,097.5] m with ratio <= 4.25.
-        val mod03Eligible = activePool.filter { b ->
+        // Model-specific MOD-03 filter (DEF-06): only eligible [3,000, 21,097.5] m with ratio <= 4.25.
+        val mod03Eligible = eligiblePool.filter { b ->
             val ratio = max(target.meters / b.distance.value, b.distance.value / target.meters)
             b.distance.value in Engine15M2APolicyRegistry.POL_017_MIN_DISTANCE_METERS..Engine15M2APolicyRegistry.POL_017_MAX_DISTANCE_METERS &&
                 ratio <= Engine15M2APolicyRegistry.POL_017_MAX_DISTANCE_RATIO
         }
         val bestSource = mod03Eligible.sortedWith(
-            compareBy<M2ASelectedBenchmark> { it.freshness.ordinal }
-                .thenBy { abs(ln(target.meters / it.distance.value)) }
-                .thenByDescending { it.performedOn }
-                .thenBy { it.representativeId }
+            benchmarkTotalOrderComparator(
+                compareBy<M2ASelectedBenchmark> { it.freshness.ordinal }
+                    .thenBy { abs(ln(target.meters / it.distance.value)) }
+            )
         ).firstOrNull()
             ?: return M2ARacePredictionOutcome.Abstained(
                 target,
@@ -1242,25 +1299,42 @@ internal object Engine15M2APerformanceCalibrator {
     }
 
     /**
-     * Model-specific Marathon prediction (DEF-02, DEF-04, DEF-05, DEF-06, DEF-11, DEF-12).
-     * Never passes partial lower bounds or conflict conservative ceilings into V&V regression as typical mileage!
+     * Model-specific Marathon prediction (R2-02, R2-03, R2-06, R2-07, R2-08, R2-09, DEF-02..12).
+     * Verified-first selection runs after Marathon model-eligibility filtering ([5,000, 21,097.5] m or direct Marathon).
+     * Never passes partial lower bounds or conflict conservative ceilings into V&V regression as typical mileage,
+     * and never overrides non-average course adjustments.
      */
     private fun predictMarathon(
-        activePool: List<M2ASelectedBenchmark>,
+        verifiedActive: List<M2ASelectedBenchmark>,
+        selfReportActive: List<M2ASelectedBenchmark>,
         endurance: M2AEnduranceMileageAssessment,
         temporalPolicy: M2ATemporalCompatibilityPolicy,
-        allowUnverifiedCourseAdj: Boolean,
         flags: MutableSet<String>
     ): Triple<M2ARacePredictionOutcome, M2ASelectedBenchmark?, M2ASelectedBenchmark?> {
         val target = M2ATargetRaceDistance.MARATHON
+        val isMarathonModelEligible: (M2ASelectedBenchmark) -> Boolean = { b ->
+            abs(b.distance.value - target.meters) <=
+                Engine15M2APolicyRegistry.DIRECT_ANCHOR_EXACT_DISTANCE_TOLERANCE_METERS ||
+                b.distance.value in
+                Engine15M2APolicyRegistry.POL_015_VV1_MIN_DISTANCE_METERS..Engine15M2APolicyRegistry.POL_015_VV1_MAX_DISTANCE_METERS
+        }
+        val (activePool, usedProvisionalFallback) = selectModelEligiblePool(
+            verified = verifiedActive,
+            provisional = selfReportActive,
+            flags = flags,
+            predicate = isMarathonModelEligible
+        )
+        if (usedProvisionalFallback) {
+            flags += "MARATHON_PROVISIONAL_FALLBACK"
+        }
 
         // Exact direct recent marathon benchmark (<= 1.0 m) bypasses V&V regression.
         val directMar = activePool
             .filter { abs(it.distance.value - target.meters) <= Engine15M2APolicyRegistry.DIRECT_ANCHOR_EXACT_DISTANCE_TOLERANCE_METERS }
             .sortedWith(
-                compareBy<M2ASelectedBenchmark> { it.freshness.ordinal }
-                    .thenByDescending { it.performedOn }
-                    .thenBy { it.representativeId }
+                benchmarkTotalOrderComparator(
+                    compareBy<M2ASelectedBenchmark> { it.freshness.ordinal }
+                )
             )
             .firstOrNull()
         if (directMar != null) {
@@ -1327,17 +1401,17 @@ internal object Engine15M2APerformanceCalibrator {
                 )
         }
 
-        // Filter benchmarks strictly in [5,000, 21,097.5] m for MOD-04 / MOD-05 (DEF-06).
+        // Filter benchmarks strictly in [5,000, 21,097.5] m for MOD-04 / MOD-05 (DEF-06, R2-09).
         val vvEligible = activePool
             .filter {
                 it.distance.value in
                     Engine15M2APolicyRegistry.POL_015_VV1_MIN_DISTANCE_METERS..Engine15M2APolicyRegistry.POL_015_VV1_MAX_DISTANCE_METERS
             }
             .sortedWith(
-                compareBy<M2ASelectedBenchmark> { it.freshness.ordinal }
-                    .thenByDescending { it.distance.value }
-                    .thenByDescending { it.performedOn }
-                    .thenBy { it.representativeId }
+                benchmarkTotalOrderComparator(
+                    compareBy<M2ASelectedBenchmark> { it.freshness.ordinal }
+                        .thenByDescending { it.distance.value }
+                )
             )
 
         if (vvEligible.isEmpty()) {
@@ -1351,8 +1425,9 @@ internal object Engine15M2APerformanceCalibrator {
             )
         }
 
-        // Try temporally compatible MOD-05 pair first (DEF-02, DEF-04, DEF-11).
+        // Try temporally compatible MOD-05 pair first (R2-02, R2-03, R2-08, DEF-02, DEF-04, DEF-11).
         var sawIncompatiblePair = false
+        var sawVelocityInversionPair = false
         var sawEnduranceDropAbstain = false
         val pairCandidates = mutableListOf<Pair<M2ASelectedBenchmark, M2ASelectedBenchmark>>()
         for (i in vvEligible.indices) {
@@ -1366,6 +1441,11 @@ internal object Engine15M2APerformanceCalibrator {
                     sawIncompatiblePair = true
                     continue
                 }
+                if (longer.speed.value >= shorter.speed.value) {
+                    sawVelocityInversionPair = true
+                    flags += "MOD05_VELOCITY_INVERSION_PAIR_REJECTED"
+                    continue
+                }
                 pairCandidates += shorter to longer
             }
         }
@@ -1376,9 +1456,12 @@ internal object Engine15M2APerformanceCalibrator {
         val orderedPairs = pairCandidates.sortedWith(
             compareBy<Pair<M2ASelectedBenchmark, M2ASelectedBenchmark>> { max(it.first.freshness.ordinal, it.second.freshness.ordinal) }
                 .thenByDescending { it.second.distance.value }
+                .thenBy { it.first.hasConflictingFitnessEpoch || it.second.hasConflictingFitnessEpoch }
                 .thenByDescending { maxOf(it.first.performedOn, it.second.performedOn) }
-                .thenBy { it.first.representativeId }
+                .thenBy { it.second.normalizedSourceProvider }
                 .thenBy { it.second.representativeId }
+                .thenBy { it.first.normalizedSourceProvider }
+                .thenBy { it.first.representativeId }
         )
 
         for ((shorter, longer) in orderedPairs) {
@@ -1389,8 +1472,7 @@ internal object Engine15M2APerformanceCalibrator {
                 longerDuration = longer.duration,
                 weeklyVolumePerWeek = typicalWeeklyM,
                 shorterCourseDifficulty = shorter.courseDifficulty,
-                longerCourseDifficulty = longer.courseDifficulty,
-                allowUnverifiedSecondaryCourseAdjustments = allowUnverifiedCourseAdj
+                longerCourseDifficulty = longer.courseDifficulty
             )) {
                 is M2AModelResult.Computed -> {
                     // DEF-04: Preserve real benchmark authority & take WORST freshness/guidance band across contributing races!
@@ -1436,15 +1518,13 @@ internal object Engine15M2APerformanceCalibrator {
             }
         }
 
-        // DEF-11: If a temporally compatible two-race pair showed steep endurance drop (k_between > 1.20),
-        // fallback MOD-04 MUST anchor on the LONGER race (most endurance-representative), and note endurance limitation!
+        // DEF-11 & R2-03: Fallback MOD-04 anchors on the LONGER race without global velocity-inversion wipeout.
         val vv1Anchor = vvEligible.first()
         return when (val vv1 = Engine15M2AVickersModel1.predictMarathon(
             raceDistance = vv1Anchor.distance,
             raceDuration = vv1Anchor.duration,
             weeklyVolumePerWeek = typicalWeeklyM,
-            courseDifficulty = vv1Anchor.courseDifficulty,
-            allowUnverifiedSecondaryCourseAdjustments = allowUnverifiedCourseAdj
+            courseDifficulty = vv1Anchor.courseDifficulty
         )) {
             is M2AModelResult.Computed -> {
                 val band = guidanceFactorFor(vv1Anchor)
@@ -1456,6 +1536,7 @@ internal object Engine15M2APerformanceCalibrator {
                     if (isCondProvMileage) add("CONDITIONAL_ON_PROVISIONAL_SELF_REPORT_MILEAGE")
                     if (vv1Anchor.freshness == M2ABenchmarkFreshness.AGING) add("AGING_BENCHMARK_91_TO_180D")
                     if (sawEnduranceDropAbstain) add("OBSERVED_STEEP_ENDURANCE_DROP_TWO_RACE_MODEL_ABSTAINED")
+                    if (sawVelocityInversionPair) add("OBSERVED_VELOCITY_INVERSION_TWO_RACE_MODEL_ABSTAINED")
                 }
                 val pred = M2ARacePredictionOutcome.Predicted(
                     targetDistance = target,
@@ -1480,6 +1561,42 @@ internal object Engine15M2APerformanceCalibrator {
                 Triple(M2ARacePredictionOutcome.Abstained(target, vv1.reasonCode, vv1.detail), vv1Anchor, null)
         }
     }
+
+    /**
+     * Per-model verified-first pool selection (R2-06):
+     * filters verified and provisional pools by [predicate] BEFORE falling back to provisional evidence,
+     * so out-of-domain verified benchmarks never mask eligible provisional benchmarks.
+     */
+    private fun selectModelEligiblePool(
+        verified: List<M2ASelectedBenchmark>,
+        provisional: List<M2ASelectedBenchmark>,
+        flags: MutableSet<String>,
+        predicate: (M2ASelectedBenchmark) -> Boolean
+    ): Pair<List<M2ASelectedBenchmark>, Boolean> {
+        val verifiedEligible = verified.filter(predicate)
+        if (verifiedEligible.isNotEmpty()) {
+            return verifiedEligible to false
+        }
+        val provisionalEligible = provisional.filter(predicate)
+        if (provisionalEligible.isNotEmpty()) {
+            flags += "PROVISIONAL_SELF_REPORT_MODEL_FALLBACK"
+            return provisionalEligible to true
+        }
+        return emptyList<M2ASelectedBenchmark>() to false
+    }
+
+    /**
+     * Total deterministic comparator (R2-09): extends [primary] with conflict-free epoch preference,
+     * date recency, normalized source provider, and representativeId so tie-breaks never depend on input order.
+     */
+    private fun benchmarkTotalOrderComparator(
+        primary: Comparator<M2ASelectedBenchmark>
+    ): Comparator<M2ASelectedBenchmark> =
+        primary
+            .thenBy { it.hasConflictingFitnessEpoch }
+            .thenByDescending { it.performedOn }
+            .thenBy { it.normalizedSourceProvider }
+            .thenBy { it.representativeId }
 
     private fun buildFallbackResult(
         request: M2APerformanceCalibrationRequest,

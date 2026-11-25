@@ -348,7 +348,12 @@ class Engine15M2APerformanceCalibrationTest {
             M2APerformanceCalibrationRequest(accountA, asOfDate, utc, observed, listOf(heat1, heat2), asOfUtc)
         )
         assertFalse(res.diagnosticFlags.contains("DUPLICATE_RACE_PERFORMANCE_DEDUPLICATED"))
-        assertEquals(setOf("heat-1", "can-heat-1"), res.operationalThresholdBenchmark!!.mergedEvidenceIds)
+        assertEquals("can-heat-2", res.operationalThresholdBenchmark!!.representativeId)
+        assertEquals(setOf("garmin:heat-2", "can-heat-2"), res.operationalThresholdBenchmark!!.mergedEvidenceIds)
+        assertFalse(res.operationalThresholdBenchmark!!.mergedEvidenceIds.contains("garmin:heat-1"))
+        assertFalse(res.operationalThresholdBenchmark!!.mergedEvidenceIds.contains("can-heat-1"))
+        val p5k = res.racePredictions.getValue(M2ATargetRaceDistance.RACE_5K) as M2ARacePredictionOutcome.Predicted
+        assertEquals(setOf("garmin:heat-1", "can-heat-1"), p5k.evidenceIds)
     }
 
     @Test fun core09_transitiveIdentityDeduplicationAndProviderScopedIdCollision_def01() {
@@ -365,7 +370,7 @@ class Engine15M2APerformanceCalibrationTest {
         )
         assertEquals(res1.contentHash, res2.contentHash)
         assertTrue(res1.diagnosticFlags.contains("DUPLICATE_RACE_PERFORMANCE_DEDUPLICATED"))
-        assertTrue(res1.operationalThresholdBenchmark!!.mergedEvidenceIds.containsAll(setOf("id-a", "id-b", "id-c")))
+        assertTrue(res1.operationalThresholdBenchmark!!.mergedEvidenceIds.containsAll(setOf("fit:id-a", "garmin:id-b", "health_connect:id-c")))
 
         // Contradictory source-identifier collision: same (provider=garmin, externalId=dup-99) on two different days/distances!
         val col1 = raceInput("dup-99", 10, 5_000.0, 1_200.0, sourceProvider = "garmin")
@@ -387,7 +392,7 @@ class Engine15M2APerformanceCalibrationTest {
         )
         assertEquals(M2ACalibrationAuthorityMode.VERIFIED_RECENT_BENCHMARK, resImp.authorityMode)
         assertTrue(resImp.operationalThresholdSpeedBelief is BeliefState.Estimated)
-        assertEquals("new-5k", resImp.operationalThresholdBenchmark!!.representativeId)
+        assertEquals("garmin:new-5k", resImp.operationalThresholdBenchmark!!.representativeId)
         assertTrue(resImp.diagnosticFlags.contains("MOD05_SKIPPED_TEMPORALLY_INCOMPATIBLE_PAIR"))
 
         // 2. DEF-11: Strong 5K (19:00 = 1140s) + Weak HM (1:50:00 = 6600s) in SAME epoch -> k_between = 1.219 > 1.20!
@@ -402,7 +407,7 @@ class Engine15M2APerformanceCalibrationTest {
         assertTrue(resEndur.diagnosticFlags.contains("MOD05_ABSTAINED_ENDURANCE_PROFILE_OUTSIDE_POL016"))
         val mar = resEndur.racePredictions.getValue(M2ATargetRaceDistance.MARATHON) as M2ARacePredictionOutcome.Predicted
         assertEquals("MOD-04", mar.modelId)
-        assertEquals("sprinter-hm", resEndur.marathonPrimaryBenchmark!!.representativeId)
+        assertEquals("garmin:sprinter-hm", resEndur.marathonPrimaryBenchmark!!.representativeId)
         assertTrue(mar.caveats.contains("OBSERVED_STEEP_ENDURANCE_DROP_TWO_RACE_MODEL_ABSTAINED"))
     }
 
@@ -415,7 +420,7 @@ class Engine15M2APerformanceCalibrationTest {
             M2APerformanceCalibrationRequest(accountA, asOfDate, utc, observed, listOf(fast3k, valid10k), asOfUtc)
         )
         assertEquals(M2ACalibrationAuthorityMode.VERIFIED_RECENT_BENCHMARK, resAnchor.authorityMode)
-        assertEquals("valid-10k", resAnchor.operationalThresholdBenchmark!!.representativeId)
+        assertEquals("garmin:valid-10k", resAnchor.operationalThresholdBenchmark!!.representativeId)
         // 5K prediction can still utilize the closer/fresher 3K via MOD-03 (5000/3000 = 1.67 <= 4.25)!
         val p5k = resAnchor.racePredictions.getValue(M2ATargetRaceDistance.RACE_5K) as M2ARacePredictionOutcome.Predicted
         assertEquals("MOD-03", p5k.modelId)
@@ -652,22 +657,59 @@ class Engine15M2APerformanceCalibrationTest {
     }
 
     @Test fun reviewAdversarial05_manualUnverifiedActivityWithCallerCertifiedFlagMustNotAutoGainVerifiedAuthority_exposesR2Def05() {
-        // Manual training log passed into adapter with caller-asserted officiallyCertifiedRace = true
+        // Manual training log passed into adapter must never silently acquire COACH_OR_RACE_VERIFIED
         val manualCan = Engine15CanonicalActivityProjector.project(
             listOf(runObs(id = "manual-jog", date = asOfDate.minusDays(5), distanceM = 5_000.0, durationS = 1_200.0, source = "manual"))
         ).activities.single()
 
-        val adapted = M2ARacePerformanceInput.fromVerifiedMaximalCanonicalActivity(
+        val uncertified = M2ARacePerformanceInput.fromVerifiedMaximalCanonicalActivity(
             activity = manualCan,
             zoneId = utc,
             performanceIntent = M2APerformanceIntent.VERIFIED_OFFICIAL_RACE,
-            officiallyCertifiedRace = true
+            certificationProvenance = M2ARaceCertificationProvenance.UncertifiedWearableOrSelfReport
         )
-        // Strict expectation: manual unverified source must NOT silently acquire COACH_OR_RACE_VERIFIED solely from a bare boolean!
-        assertTrue(
-            "M2A-R2-DEF-05: manual activity without certified provenance must not obtain COACH_OR_RACE_VERIFIED authority",
-            adapted == null || adapted.authority != EvidenceAuthorityClass.COACH_OR_RACE_VERIFIED
+        assertNull(
+            "M2A-R2-DEF-05: uncertified provenance must return null",
+            uncertified
         )
+
+        val manualForgedCert = M2ARacePerformanceInput.fromVerifiedMaximalCanonicalActivity(
+            activity = manualCan,
+            zoneId = utc,
+            performanceIntent = M2APerformanceIntent.VERIFIED_OFFICIAL_RACE,
+            certificationProvenance = M2ARaceCertificationProvenance.CertifiedExternalRaceResult(
+                certificationAuthority = "BAA",
+                externalResultId = "boston-forged"
+            )
+        )
+        assertNull(
+            "M2A-R2-DEF-05: SELF_REPORTED_PROVISIONAL manual activity must not obtain COACH_OR_RACE_VERIFIED even with external provenance",
+            manualForgedCert
+        )
+
+        // Contrast: genuine sensor-supported activity with CertifiedExternalRaceResult upgrades cleanly
+        val garminCan = Engine15CanonicalActivityProjector.project(
+            listOf(
+                runObs(
+                    id = "garmin-boston",
+                    date = asOfDate.minusDays(5),
+                    distanceM = 10_000.0,
+                    durationS = 2_400.0,
+                    source = "garmin"
+                )
+            )
+        ).activities.single()
+        val certified = M2ARacePerformanceInput.fromVerifiedMaximalCanonicalActivity(
+            activity = garminCan,
+            zoneId = utc,
+            performanceIntent = M2APerformanceIntent.VERIFIED_OFFICIAL_RACE,
+            certificationProvenance = M2ARaceCertificationProvenance.CertifiedExternalRaceResult(
+                certificationAuthority = "WorldAthletics",
+                externalResultId = "official-10k-results-42"
+            )
+        )
+        assertNotNull(certified)
+        assertEquals(EvidenceAuthorityClass.COACH_OR_RACE_VERIFIED, certified!!.authority)
     }
 
     @Test fun reviewAdversarial06_verifiedOutOfDomainBenchmarkAlongsideEligibleProvisionalBenchmark_exposesR2Def06() {
@@ -693,36 +735,37 @@ class Engine15M2APerformanceCalibrationTest {
     }
 
     @Test fun reviewAdversarial07_unverifiedCourseAdjustmentOverrideMustNotGrantNonProvisionalAuthority_exposesR2Def07() {
+        assertFalse(Engine15M2APolicyRegistry.VV_COURSE_ADJUSTMENTS_PRIMARY_VERIFIED)
         val observed = continuousObservedWorkload(weeklyKm = 64.37376)
         val diffHm = raceInput(
             id = "diff-hm", daysAgo = 20, distanceM = 21_097.5, durationS = 5_946.0,
             courseDifficulty = VickersCourseDifficulty.DIFFICULT
         )
-        // Default request abstains cleanly
+        // Non-AVERAGE courses always abstain in MOD-04/MOD-05 until primary-source verified; no override flag exists.
         val resDefault = Engine15M2APerformanceCalibrator.calibrate(
             M2APerformanceCalibrationRequest(accountA, asOfDate, utc, observed, listOf(diffHm), asOfUtc)
         )
         val defaultMar = resDefault.racePredictions.getValue(M2ATargetRaceDistance.MARATHON) as M2ARacePredictionOutcome.Abstained
         assertEquals("COURSE_ADJUSTMENT_UNVERIFIED_AGAINST_PRIMARY_DOCX", defaultMar.reasonCode)
 
-        // With override flag = true: must NEVER claim non-provisional production authority (isProvisional must be true + explicit unverified caveat!)
-        val resOverride = Engine15M2APerformanceCalibrator.calibrate(
-            M2APerformanceCalibrationRequest(
-                accountA, asOfDate, utc, observed, listOf(diffHm), asOfUtc,
-                allowUnverifiedSecondaryCourseAdjustments = true
-            )
-        )
-        val overrideMar = resOverride.racePredictions.getValue(M2ATargetRaceDistance.MARATHON)
-        if (overrideMar is M2ARacePredictionOutcome.Predicted) {
-            assertTrue(
-                "M2A-R2-DEF-07: prediction using unverified course adjustment must be marked isProvisional=true",
-                overrideMar.isProvisional
-            )
-            assertTrue(
-                "M2A-R2-DEF-07: prediction must include explicit UNVERIFIED_SECONDARY_COURSE_ADJUSTMENT_USED caveat",
-                overrideMar.caveats.contains("UNVERIFIED_SECONDARY_COURSE_ADJUSTMENT_USED")
-            )
-        }
+        val vv1Direct = Engine15M2AVickersModel1.predictMarathon(
+            raceDistance = Meters.of(21_097.5),
+            raceDuration = Seconds.of(5_946.0),
+            weeklyVolumePerWeek = Meters.of(40.0 * 1_609.344),
+            courseDifficulty = VickersCourseDifficulty.DIFFICULT
+        ) as M2AModelResult.Abstained
+        assertEquals("COURSE_ADJUSTMENT_UNVERIFIED_AGAINST_PRIMARY_DOCX", vv1Direct.reasonCode)
+
+        val vv2Direct = Engine15M2AVickersModel2.predictMarathon(
+            shorterDistance = Meters.of(10_000.0),
+            shorterDuration = Seconds.of(3_000.0),
+            longerDistance = Meters.of(21_097.5),
+            longerDuration = Seconds.of(6_600.0),
+            weeklyVolumePerWeek = Meters.of(40.0 * 1_609.344),
+            shorterCourseDifficulty = VickersCourseDifficulty.AVERAGE,
+            longerCourseDifficulty = VickersCourseDifficulty.DIFFICULT
+        ) as M2AModelResult.Abstained
+        assertEquals("COURSE_ADJUSTMENT_UNVERIFIED_AGAINST_PRIMARY_DOCX", vv2Direct.reasonCode)
     }
 
     @Test fun reviewAdversarial08_contradictoryFitnessEpochIdsWithinDeduplicatedGroupMustBeFlaggedAndUnresolved_exposesR2Def08() {
@@ -770,5 +813,198 @@ class Engine15M2APerformanceCalibrationTest {
             resBA.contentHash
         )
         assertEquals(resAB.operationalThresholdBenchmark, resBA.operationalThresholdBenchmark)
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // Restored R1 regression coverage (scenarios 08-13, 15-17) + R3 checks
+    // ───────────────────────────────────────────────────────────────────────────
+
+    @Test fun restoredR1_scenario08_fastShortDistanceRunnerWithoutMarathonEnduranceAbstainsOnMarathon() {
+        // 19:00 5K runner with only 20 km/wk (~12.43 mi/wk < 15.0 mi/wk POL-015 minimum)
+        val observed = continuousObservedWorkload(weeklyKm = 20.0, sessionsIn28d = 12)
+        val fast5k = raceInput(id = "fast-5k", daysAgo = 15, distanceM = 5_000.0, durationS = 1_140.0)
+        val res = Engine15M2APerformanceCalibrator.calibrate(
+            M2APerformanceCalibrationRequest(accountA, asOfDate, utc, observed, listOf(fast5k), asOfUtc)
+        )
+        assertEquals(M2ACalibrationAuthorityMode.VERIFIED_RECENT_BENCHMARK, res.authorityMode)
+        assertTrue(res.racePredictions.getValue(M2ATargetRaceDistance.RACE_5K) is M2ARacePredictionOutcome.Predicted)
+        assertTrue(res.racePredictions.getValue(M2ATargetRaceDistance.RACE_10K) is M2ARacePredictionOutcome.Predicted)
+        val mar = res.racePredictions.getValue(M2ATargetRaceDistance.MARATHON) as M2ARacePredictionOutcome.Abstained
+        assertEquals("WEEKLY_MILEAGE_OUT_OF_POL015_DOMAIN", mar.reasonCode)
+    }
+
+    @Test fun restoredR1_scenario09_invalidNumericalInputsAndZeroDenominatorsFailClosed() {
+        assertTrue(Engine15M2ASpeedPaceMath.paceSecondsPerKmToSpeed(Double.NaN) is M2AModelResult.InvalidInput)
+        assertTrue(Engine15M2ASpeedPaceMath.paceSecondsPerKmToSpeed(Double.POSITIVE_INFINITY) is M2AModelResult.InvalidInput)
+        assertTrue(Engine15M2ASpeedPaceMath.paceSecondsPerKmToSpeed(0.0) is M2AModelResult.InvalidInput)
+        assertTrue(Engine15M2ASpeedPaceMath.paceSecondsPerKmToSpeed(-300.0) is M2AModelResult.InvalidInput)
+        assertThrows(IllegalArgumentException::class.java) {
+            SiSpeedInterval(MetersPerSecond.of(4.0), MetersPerSecond.of(3.0))
+        }
+        assertTrue(
+            Engine15M2ARiegelModel.predictAdjacent(Meters.ZERO, Seconds.of(1_200.0), Meters.of(10_000.0))
+                is M2AModelResult.InvalidInput
+        )
+        assertTrue(
+            Engine15M2ARiegelModel.predictAdjacent(Meters.of(5_000.0), Seconds.ZERO, Meters.of(10_000.0))
+                is M2AModelResult.InvalidInput
+        )
+        assertTrue(
+            Engine15M2AVickersModel2.predictMarathon(
+                Meters.of(10_000.0), Seconds.of(3_000.0),
+                Meters.of(10_000.0), Seconds.of(3_000.0),
+                Meters.fromKilometers(64.0)
+            ) is M2AModelResult.InvalidInput
+        )
+    }
+
+    @Test fun restoredR1_scenario10_extremeExtrapolationDistancesAreAbstained() {
+        // 3,000 m -> 21,097.5 m has ratio 7.0325 > POL-017 4.25
+        val resRatio = Engine15M2ARiegelModel.predictAdjacent(
+            Meters.of(3_000.0), Seconds.of(600.0), Meters.of(21_097.5)
+        )
+        assertTrue(resRatio is M2AModelResult.Abstained)
+        assertEquals("EXTRAPOLATION_RATIO_EXCEEDED", (resRatio as M2AModelResult.Abstained).reasonCode)
+
+        // 1,500 m below POL-017 3,000 m minimum
+        val resShort = Engine15M2ARiegelModel.predictAdjacent(
+            Meters.of(1_500.0), Seconds.of(300.0), Meters.of(5_000.0)
+        )
+        assertTrue(resShort is M2AModelResult.Abstained)
+        assertEquals("OUT_OF_MOD03_DISTANCE_DOMAIN", (resShort as M2AModelResult.Abstained).reasonCode)
+    }
+
+    @Test fun restoredR1_scenario11_vickersModel1AndModel2ApplicabilityAndEqDef01EqDef02Guards() {
+        // Valid MOD-04 exact worked example: HM 1:39:06 (5,946 s) @ 40 mi/wk -> 3:38:03 (13,082.8 s)
+        val vv1Ok = Engine15M2AVickersModel1.predictMarathon(
+            Meters.of(21_097.5), Seconds.of(5_946.0), Meters.of(40.0 * 1_609.344)
+        ) as M2AModelResult.Computed
+        assertEquals(3.225226, vv1Ok.value.predictedMarathonSpeed.value, 1e-4)
+        assertEquals(13_082.8, vv1Ok.value.predictedMarathonDuration.value, 1.0)
+
+        // EQ-DEF-01 Mileage ceiling (> 75 mi/wk) AND independent Velocity Inversion Guard (HM 2:45 @ 75 mi/wk)
+        val vv1OverMi = Engine15M2AVickersModel1.predictMarathon(
+            Meters.of(21_097.5), Seconds.of(9_900.0), Meters.of(100.0 * 1_609.344)
+        ) as M2AModelResult.Abstained
+        assertEquals("WEEKLY_MILEAGE_OUT_OF_POL015_DOMAIN", vv1OverMi.reasonCode)
+
+        val vv1Inv = Engine15M2AVickersModel1.predictMarathon(
+            Meters.of(21_097.5), Seconds.of(9_900.0), Meters.of(75.0 * 1_609.344)
+        ) as M2AModelResult.Abstained
+        assertEquals("VELOCITY_INVERSION_GUARD_TRIGGERED", vv1Inv.reasonCode)
+
+        // Excluded course difficulties (VERY_DIFFICULT / VERY_FAST) abstain
+        val vv1Excl = Engine15M2AVickersModel1.predictMarathon(
+            Meters.of(21_097.5), Seconds.of(5_946.0), Meters.of(40.0 * 1_609.344),
+            VickersCourseDifficulty.VERY_DIFFICULT_EXCLUDED
+        ) as M2AModelResult.Abstained
+        assertEquals("COURSE_DIFFICULTY_EXCLUDED_BY_MODEL", vv1Excl.reasonCode)
+
+        // Valid MOD-05 exact worked example: 10K 50:00 + HM 1:50:00 @ 40 mi/wk -> k_M = 1.1433, 4:02:59 (14,579 s)
+        val vv2Ok = Engine15M2AVickersModel2.predictMarathon(
+            Meters.of(10_000.0), Seconds.of(3_000.0),
+            Meters.of(21_097.5), Seconds.of(6_600.0),
+            Meters.of(40.0 * 1_609.344)
+        ) as M2AModelResult.Computed
+        assertEquals(1.0561, vv2Ok.value.empiricalKBetween.value, 1e-3)
+        assertEquals(1.1433, vv2Ok.value.predictedKMarathon.value, 1e-3)
+        assertEquals(14_579.0, vv2Ok.value.predictedMarathonDuration.value, 2.0)
+
+        // EQ-DEF-02: 5K 20:00 + 10K 60:00 @ 60 mi/wk -> k_between = 1.585 rejected
+        val vv2Bad = Engine15M2AVickersModel2.predictMarathon(
+            Meters.of(5_000.0), Seconds.of(1_200.0),
+            Meters.of(10_000.0), Seconds.of(3_600.0),
+            Meters.of(60.0 * 1_609.344)
+        ) as M2AModelResult.Abstained
+        assertEquals("K_BETWEEN_OUT_OF_POL016_RANGE", vv2Bad.reasonCode)
+    }
+
+    @Test fun restoredR1_scenario12_riegelExponentAndMarathonProhibitionViolations() {
+        val badExp = Engine15M2ARiegelModel.predictAdjacent(
+            Meters.of(5_000.0), Seconds.of(1_200.0), Meters.of(10_000.0), exponent = 1.06
+        ) as M2AModelResult.Abstained
+        assertEquals("NON_POLICY_RIEGEL_EXPONENT", badExp.reasonCode)
+
+        val invalidExp = Engine15M2ARiegelModel.predictAdjacent(
+            Meters.of(5_000.0), Seconds.of(1_200.0), Meters.of(10_000.0), exponent = 0.95
+        ) as M2AModelResult.InvalidInput
+        assertEquals("INVALID_RIEGEL_EXPONENT", invalidExp.reasonCode)
+
+        val marBan = Engine15M2ARiegelModel.predictAdjacent(
+            Meters.of(21_097.5), Seconds.of(5_946.0), Meters.of(42_195.0)
+        ) as M2AModelResult.Abstained
+        assertEquals("PROHIBITED_MARATHON_OR_EXTENDED_DISTANCE", marBan.reasonCode)
+    }
+
+    @Test fun restoredR1_scenario13_operationalThresholdBoundariesAndNonMeasuredGuarantee() {
+        val shortAbstain = Engine15M2AOperationalThresholdModel.estimate(
+            Meters.of(2_000.0), Seconds.of(420.0)
+        ) as M2AModelResult.Abstained
+        assertEquals("BENCHMARK_DURATION_OUT_OF_POL020_DOMAIN", shortAbstain.reasonCode)
+
+        val longAbstain = Engine15M2AOperationalThresholdModel.estimate(
+            Meters.of(42_195.0), Seconds.of(12_000.0)
+        ) as M2AModelResult.Abstained
+        assertEquals("BENCHMARK_DURATION_OUT_OF_POL020_DOMAIN", longAbstain.reasonCode)
+
+        val valid = Engine15M2AOperationalThresholdModel.estimate(
+            Meters.of(10_000.0), Seconds.of(2_700.0)
+        ) as M2AModelResult.Computed
+        assertFalse(valid.value.isMeasuredPhysiologicalThreshold)
+        assertEquals(3.65979, valid.value.operationalThresholdSpeed.value, 1e-4)
+        assertEquals(273.24, valid.value.operationalThresholdPaceSecPerKm, 0.05)
+    }
+
+    @Test fun restoredR1_scenario15_16_17_projectedFutureAccountDisciplineAndPermutationInvariance() {
+        val observed = continuousObservedWorkload(accountId = accountA, weeklyKm = 64.37376)
+        val projected = raceInput(
+            id = "proj-5k", daysAgo = 5, distanceM = 5_000.0, durationS = 1_050.0,
+            authority = EvidenceAuthorityClass.PROJECTED_NON_AUTHORITATIVE, isProjected = true
+        )
+        val futureDated = raceInput(
+            id = "future-10k", daysAgo = -7, distanceM = 10_000.0, durationS = 2_300.0,
+            authority = EvidenceAuthorityClass.COACH_OR_RACE_VERIFIED
+        )
+        val foreignRace = raceInput(
+            id = "foreign-5k", daysAgo = 10, distanceM = 5_000.0, durationS = 1_000.0, accountId = accountB
+        )
+        val cyclingTt = raceInput(
+            id = "bike-10k", daysAgo = 10, distanceM = 10_000.0, durationS = 950.0, discipline = AthleteDiscipline.CONDITIONING
+        )
+        val isolated = Engine15M2APerformanceCalibrator.calibrate(
+            M2APerformanceCalibrationRequest(
+                accountA, asOfDate, utc, observed, listOf(projected, futureDated, foreignRace, cyclingTt), asOfUtc
+            )
+        )
+        assertEquals(M2ACalibrationAuthorityMode.EFFORT_AND_TALK_TEST_FALLBACK, isolated.authorityMode)
+        assertFalse(isolated.authorization.eligibleToParticipateInPaceCalibration)
+        assertFalse(isolated.authorization.provisionalPaceGuidanceAvailable)
+        assertTrue(isolated.diagnosticFlags.contains("PROJECTED_PERFORMANCE_EXCLUDED"))
+        assertTrue(isolated.diagnosticFlags.contains("FUTURE_DATED_PERFORMANCE_EXCLUDED"))
+        assertTrue(isolated.diagnosticFlags.contains("FOREIGN_ACCOUNT_PERFORMANCE_EXCLUDED"))
+        assertTrue(isolated.diagnosticFlags.contains("NON_RUNNING_PERFORMANCE_EXCLUDED"))
+
+        // Permutation invariance across valid two-race input + conflicting-epoch deduplicated group cannot pair across epochs
+        val r10k = raceInput(id = "r-10k", daysAgo = 20, distanceM = 10_000.0, durationS = 3_000.0, fitnessEpochId = "ep-1")
+        val rHm = raceInput(id = "r-hm", daysAgo = 30, distanceM = 21_097.5, durationS = 6_600.0, fitnessEpochId = "ep-1")
+        val res1 = Engine15M2APerformanceCalibrator.calibrate(
+            M2APerformanceCalibrationRequest(accountA, asOfDate, utc, observed, listOf(r10k, rHm), asOfUtc)
+        )
+        val res2 = Engine15M2APerformanceCalibrator.calibrate(
+            M2APerformanceCalibrationRequest(accountA, asOfDate, utc, observed, listOf(rHm, r10k), asOfUtc)
+        )
+        assertEquals(res1.contentHash, res2.contentHash)
+        assertEquals(res1, res2)
+
+        // R3 regression check: conflicting epoch inside deduplicated 10K blocks MOD-05 pairing with HM
+        val conflict10kA = raceInput("ep-a", daysAgo = 20, distanceM = 10_000.0, durationS = 3_000.0, sourceProvider = "garmin", sha256 = "c".repeat(64), fitnessEpochId = "ep-1")
+        val conflict10kB = raceInput("ep-b", daysAgo = 20, distanceM = 10_005.0, durationS = 3_002.0, sourceProvider = "fit", sha256 = "c".repeat(64), fitnessEpochId = "ep-2")
+        val resEpochConflict = Engine15M2APerformanceCalibrator.calibrate(
+            M2APerformanceCalibrationRequest(accountA, asOfDate, utc, observed, listOf(conflict10kA, conflict10kB, rHm), asOfUtc)
+        )
+        assertTrue(resEpochConflict.diagnosticFlags.contains("CONFLICTING_FITNESS_EPOCH_IN_DUPLICATE_GROUP"))
+        assertTrue(resEpochConflict.diagnosticFlags.contains("MOD05_SKIPPED_TEMPORALLY_INCOMPATIBLE_PAIR"))
+        val marEpochConflict = resEpochConflict.racePredictions.getValue(M2ATargetRaceDistance.MARATHON) as M2ARacePredictionOutcome.Predicted
+        assertEquals("MOD-04", marEpochConflict.modelId)
     }
 }

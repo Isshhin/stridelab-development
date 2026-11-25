@@ -1,7 +1,7 @@
 package io.stridelab.privatealpha
 
 /**
- * Centralized numerical policy registry for M2-A Performance Calibration (Corrective Pass R2).
+ * Centralized numerical policy registry for M2-A Performance Calibration (Accepted Pass R3).
  * Target checkpoint: bef05a7c60683ff03bf309884db19d44bd3718b4 (feat/freeform-logger).
  *
  * Provenance classes are explicitly separated (DEF-10):
@@ -9,8 +9,8 @@ package io.stridelab.privatealpha
  * 2. PUBLISHED_PRIMARY_OR_CONFIRMED: Verbatim Vickers & Vertosick (2016) regression coefficients
  *    confirmed against the primary publication / Keogh et al. (2019). Never modified to tune fits.
  * 3. SECONDARY_UNVERIFIED_COURSE_DELTAS: Course-difficulty velocity deltas from secondary citations
- *    of Additional File 1 (13102_2016_52_MOESM1_ESM.docx); disabled by default until direct binary
- *    .docx verification occurs.
+ *    of Additional File 1 (13102_2016_52_MOESM1_ESM.docx); disabled pending direct binary
+ *    .docx verification (R2-07).
  * 4. RESEARCH_APPROVED_POLICIES: Frozen constants from COACHING-POLICY-REGISTRY.md v1.1
  *    (POL-011..013, POL-015..018, POL-020..021).
  * 5. LOCAL_STRUCTURAL_GUARDS: Narrow mathematical/kinematic software bounds (zero duplication of
@@ -18,7 +18,7 @@ package io.stridelab.privatealpha
  */
 internal object Engine15M2APolicyRegistry {
     const val SPEC_VERSION: String = "1.5.0-spec-consolidated"
-    const val POLICY_VERSION: String = "policy-registry-1.5.0-v1.1-m2a-r2"
+    const val POLICY_VERSION: String = "policy-registry-1.5.0-v1.1-m2a-r3"
 
     // =========================================================================
     // 1. EXACT_DEFINITIONS (SI Conversions & Standard Race Distances)

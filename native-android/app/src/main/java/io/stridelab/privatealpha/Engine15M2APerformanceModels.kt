@@ -345,10 +345,10 @@ internal object Engine15M2AVickersCourseAdjuster {
         distance: Meters,
         duration: Seconds,
         difficulty: VickersCourseDifficulty,
-        modelId: String,
-        allowUnverifiedSecondaryCourseAdjustments: Boolean =
-            Engine15M2APolicyRegistry.VV_COURSE_ADJUSTMENTS_PRIMARY_VERIFIED
+        modelId: String
     ): M2AModelResult<Pair<MetersPerSecond, Boolean>> {
+        val allowUnverifiedSecondaryCourseAdjustments =
+            Engine15M2APolicyRegistry.VV_COURSE_ADJUSTMENTS_PRIMARY_VERIFIED
         if (distance.value <= 0.0 || duration.value <= 0.0) {
             return M2AModelResult.InvalidInput(modelId, "NON_POSITIVE_RACE_INPUT", "Distance and duration must be > 0")
         }
@@ -428,16 +428,13 @@ internal object Engine15M2AVickersModel1 {
         raceDistance: Meters,
         raceDuration: Seconds,
         weeklyVolumePerWeek: Meters,
-        courseDifficulty: VickersCourseDifficulty = VickersCourseDifficulty.AVERAGE,
-        allowUnverifiedSecondaryCourseAdjustments: Boolean =
-            Engine15M2APolicyRegistry.VV_COURSE_ADJUSTMENTS_PRIMARY_VERIFIED
+        courseDifficulty: VickersCourseDifficulty = VickersCourseDifficulty.AVERAGE
     ): M2AModelResult<VickersModel1Output> {
         val adjResult = Engine15M2AVickersCourseAdjuster.adjustVelocity(
             distance = raceDistance,
             duration = raceDuration,
             difficulty = courseDifficulty,
-            modelId = MODEL_ID,
-            allowUnverifiedSecondaryCourseAdjustments = allowUnverifiedSecondaryCourseAdjustments
+            modelId = MODEL_ID
         )
         val (adjustedSpeed, courseAdjusted) = when (adjResult) {
             is M2AModelResult.Computed -> adjResult.value
@@ -524,9 +521,7 @@ internal object Engine15M2AVickersModel2 {
         longerDuration: Seconds,
         weeklyVolumePerWeek: Meters,
         shorterCourseDifficulty: VickersCourseDifficulty = VickersCourseDifficulty.AVERAGE,
-        longerCourseDifficulty: VickersCourseDifficulty = VickersCourseDifficulty.AVERAGE,
-        allowUnverifiedSecondaryCourseAdjustments: Boolean =
-            Engine15M2APolicyRegistry.VV_COURSE_ADJUSTMENTS_PRIMARY_VERIFIED
+        longerCourseDifficulty: VickersCourseDifficulty = VickersCourseDifficulty.AVERAGE
     ): M2AModelResult<VickersModel2Output> {
         if (shorterDistance.value <= 0.0 || longerDistance.value <= 0.0 ||
             shorterDuration.value <= 0.0 || longerDuration.value <= 0.0
@@ -542,7 +537,7 @@ internal object Engine15M2AVickersModel2 {
         }
 
         val adj1 = Engine15M2AVickersCourseAdjuster.adjustVelocity(
-            shorterDistance, shorterDuration, shorterCourseDifficulty, MODEL_ID, allowUnverifiedSecondaryCourseAdjustments
+            shorterDistance, shorterDuration, shorterCourseDifficulty, MODEL_ID
         )
         val (v1Adj, c1) = when (adj1) {
             is M2AModelResult.Computed -> adj1.value
@@ -550,7 +545,7 @@ internal object Engine15M2AVickersModel2 {
             is M2AModelResult.InvalidInput -> return adj1
         }
         val adj2 = Engine15M2AVickersCourseAdjuster.adjustVelocity(
-            longerDistance, longerDuration, longerCourseDifficulty, MODEL_ID, allowUnverifiedSecondaryCourseAdjustments
+            longerDistance, longerDuration, longerCourseDifficulty, MODEL_ID
         )
         val (v2Adj, c2) = when (adj2) {
             is M2AModelResult.Computed -> adj2.value
