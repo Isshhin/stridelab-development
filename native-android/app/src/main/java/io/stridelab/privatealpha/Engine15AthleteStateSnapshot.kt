@@ -114,7 +114,9 @@ internal class AthleteStateSnapshot(
     evidenceIds: Set<String> = emptySet(),
     activeRestrictionIds: Set<String> = emptySet(),
     val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
-    val policyVersion: String = CURRENT_POLICY_VERSION
+    val policyVersion: String = CURRENT_POLICY_VERSION,
+    val observedWorkload: ObservedWorkloadState? = null,
+    val projectedWorkload: ProjectedWorkloadState? = null
 ) {
     val disciplines: Map<AthleteDiscipline, DisciplineStateSummary>
     val evidenceIds: Set<String>
@@ -126,6 +128,12 @@ internal class AthleteStateSnapshot(
         RecordPolicy.identifier(accountId)
         require(schemaVersion > 0) { "schemaVersion must be positive" }
         RecordPolicy.identifier(policyVersion)
+        require(observedWorkload == null || observedWorkload.accountId == accountId) {
+            "INV-03 violation: observedWorkload accountId must match AthleteStateSnapshot.accountId"
+        }
+        require(projectedWorkload == null || projectedWorkload.accountId == accountId) {
+            "INV-03 violation: projectedWorkload accountId must match AthleteStateSnapshot.accountId"
+        }
 
         val sortedDisciplines = TreeMap<AthleteDiscipline, DisciplineStateSummary>()
         for ((key, summary) in disciplines) {
@@ -159,6 +167,8 @@ internal class AthleteStateSnapshot(
         append("|disciplines=").append(canonicalList(disciplines.values.map { it.canonicalRecord() }))
         append("|evidence=").append(canonicalList(evidenceIds))
         append("|restrictions=").append(canonicalList(activeRestrictionIds))
+        append("|obsHash=").append(observedWorkload?.contentHash?.let { canonicalSegment(it) } ?: "0:NONE")
+        append("|projHash=").append(projectedWorkload?.contentHash?.let { canonicalSegment(it) } ?: "0:NONE")
     }
 
     /**
@@ -196,7 +206,9 @@ internal class AthleteStateSnapshot(
             evaluatedAtUtc == other.evaluatedAtUtc &&
             disciplines == other.disciplines &&
             evidenceIds == other.evidenceIds &&
-            activeRestrictionIds == other.activeRestrictionIds
+            activeRestrictionIds == other.activeRestrictionIds &&
+            observedWorkload == other.observedWorkload &&
+            projectedWorkload == other.projectedWorkload
 
     override fun hashCode(): Int {
         var result = schemaVersion
@@ -206,6 +218,8 @@ internal class AthleteStateSnapshot(
         result = 31 * result + disciplines.hashCode()
         result = 31 * result + evidenceIds.hashCode()
         result = 31 * result + activeRestrictionIds.hashCode()
+        result = 31 * result + (observedWorkload?.hashCode() ?: 0)
+        result = 31 * result + (projectedWorkload?.hashCode() ?: 0)
         return result
     }
 
@@ -223,6 +237,44 @@ internal class AthleteStateSnapshot(
          * Does NOT imply deferred M2-M9 policies (POL-009..064) or Tier B/C models are active.
          */
         const val CURRENT_POLICY_VERSION = "policy-registry-1.5.0-v1.1-m1-foundation"
+
+        fun fromWorkloads(
+            accountId: String,
+            evaluatedAtUtc: Instant,
+            observedWorkload: ObservedWorkloadState,
+            projectedWorkload: ProjectedWorkloadState? = null,
+            evidenceIds: Set<String> = emptySet(),
+            activeRestrictionIds: Set<String> = emptySet()
+        ): AthleteStateSnapshot {
+            require(observedWorkload.accountId == accountId) {
+                "INV-03 violation: observedWorkload.accountId != accountId"
+            }
+            require(projectedWorkload == null || projectedWorkload.accountId == accountId) {
+                "INV-03 violation: projectedWorkload.accountId != accountId"
+            }
+            val summaries = TreeMap<AthleteDiscipline, DisciplineStateSummary>()
+            val combinedEvidence = LinkedHashSet(evidenceIds)
+            for ((disc, workload) in observedWorkload.disciplines) {
+                val discEvidence = workload.exposures.map { it.exposureId }.toSet()
+                combinedEvidence += discEvidence
+                summaries[disc] = DisciplineStateSummary(
+                    discipline = disc,
+                    coverage = workload.coverage,
+                    weeklyVolumeBelief = workload.rolling28dWeeklyAverageBelief,
+                    longestSessionBelief = workload.preceding30dLongestSessionBelief,
+                    evidenceIds = discEvidence
+                )
+            }
+            return AthleteStateSnapshot(
+                accountId = accountId,
+                evaluatedAtUtc = evaluatedAtUtc,
+                disciplines = summaries,
+                evidenceIds = combinedEvidence,
+                activeRestrictionIds = activeRestrictionIds,
+                observedWorkload = observedWorkload,
+                projectedWorkload = projectedWorkload
+            )
+        }
 
         internal fun canonicalSegment(raw: String): String = "${raw.length}:$raw"
 
