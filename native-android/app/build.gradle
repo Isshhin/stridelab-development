@@ -15,6 +15,7 @@ android {
         manifestPlaceholders['strideAppLabel'] = 'StrideLab'
         buildConfigField 'boolean', 'ENGINE15_ACTIVE', (project.findProperty('strideEngine15Active') ?: 'true').toString().toBoolean().toString()
         buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', (project.findProperty('strideEngine15IndependentRunningActive') ?: 'true').toString().toBoolean().toString()
+        buildConfigField 'boolean', 'USE_UNIFIED_ATHLETE_STATE_V1', (project.findProperty('strideUseUnifiedAthleteStateV1') ?: 'false').toString().toBoolean().toString()
         minSdk = 26
         targetSdk = 35
         versionCode = (project.findProperty('strideVersionCode') ?: '15').toInteger()
@@ -64,6 +65,7 @@ android {
             minifyEnabled false
             buildConfigField 'boolean', 'ENGINE15_ACTIVE', 'true'
             buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', 'true'
+            buildConfigField 'boolean', 'USE_UNIFIED_ATHLETE_STATE_V1', 'false'
             if (System.getenv('STRIDELAB_KEYSTORE_FILE')) signingConfig signingConfigs.privateAlpha
         }
     }
