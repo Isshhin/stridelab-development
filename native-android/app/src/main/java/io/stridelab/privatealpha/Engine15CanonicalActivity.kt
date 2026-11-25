@@ -18,6 +18,28 @@ internal enum class CanonicalDeduplicationStatus {
     POTENTIAL_SPLIT_RECORDING
 }
 
+internal enum class DuplicateResolutionConfidence {
+    VERIFIED_UNIQUE,
+    VERIFIED_EXACT_DUPLICATE,
+    VERIFIED_CORROBORATED_MULTI_SOURCE,
+    UNRESOLVED_AMBIGUOUS_OVERLAP,
+    UNRESOLVED_SPLIT_CANDIDATE,
+    UNRESOLVED_SOURCE_ID_COLLISION
+}
+
+internal enum class WorkloadAggregationEligibility {
+    ELIGIBLE_VERIFIED_OBSERVED,
+    AMBIGUOUS_BOUNDED_ONLY,
+    BLOCKED_COLLISION
+}
+
+internal enum class CalibrationEligibility {
+    ELIGIBLE_OBSERVED,
+    ELIGIBLE_NON_HR_ONLY,
+    INELIGIBLE_UNRESOLVED_AMBIGUITY,
+    INELIGIBLE_INSUFFICIENT_QUALITY
+}
+
 internal enum class ActivityAmbiguityKind {
     AMBIGUOUS_OVERLAPPING_DUPLICATE,
     POTENTIAL_SPLIT_RECORDING,
@@ -139,7 +161,8 @@ internal data class RawActivityObservation(
     val sourceIdentity: ImportedSourceIdentity? = null,
     val hrSensorModality: HeartRateSensorModality = HeartRateSensorModality.UNKNOWN,
     val isOutdoorGnss: Boolean? = null,
-    val corroborationToken: String? = null
+    val corroborationToken: String? = null,
+    val hasCorroboratingCadenceLockSignal: Boolean = false
 ) {
     val resolvedIdentity: ImportedSourceIdentity = sourceIdentity ?: ImportedSourceIdentity(
         accountId = accountId,
@@ -191,6 +214,9 @@ internal class CanonicalActivity(
 ) {
     val rawComponents: List<RawSourceComponent>
     val ambiguities: List<ActivityAmbiguityNotice>
+    val duplicateResolutionConfidence: DuplicateResolutionConfidence
+    val workloadAggregationEligibility: WorkloadAggregationEligibility
+    val calibrationEligibility: CalibrationEligibility
     val contentHash: String
     val canonicalId: String
 
@@ -207,6 +233,51 @@ internal class CanonicalActivity(
 
         val sortedAmbiguities = ambiguities.distinct().sorted()
         this.ambiguities = Collections.unmodifiableList(ArrayList(sortedAmbiguities))
+
+        this.duplicateResolutionConfidence = when {
+            this.ambiguities.any { it.kind == ActivityAmbiguityKind.SOURCE_IDENTIFIER_COLLISION } ->
+                DuplicateResolutionConfidence.UNRESOLVED_SOURCE_ID_COLLISION
+            this.ambiguities.any { it.kind == ActivityAmbiguityKind.AMBIGUOUS_OVERLAPPING_DUPLICATE } ->
+                DuplicateResolutionConfidence.UNRESOLVED_AMBIGUOUS_OVERLAP
+            this.ambiguities.any { it.kind == ActivityAmbiguityKind.POTENTIAL_SPLIT_RECORDING } ->
+                DuplicateResolutionConfidence.UNRESOLVED_SPLIT_CANDIDATE
+            deduplicationStatus == CanonicalDeduplicationStatus.VERIFIED_MULTI_SOURCE_DUPLICATE ->
+                DuplicateResolutionConfidence.VERIFIED_CORROBORATED_MULTI_SOURCE
+            deduplicationStatus == CanonicalDeduplicationStatus.EXACT_DUPLICATE_COLLAPSED ->
+                DuplicateResolutionConfidence.VERIFIED_EXACT_DUPLICATE
+            else -> DuplicateResolutionConfidence.VERIFIED_UNIQUE
+        }
+
+        this.workloadAggregationEligibility = when (this.duplicateResolutionConfidence) {
+            DuplicateResolutionConfidence.UNRESOLVED_SOURCE_ID_COLLISION ->
+                WorkloadAggregationEligibility.BLOCKED_COLLISION
+            DuplicateResolutionConfidence.UNRESOLVED_AMBIGUOUS_OVERLAP ->
+                WorkloadAggregationEligibility.AMBIGUOUS_BOUNDED_ONLY
+            DuplicateResolutionConfidence.UNRESOLVED_SPLIT_CANDIDATE,
+            DuplicateResolutionConfidence.VERIFIED_UNIQUE,
+            DuplicateResolutionConfidence.VERIFIED_EXACT_DUPLICATE,
+            DuplicateResolutionConfidence.VERIFIED_CORROBORATED_MULTI_SOURCE ->
+                WorkloadAggregationEligibility.ELIGIBLE_VERIFIED_OBSERVED
+        }
+
+        val hrAuthoritative = telemetryQuality.hrQuality == TelemetryQualityStatus.VALID_OBSERVED
+        val distanceOrDurationUsable =
+            telemetryQuality.distanceQuality == TelemetryQualityStatus.VALID_OBSERVED ||
+                telemetryQuality.durationQuality == TelemetryQualityStatus.VALID_OBSERVED
+        this.calibrationEligibility = when {
+            this.workloadAggregationEligibility != WorkloadAggregationEligibility.ELIGIBLE_VERIFIED_OBSERVED ->
+                CalibrationEligibility.INELIGIBLE_UNRESOLVED_AMBIGUITY
+            !distanceOrDurationUsable && !hrAuthoritative ->
+                CalibrationEligibility.INELIGIBLE_INSUFFICIENT_QUALITY
+            hrAuthoritative &&
+                telemetryQuality.distanceQuality == TelemetryQualityStatus.VALID_OBSERVED &&
+                telemetryQuality.durationQuality == TelemetryQualityStatus.VALID_OBSERVED ->
+                CalibrationEligibility.ELIGIBLE_OBSERVED
+            distanceOrDurationUsable ->
+                CalibrationEligibility.ELIGIBLE_NON_HR_ONLY
+            else ->
+                CalibrationEligibility.INELIGIBLE_INSUFFICIENT_QUALITY
+        }
 
         this.contentHash = computeSha256(canonicalPayload())
         this.canonicalId = "canact-v$schemaVersion-${contentHash.take(16)}"
@@ -228,6 +299,8 @@ internal class CanonicalActivity(
         append("|primarySrc=").append(AthleteStateSnapshot.canonicalSegment(primarySource))
         append("|metrics=").append(AthleteStateSnapshot.canonicalSegment(normalizedMetrics.canonicalRepresentation()))
         append("|qual=").append(AthleteStateSnapshot.canonicalSegment(telemetryQuality.canonicalRepresentation()))
+        append("|wElig=").append(workloadAggregationEligibility.name)
+        append("|calElig=").append(calibrationEligibility.name)
         append("|comps=").append(AthleteStateSnapshot.canonicalList(rawComponents.map { it.canonicalRepresentation() }))
         append("|ambig=").append(AthleteStateSnapshot.canonicalList(ambiguities.map { it.canonicalRepresentation() }))
     }
@@ -410,7 +483,8 @@ internal object Engine15CanonicalActivityProjector {
                     detail = primary.detail,
                     discipline = cluster.discipline,
                     hrSensorModality = primary.hrSensorModality,
-                    isOutdoorGnss = primary.isOutdoorGnss
+                    isOutdoorGnss = primary.isOutdoorGnss,
+                    hasCorroboratingCadenceLockSignal = primary.hasCorroboratingCadenceLockSignal
                 )
                 val normalizedMetrics = normalizeMetrics(primary.record, quality)
 
@@ -612,6 +686,7 @@ internal object Engine15CanonicalActivityProjector {
         }
 
         val hrAllowed = quality.hrQuality != TelemetryQualityStatus.QUARANTINED_CADENCE_LOCK &&
+            quality.hrQuality != TelemetryQualityStatus.SUSPECTED_CADENCE_LOCK &&
             quality.hrQuality != TelemetryQualityStatus.QUARANTINED_UNRELIABLE
 
         val avgHr = if (hrAllowed) {

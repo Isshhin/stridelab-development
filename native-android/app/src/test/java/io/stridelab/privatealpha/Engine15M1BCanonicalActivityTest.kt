@@ -153,8 +153,14 @@ class Engine15M1BCanonicalActivityTest {
 
         val run1 = result.activities.first { it.rawComponents.any { c -> c.recordId == "overlap-run" } }
         val run2 = result.activities.first { it.rawComponents.any { c -> c.recordId == "uncorr-hc-run" } }
+        val bike = result.activities.first { it.rawComponents.any { c -> c.recordId == "overlap-bike" } }
         assertEquals(CanonicalDeduplicationStatus.AMBIGUOUS_DUPLICATE_CANDIDATE, run1.deduplicationStatus)
         assertEquals(CanonicalDeduplicationStatus.AMBIGUOUS_DUPLICATE_CANDIDATE, run2.deduplicationStatus)
+        assertEquals(DuplicateResolutionConfidence.UNRESOLVED_AMBIGUOUS_OVERLAP, run1.duplicateResolutionConfidence)
+        assertEquals(WorkloadAggregationEligibility.AMBIGUOUS_BOUNDED_ONLY, run1.workloadAggregationEligibility)
+        assertEquals(WorkloadAggregationEligibility.AMBIGUOUS_BOUNDED_ONLY, run2.workloadAggregationEligibility)
+        assertEquals(CalibrationEligibility.INELIGIBLE_UNRESOLVED_AMBIGUITY, run1.calibrationEligibility)
+        assertEquals(WorkloadAggregationEligibility.ELIGIBLE_VERIFIED_OBSERVED, bike.workloadAggregationEligibility)
         assertTrue(run1.ambiguities.any { it.kind == ActivityAmbiguityKind.AMBIGUOUS_OVERLAPPING_DUPLICATE && it.relatedRawRecordId == "uncorr-hc-run" })
         assertTrue(run2.ambiguities.any { it.kind == ActivityAmbiguityKind.AMBIGUOUS_OVERLAPPING_DUPLICATE && it.relatedRawRecordId == "overlap-run" })
     }
@@ -291,11 +297,19 @@ class Engine15M1BCanonicalActivityTest {
                 cadenceSpm = cadence
             )
         }
-        val opticalPpg = RawActivityObservation(
+        val uncorroboratedPpg = RawActivityObservation(
             accountId = accountA,
-            record = runRecord(id = "f10-ppg", source = "garmin", distanceM = 8000.0, durationS = 1200.0, avgHr = 165.0),
-            detail = detailWithSamples("f10-ppg", samples),
-            hrSensorModality = HeartRateSensorModality.OPTICAL_WRIST_PPG
+            record = runRecord(id = "f10-ppg-suspect", source = "garmin", distanceM = 8000.0, durationS = 1200.0, avgHr = 165.0),
+            detail = detailWithSamples("f10-ppg-suspect", samples),
+            hrSensorModality = HeartRateSensorModality.OPTICAL_WRIST_PPG,
+            hasCorroboratingCadenceLockSignal = false
+        )
+        val corroboratedPpg = RawActivityObservation(
+            accountId = accountA,
+            record = runRecord(id = "f10-ppg-corroborated", source = "garmin", distanceM = 8000.0, durationS = 1200.0, avgHr = 165.0),
+            detail = detailWithSamples("f10-ppg-corroborated", samples),
+            hrSensorModality = HeartRateSensorModality.OPTICAL_WRIST_PPG,
+            hasCorroboratingCadenceLockSignal = true
         )
         val chestStrap = RawActivityObservation(
             accountId = accountA,
@@ -310,23 +324,69 @@ class Engine15M1BCanonicalActivityTest {
             hrSensorModality = HeartRateSensorModality.UNKNOWN
         )
 
-        val ppgRes = Engine15CanonicalActivityProjector.project(listOf(opticalPpg)).activities.single()
+        val suspectRes = Engine15CanonicalActivityProjector.project(listOf(uncorroboratedPpg)).activities.single()
+        val confirmedRes = Engine15CanonicalActivityProjector.project(listOf(corroboratedPpg)).activities.single()
         val ecgRes = Engine15CanonicalActivityProjector.project(listOf(chestStrap)).activities.single()
         val unkRes = Engine15CanonicalActivityProjector.project(listOf(unknownSensor)).activities.single()
 
-        assertEquals(TelemetryQualityStatus.QUARANTINED_CADENCE_LOCK, ppgRes.telemetryQuality.hrQuality)
-        assertNull(ppgRes.normalizedMetrics.averageHr)
-        assertEquals(165.0, ppgRes.rawComponents.single().rawAverageHrBpm!!, 0.001)
-        assertEquals(TelemetryQualityStatus.VALID_OBSERVED, ppgRes.telemetryQuality.distanceQuality)
-        assertEquals(TelemetryQualityStatus.VALID_OBSERVED, ppgRes.telemetryQuality.durationQuality)
-        assertEquals(8000.0, ppgRes.normalizedMetrics.distance!!.value, 0.001)
-        assertEquals(1200.0, ppgRes.normalizedMetrics.duration!!.value, 0.001)
+        // Without corroborating artifact evidence, optical PPG proximity yields SUSPECTED_CADENCE_LOCK.
+        assertEquals(TelemetryQualityStatus.SUSPECTED_CADENCE_LOCK, suspectRes.telemetryQuality.hrQuality)
+        assertEquals(CalibrationEligibility.ELIGIBLE_NON_HR_ONLY, suspectRes.calibrationEligibility)
+        assertNull(suspectRes.normalizedMetrics.averageHr)
+        assertEquals(165.0, suspectRes.rawComponents.single().rawAverageHrBpm!!, 0.001)
+        assertEquals(8000.0, suspectRes.normalizedMetrics.distance!!.value, 0.001)
+        assertEquals(1200.0, suspectRes.normalizedMetrics.duration!!.value, 0.001)
+
+        // With corroborating lock evidence, status escalates to QUARANTINED_CADENCE_LOCK while preserving distance & duration.
+        assertEquals(TelemetryQualityStatus.QUARANTINED_CADENCE_LOCK, confirmedRes.telemetryQuality.hrQuality)
+        assertEquals(CalibrationEligibility.ELIGIBLE_NON_HR_ONLY, confirmedRes.calibrationEligibility)
+        assertNull(confirmedRes.normalizedMetrics.averageHr)
+        assertEquals(8000.0, confirmedRes.normalizedMetrics.distance!!.value, 0.001)
 
         // Matching HR/cadence numbers alone do NOT falsely quarantine ECG or UNKNOWN provenance as PPG lock.
         assertEquals(TelemetryQualityStatus.VALID_OBSERVED, ecgRes.telemetryQuality.hrQuality)
         assertEquals(TelemetryQualityStatus.UNSUPPORTED_OR_UNAVAILABLE_ANALYSIS, unkRes.telemetryQuality.hrQuality)
         assertTrue(ecgRes.telemetryQuality.flags.contains("HR_CADENCE_PROXIMITY_NON_CONCLUSIVE"))
         assertTrue(unkRes.telemetryQuality.flags.contains("HR_CADENCE_PROXIMITY_NON_CONCLUSIVE"))
+
+        // Insufficient sample coverage (< 10 paired samples / < 300s) does not falsely quarantine cadence proximity.
+        val shortSamples = samples.take(4)
+        val shortPpg = RawActivityObservation(
+            accountId = accountA,
+            record = runRecord(id = "f10-short", source = "garmin", distanceM = 1200.0, durationS = 240.0, avgHr = 171.0),
+            detail = detailWithSamples("f10-short", shortSamples),
+            hrSensorModality = HeartRateSensorModality.OPTICAL_WRIST_PPG,
+            hasCorroboratingCadenceLockSignal = true
+        )
+        val shortRes = Engine15CanonicalActivityProjector.project(listOf(shortPpg)).activities.single()
+        assertEquals(TelemetryQualityStatus.VALID_OBSERVED, shortRes.telemetryQuality.hrQuality)
+        assertTrue(shortRes.telemetryQuality.flags.contains("HR_CADENCE_LOCK_INSUFFICIENT_COVERAGE"))
+    }
+
+    @Test fun canonicalIdentityLifecycleUpdatesDeterministicallyAndPreservesAliasesWithoutDoubleCredit() {
+        val fitObs = RawActivityObservation(
+            accountId = accountA,
+            record = runRecord(id = "life-fit", source = "fit", distanceM = 10020.0, durationS = 3000.0),
+            corroborationToken = "lifecycle-corroboration"
+        )
+        val hcObs = RawActivityObservation(
+            accountId = accountA,
+            record = runRecord(id = "life-hc", source = "health_connect", distanceM = 9950.0, durationS = 3005.0),
+            corroborationToken = "lifecycle-corroboration"
+        )
+
+        val singlePhase = Engine15CanonicalActivityProjector.project(listOf(fitObs)).activities
+        val enrichedPhase = Engine15CanonicalActivityProjector.project(listOf(fitObs, hcObs)).activities
+
+        assertEquals(1, singlePhase.size)
+        assertEquals(1, enrichedPhase.size)
+        val initial = singlePhase.single()
+        val enriched = enrichedPhase.single()
+        // Evidence-set change produces a new content-derived canonicalId while retaining alias components and single workload credit.
+        assertNotEquals(initial.canonicalId, enriched.canonicalId)
+        assertEquals(DuplicateResolutionConfidence.VERIFIED_CORROBORATED_MULTI_SOURCE, enriched.duplicateResolutionConfidence)
+        assertEquals(WorkloadAggregationEligibility.ELIGIBLE_VERIFIED_OBSERVED, enriched.workloadAggregationEligibility)
+        assertEquals(setOf("life-fit", "life-hc"), enriched.rawComponents.map { it.recordId }.toSet())
     }
 
     @Test fun gnssSpeedSpikeAndDropoutDegradeDistanceQualityWithoutDeletingRawRecord() {

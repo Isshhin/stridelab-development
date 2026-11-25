@@ -12,6 +12,7 @@ internal enum class TelemetryQualityStatus {
     VALID_OBSERVED,
     MISSING_TELEMETRY,
     DEGRADED,
+    SUSPECTED_CADENCE_LOCK,
     QUARANTINED_CADENCE_LOCK,
     QUARANTINED_UNRELIABLE,
     UNSUPPORTED_OR_UNAVAILABLE_ANALYSIS
@@ -71,7 +72,8 @@ internal object Engine15TelemetryQualityClassifier {
         detail: ActivityDetail?,
         discipline: AthleteDiscipline,
         hrSensorModality: HeartRateSensorModality = HeartRateSensorModality.UNKNOWN,
-        isOutdoorGnss: Boolean? = null
+        isOutdoorGnss: Boolean? = null,
+        hasCorroboratingCadenceLockSignal: Boolean = false
     ): TelemetryQualityAssessment {
         val flags = linkedSetOf<String>()
 
@@ -80,6 +82,7 @@ internal object Engine15TelemetryQualityClassifier {
             detail = detail,
             discipline = discipline,
             hrSensorModality = hrSensorModality,
+            hasCorroboratingCadenceLockSignal = hasCorroboratingCadenceLockSignal,
             flags = flags
         )
         val distanceQuality = classifyDistance(
@@ -95,11 +98,12 @@ internal object Engine15TelemetryQualityClassifier {
         }
 
         if ((hrQuality == TelemetryQualityStatus.QUARANTINED_CADENCE_LOCK ||
+                hrQuality == TelemetryQualityStatus.SUSPECTED_CADENCE_LOCK ||
                 hrQuality == TelemetryQualityStatus.QUARANTINED_UNRELIABLE) &&
             distanceQuality == TelemetryQualityStatus.VALID_OBSERVED &&
             durationQuality == TelemetryQualityStatus.VALID_OBSERVED
         ) {
-            flags += "HR_QUARANTINED_DISTANCE_DURATION_PRESERVED"
+            flags += "HR_NON_AUTHORITATIVE_DISTANCE_DURATION_PRESERVED"
         }
 
         return TelemetryQualityAssessment(
@@ -110,11 +114,19 @@ internal object Engine15TelemetryQualityClassifier {
         )
     }
 
+    private data class CadenceLockMetrics(
+        val pairedSamples: Int,
+        val pairedDurationSeconds: Double,
+        val lockedFraction: Double,
+        val maxSustainedLockedSeconds: Double
+    )
+
     private fun classifyHeartRate(
         record: ActivityRecord,
         detail: ActivityDetail?,
         discipline: AthleteDiscipline,
         hrSensorModality: HeartRateSensorModality,
+        hasCorroboratingCadenceLockSignal: Boolean,
         flags: MutableSet<String>
     ): TelemetryQualityStatus {
         val samples = detail?.samples.orEmpty()
@@ -170,22 +182,40 @@ internal object Engine15TelemetryQualityClassifier {
         }
 
         if (discipline == AthleteDiscipline.RUN) {
-            val cadenceLockFraction = computeCadenceLockFraction(samples)
-            if (cadenceLockFraction != null && cadenceLockFraction >= Engine15M1PolicyRegistry.POL_004_CADENCE_LOCK_MIN_ACTIVE_FRACTION) {
-                return when (hrSensorModality) {
-                    HeartRateSensorModality.OPTICAL_WRIST_PPG -> {
-                        flags += "HR_CADENCE_LOCK_QUARANTINED"
-                        TelemetryQualityStatus.QUARANTINED_CADENCE_LOCK
+            val metrics = computeCadenceLockMetrics(samples)
+            if (metrics != null) {
+                val sufficientCoverage =
+                    metrics.pairedSamples >= Engine15M1PolicyRegistry.POL_004_MIN_PAIRED_SAMPLES &&
+                        metrics.pairedDurationSeconds >= Engine15M1PolicyRegistry.POL_004_MIN_ACTIVE_DURATION_SECONDS
+                if (!sufficientCoverage) {
+                    if (metrics.lockedFraction >= Engine15M1PolicyRegistry.POL_004_CADENCE_LOCK_MIN_ACTIVE_FRACTION) {
+                        flags += "HR_CADENCE_LOCK_INSUFFICIENT_COVERAGE"
                     }
-                    HeartRateSensorModality.CHEST_STRAP_ECG -> {
-                        flags += "HR_CADENCE_PROXIMITY_NON_CONCLUSIVE"
-                        TelemetryQualityStatus.VALID_OBSERVED
+                } else if (metrics.lockedFraction >= Engine15M1PolicyRegistry.POL_004_CADENCE_LOCK_MIN_ACTIVE_FRACTION &&
+                    metrics.maxSustainedLockedSeconds >= Engine15M1PolicyRegistry.POL_004_MIN_SUSTAINED_ALIGNMENT_SECONDS
+                ) {
+                    return when (hrSensorModality) {
+                        HeartRateSensorModality.OPTICAL_WRIST_PPG -> {
+                            if (hasCorroboratingCadenceLockSignal) {
+                                flags += "HR_CADENCE_LOCK_CONFIRMED_CORROBORATED"
+                                TelemetryQualityStatus.QUARANTINED_CADENCE_LOCK
+                            } else {
+                                flags += "HR_CADENCE_LOCK_SUSPECTED_UNCORROBORATED"
+                                TelemetryQualityStatus.SUSPECTED_CADENCE_LOCK
+                            }
+                        }
+                        HeartRateSensorModality.CHEST_STRAP_ECG -> {
+                            flags += "HR_CADENCE_PROXIMITY_NON_CONCLUSIVE"
+                            TelemetryQualityStatus.VALID_OBSERVED
+                        }
+                        HeartRateSensorModality.UNKNOWN -> {
+                            flags += "HR_CADENCE_PROXIMITY_NON_CONCLUSIVE"
+                            flags += "HR_SENSOR_MODALITY_UNKNOWN"
+                            TelemetryQualityStatus.UNSUPPORTED_OR_UNAVAILABLE_ANALYSIS
+                        }
                     }
-                    HeartRateSensorModality.UNKNOWN -> {
-                        flags += "HR_CADENCE_PROXIMITY_NON_CONCLUSIVE"
-                        flags += "HR_SENSOR_MODALITY_UNKNOWN"
-                        TelemetryQualityStatus.UNSUPPORTED_OR_UNAVAILABLE_ANALYSIS
-                    }
+                } else if (metrics.lockedFraction >= Engine15M1PolicyRegistry.POL_004_CADENCE_LOCK_MIN_ACTIVE_FRACTION) {
+                    flags += "HR_CADENCE_PROXIMITY_NOT_SUSTAINED"
                 }
             }
         }
@@ -193,31 +223,49 @@ internal object Engine15TelemetryQualityClassifier {
         return TelemetryQualityStatus.VALID_OBSERVED
     }
 
-    private fun computeCadenceLockFraction(samples: List<ActivitySample>): Double? {
+    private fun computeCadenceLockMetrics(samples: List<ActivitySample>): CadenceLockMetrics? {
         var pairedDuration = 0.0
         var lockedDuration = 0.0
         var pairedSamples = 0
         var lockedSamples = 0
+        var currentSustained = 0.0
+        var maxSustained = 0.0
 
         for (i in samples.indices) {
             val s = samples[i]
-            val hr = s.hr?.takeIf { it.isFinite() && isPlausibleHr(it) } ?: continue
-            val cad = (s.cadenceSpm ?: s.runningDynamics?.cadenceSpm)?.takeIf { it.isFinite() && it > 0.0 } ?: continue
-            val locked = abs(hr - cad) <= Engine15M1PolicyRegistry.POL_003_CADENCE_LOCK_TOLERANCE_BPM_SPM
-            pairedSamples += 1
-            if (locked) lockedSamples += 1
+            val hr = s.hr?.takeIf { it.isFinite() && isPlausibleHr(it) }
+            val cad = (s.cadenceSpm ?: s.runningDynamics?.cadenceSpm)?.takeIf { it.isFinite() && it > 0.0 }
+            val dt = if (i + 1 < samples.size) {
+                (samples[i + 1].seconds - s.seconds).takeIf { it.isFinite() && it > 0.0 } ?: 0.0
+            } else 0.0
 
-            if (i + 1 < samples.size) {
-                val dt = samples[i + 1].seconds - s.seconds
-                if (dt.isFinite() && dt > 0.0) {
+            if (hr != null && cad != null) {
+                val locked = abs(hr - cad) <= Engine15M1PolicyRegistry.POL_003_CADENCE_LOCK_TOLERANCE_BPM_SPM
+                pairedSamples += 1
+                if (locked) lockedSamples += 1
+                if (dt > 0.0) {
                     pairedDuration += dt
-                    if (locked) lockedDuration += dt
+                    if (locked) {
+                        lockedDuration += dt
+                        currentSustained += dt
+                        if (currentSustained > maxSustained) maxSustained = currentSustained
+                    } else {
+                        currentSustained = 0.0
+                    }
                 }
+            } else {
+                currentSustained = 0.0
             }
         }
 
         if (pairedSamples == 0) return null
-        return if (pairedDuration > 0.0) lockedDuration / pairedDuration else lockedSamples.toDouble() / pairedSamples.toDouble()
+        val lockedFraction = if (pairedDuration > 0.0) lockedDuration / pairedDuration else lockedSamples.toDouble() / pairedSamples.toDouble()
+        return CadenceLockMetrics(
+            pairedSamples = pairedSamples,
+            pairedDurationSeconds = pairedDuration,
+            lockedFraction = lockedFraction,
+            maxSustainedLockedSeconds = maxSustained
+        )
     }
 
     private fun longestFlatlineRun(hrValues: List<Double?>): Int {

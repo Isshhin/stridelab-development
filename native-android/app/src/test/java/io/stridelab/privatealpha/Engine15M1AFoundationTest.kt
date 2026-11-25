@@ -109,19 +109,20 @@ class Engine15M1AFoundationTest {
                 guidanceSpreadFactor = 1.25
             )
         }
-        // Exhaustive zone authorization contract.
-        assertFalse(unknown.authorizesZones)
-        assertFalse(bounded.authorizesZones)
+        // Exhaustive zone authorization precondition contract (necessary only, not sufficient alone for HR zones).
+        assertFalse(unknown.canParticipateInZoneAuthorization)
+        assertFalse(bounded.canParticipateInZoneAuthorization)
+        assertFalse(prior.canParticipateInZoneAuthorization)
         assertFalse(prior.authorizesZones)
-        assertFalse(stale.authorizesZones)
-        assertFalse(conflicting.authorizesZones)
+        assertFalse(stale.canParticipateInZoneAuthorization)
+        assertFalse(conflicting.canParticipateInZoneAuthorization)
         assertFalse(
             BeliefState.Estimated(
                 Meters.fromKilometers(25.0),
                 EvidenceAuthorityClass.SELF_REPORTED_PROVISIONAL
-            ).authorizesZones
+            ).canParticipateInZoneAuthorization
         )
-        assertTrue(estimated.authorizesZones)
+        assertTrue(estimated.canParticipateInZoneAuthorization)
         assertTrue(estimated.isAuthoritativeObserved)
         // Bounded rejects PROJECTED_NON_AUTHORITATIVE, STATISTICAL_INTERVAL_RESERVED, and mixed SI units.
         assertThrows(IllegalArgumentException::class.java) {

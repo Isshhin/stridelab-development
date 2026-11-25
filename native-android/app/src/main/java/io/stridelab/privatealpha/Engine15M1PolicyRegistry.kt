@@ -13,9 +13,12 @@ internal object Engine15M1PolicyRegistry {
     const val POL_002_MAX_DURATION_DIFF_RATIO: Double = 0.15
     const val POL_002_MAX_DISTANCE_DIFF_RATIO: Double = 0.15
 
-    // POL-003 & POL-004: Optical wrist PPG cadence-lock quarantine
+    // POL-003 & POL-004: Optical wrist PPG cadence-lock screening & coverage bounds
     const val POL_003_CADENCE_LOCK_TOLERANCE_BPM_SPM: Double = 4.0
     const val POL_004_CADENCE_LOCK_MIN_ACTIVE_FRACTION: Double = 0.40
+    const val POL_004_MIN_PAIRED_SAMPLES: Int = 10
+    const val POL_004_MIN_ACTIVE_DURATION_SECONDS: Double = 300.0
+    const val POL_004_MIN_SUSTAINED_ALIGNMENT_SECONDS: Double = 120.0
 
     // POL-005 & POL-006: HR telemetry plausibility bounds & dropout/flatline quarantine
     const val POL_005_MIN_PLAUSIBLE_HR_BPM: Double = 35.0

@@ -33,7 +33,13 @@ internal enum class UncertaintyKind {
  */
 internal sealed interface BeliefState<out T : CanonicalSiQuantity> {
 
-    val authorizesZones: Boolean get() = false
+    /**
+     * True only for observed authoritative Estimated beliefs. This is a NECESSARY
+     * precondition only — NEVER sufficient alone to authorize HR or pace zones,
+     * which additionally require metric-specific physiological anchor type,
+     * modality compatibility, temporal freshness, and non-quarantined quality in M2.
+     */
+    val canParticipateInZoneAuthorization: Boolean get() = false
     val isAuthoritativeObserved: Boolean get() = false
 
     fun canonicalRepresentation(): String
@@ -92,7 +98,7 @@ internal sealed interface BeliefState<out T : CanonicalSiQuantity> {
     data class PriorOnly<out T : CanonicalSiQuantity>(
         val prior: T,
         val priorSource: String,
-        override val authorizesZones: Boolean = false
+        val authorizesZones: Boolean = false
     ) : BeliefState<T> {
         init {
             require(priorSource.isNotBlank() && priorSource.length <= 128) {
@@ -125,7 +131,7 @@ internal sealed interface BeliefState<out T : CanonicalSiQuantity> {
             clean
         }
 
-        override val authorizesZones: Boolean get() = authority.isObservedAuthoritative
+        override val canParticipateInZoneAuthorization: Boolean get() = authority.isObservedAuthoritative
         override val isAuthoritativeObserved: Boolean get() = authority.isObservedAuthoritative
 
         init {
@@ -159,8 +165,6 @@ internal sealed interface BeliefState<out T : CanonicalSiQuantity> {
         val ageDays: Int,
         val authority: EvidenceAuthorityClass
     ) : BeliefState<T> {
-        override val authorizesZones: Boolean get() = false
-
         init {
             require(ageDays > 0) { "Stale BeliefState requires positive ageDays, was $ageDays" }
             require(authority != EvidenceAuthorityClass.UNOBSERVED) {
