@@ -2,6 +2,7 @@ package io.stridelab.privatealpha
 
 import java.time.Duration
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.Collections
 
 internal sealed interface M2BRestrictionStatus {
@@ -84,6 +85,10 @@ internal enum class M2BExecutionCondition {
     ACUTE_FATIGUE,
     RETURN_TO_TRAINING,
     ACTIVE_EVIDENCE_CONFLICT
+}
+
+internal enum class M2BPaceConflict {
+    BENCHMARK_IDENTITY_COLLISION, SELECTED_BENCHMARK_FITNESS_EPOCH, RECORDED_HISTORY_CONFLICT, REPORTED_CONFLICT
 }
 
 internal data class M2BRecoveryContext(
@@ -225,6 +230,7 @@ internal class Engine15M2BIntensityCalibrator private constructor(
     val tanakaPrior: M2BTanakaPrior,
     val descriptiveHrr: M2BDescriptiveHeartRateReserve,
     val operationalThresholdCalibration: M2APerformanceCalibrationResult?,
+    val paceConflicts: Set<M2BPaceConflict>,
     val observedWorkloadContentHash: String?,
     val upstreamSnapshotId: String?,
     val trainingReferences: List<M2BTrainingReference>,
@@ -279,7 +285,15 @@ internal class Engine15M2BIntensityCalibrator private constructor(
             }
             val runHistory = workload?.disciplines?.get(AthleteDiscipline.RUN)
             val coverage = runHistory?.coverage ?: HistoryCoverageStatus.MISSING_UNOBSERVED
-            val accepted = scopedPerformance?.let { evaluateBenchmarks(context, it, coverage) }
+            val benchmarks = scopedPerformance?.let { evaluateBenchmarks(context, it, coverage) }
+            val accepted = benchmarks?.result
+            val paceConflicts = buildSet {
+                benchmarks?.conflict?.let { add(it) }
+                if (runHistory?.selfReportConflictFlag == true ||
+                    accepted?.diagnosticFlags?.contains("WEEKLY_MILEAGE_CONFLICT_DETECTED") == true
+                ) add(M2BPaceConflict.RECORDED_HISTORY_CONFLICT)
+                if (condition == M2BExecutionCondition.ACTIVE_EVIDENCE_CONFLICT) add(M2BPaceConflict.REPORTED_CONFLICT)
+            }
             val confirmed = confirmedTraining?.takeIf {
                 running && it.evaluatedFor == context && it.confirmedAt <= context.asOf &&
                     it.family in setOf(M2BRunningReferenceFamily.EASY, M2BRunningReferenceFamily.STEADY,
@@ -288,7 +302,7 @@ internal class Engine15M2BIntensityCalibrator private constructor(
             val effortRestriction = when {
                 decision.hold || !running -> M2BEffortRestriction.WITHHELD
                 decision.recoveryOnly || condition == M2BExecutionCondition.RETURN_TO_TRAINING -> M2BEffortRestriction.RECOVERY_ONLY
-                condition != M2BExecutionCondition.ORDINARY || runHistory?.selfReportConflictFlag == true ||
+                condition != M2BExecutionCondition.ORDINARY || paceConflicts.isNotEmpty() ||
                     coverage == HistoryCoverageStatus.CONFIRMED_ZERO ->
                     M2BEffortRestriction.EFFORT_FIRST
                 else -> M2BEffortRestriction.STANDARD
@@ -301,14 +315,17 @@ internal class Engine15M2BIntensityCalibrator private constructor(
                     ?: M2BGuidance.EffortFirst
             }
             val prior = Engine15M2BIntensityModels.tanaka(ageYears)
-            val training = Engine15M2BTrainingEvidence.extract(context, trainingObservations) +
+            val envelope = Engine15M2BPerformanceLowerEnvelope.build(context, streams)
+            val training = Engine15M2BTrainingEvidence.extract(
+                context, trainingObservations, streams, decision.hrQuarantined
+            ) +
                 listOfNotNull(confirmed?.let { M2BTrainingReference.historical(it) })
             return Engine15M2BIntensityCalibrator(
                 context, decision, Collections.unmodifiableSet(persistentIds.toSortedSet()), guidance,
-                Engine15M2BPerformanceLowerEnvelope.build(context, streams), prior,
+                envelope, prior,
                 if (decision.hrQuarantined) M2BDescriptiveHeartRateReserve.QuarantinedForEvaluation
                 else M2BDescriptiveHeartRateReserve.ResearchOnly.evaluate(context, heartRate, researchAttestations),
-                accepted, workload?.contentHash, pinnedSnapshot?.snapshotId,
+                accepted, Collections.unmodifiableSet(paceConflicts), workload?.contentHash, pinnedSnapshot?.snapshotId,
                 Collections.unmodifiableList(training), M2BEffortGuidance(effortRestriction, durationExposureConstraint?.takeIf {
                     it.evaluatedFor == context
                 }), M2BHeartRateHierarchy.reconcile(context, prior, heartRateEvidence, decision.hrQuarantined), coverage
@@ -325,11 +342,16 @@ internal class Engine15M2BIntensityCalibrator private constructor(
                     (performance.athleteStateSnapshot.observedWorkload == null ||
                         performance.athleteStateSnapshot.observedWorkload.contentHash == performance.observedWorkload.contentHash))
 
+        private data class BenchmarkEvaluation(
+            val result: M2APerformanceCalibrationResult,
+            val conflict: M2BPaceConflict?
+        )
+
         private fun evaluateBenchmarks(
             context: M2BEvaluationContext,
             performance: M2APerformanceCalibrationRequest,
             coverage: HistoryCoverageStatus
-        ): M2APerformanceCalibrationResult {
+        ): BenchmarkEvaluation {
             val provisionalAllowed = coverage in setOf(HistoryCoverageStatus.MISSING_UNOBSERVED,
                 HistoryCoverageStatus.PARTIAL_COVERAGE, HistoryCoverageStatus.PROVISIONAL_SELF_REPORT)
             val completed = performance.racePerformances.filter {
@@ -338,10 +360,35 @@ internal class Engine15M2BIntensityCalibrator private constructor(
                     (provisionalAllowed || (it.authority.isObservedAuthoritative &&
                         it.performanceIntent != M2APerformanceIntent.SELF_REPORTED_RACE_OR_TIME_TRIAL))
             }
-            return Engine15M2APerformanceCalibrator.calibrate(
-                performance.copy(racePerformances = completed, asOfUtc = context.asOf)
-            )
+            val request = performance.copy(racePerformances = completed, asOfUtc = context.asOf)
+            val result = Engine15M2APerformanceCalibrator.calibrate(request)
+            val conflict = when {
+                result.operationalThresholdBenchmark?.hasConflictingFitnessEpoch == true ->
+                    M2BPaceConflict.SELECTED_BENCHMARK_FITNESS_EPOCH
+                benchmarkGuidance(result, coverage) == null && reportsIdentityCollision(result) -> {
+                    // R3 reconciles identities before classifying freshness. Recheck the active subset only
+                    // when a stale entry could otherwise turn missing current evidence into a conflict.
+                    val active = completed.filter {
+                        ChronoUnit.DAYS.between(it.performedOn, context.localDate) <=
+                            Engine15M2APolicyRegistry.POL_018_BENCHMARK_AGING_MAX_DAYS
+                    }
+                    val activeResult = when {
+                        active.isEmpty() -> null
+                        active.size == completed.size -> result
+                        else -> Engine15M2APerformanceCalibrator.calibrate(request.copy(racePerformances = active))
+                    }
+                    if (activeResult != null && reportsIdentityCollision(activeResult) &&
+                        benchmarkGuidance(activeResult, coverage) == null
+                    ) M2BPaceConflict.BENCHMARK_IDENTITY_COLLISION else null
+                }
+                else -> null
+            }
+            return BenchmarkEvaluation(result, conflict)
         }
+
+        private fun reportsIdentityCollision(result: M2APerformanceCalibrationResult): Boolean =
+            result.operationalThresholdSpeedBelief is BeliefState.Conflicting ||
+                "SOURCE_IDENTIFIER_COLLISION_EXCLUDED" in result.diagnosticFlags
 
         private fun benchmarkGuidance(
             accepted: M2APerformanceCalibrationResult,

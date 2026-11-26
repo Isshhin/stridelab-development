@@ -67,10 +67,21 @@ internal sealed interface M2BHeartRateEvidence {
     }
 }
 
+internal enum class M2BHRCrossMetricConflictReason {
+    MAXIMUM_BELOW_OBSERVED_PEAK, LT1_NOT_BELOW_LT2, THRESHOLD_AT_OR_ABOVE_MAXIMUM
+}
+
+internal data class M2BHRCrossMetricConflict(
+    val reason: M2BHRCrossMetricConflictReason,
+    val restrictedEvidence: M2BHeartRateEvidence,
+    val comparedEvidence: M2BHeartRateEvidence
+)
+
 internal class M2BHeartRateHierarchy private constructor(
     val educationalPrior: M2BTanakaPrior,
     val evidence: List<M2BHeartRateEvidence>,
     val conflicts: Set<M2BHeartRateEvidenceKind>,
+    val crossMetricConflicts: List<M2BHRCrossMetricConflict>,
     val observedPeakLowerBound: BeliefState<BeatsPerSecond>,
     val selfReportedMaximum: BeliefState<BeatsPerSecond>,
     val quarantined: Boolean
@@ -109,17 +120,53 @@ internal class M2BHeartRateHierarchy private constructor(
                 .groupBy { it.kind }.filterValues { records -> records.map(::valueKey).distinct().size > 1 }
             conflicts.addAll(metrics.keys)
             val peak = if (M2BHeartRateEvidenceKind.OBSERVED_PEAK !in conflicts) {
-                consistent.filterIsInstance<M2BHeartRateEvidence.ObservedPeak>().maxOfOrNull { it.value }
+                consistent.filterIsInstance<M2BHeartRateEvidence.ObservedPeak>().maxByOrNull { it.value }
             } else null
+            val anchors = consistent.filterIsInstance<M2BHeartRateEvidence.ReportedVerifiedAnchor>()
+                .groupBy { it.kind }
+            val verifiedMaxima = anchors[M2BHeartRateEvidenceKind.REPORTED_VERIFIED_MAXIMUM].orEmpty()
+            val selfReports = consistent.filterIsInstance<M2BHeartRateEvidence.SelfReportedMaximum>()
+            val lt1 = anchors[M2BHeartRateEvidenceKind.REPORTED_VERIFIED_LT1].orEmpty()
+            val lt2 = anchors[M2BHeartRateEvidenceKind.REPORTED_VERIFIED_LT2].orEmpty()
+            val applicableMaximum = verifiedMaxima.firstOrNull()?.takeUnless { it.kind in conflicts }
+                ?: selfReports.firstOrNull()?.takeUnless { it.kind in conflicts }
+            val crossMetricConflicts = buildList {
+                // Maximum claims cannot invalidate the independent observed lower bound.
+                if (peak != null) for (maximum in selfReports + verifiedMaxima) {
+                    if (rate(maximum) < peak.value) add(M2BHRCrossMetricConflict(
+                        M2BHRCrossMetricConflictReason.MAXIMUM_BELOW_OBSERVED_PEAK, maximum, peak))
+                }
+                for (first in lt1) for (second in lt2) {
+                    if (first.value >= second.value) add(M2BHRCrossMetricConflict(
+                        M2BHRCrossMetricConflictReason.LT1_NOT_BELOW_LT2, first, second))
+                }
+                if (applicableMaximum != null) for (threshold in lt1 + lt2) {
+                    if (threshold.value >= rate(applicableMaximum)) add(M2BHRCrossMetricConflict(
+                        M2BHRCrossMetricConflictReason.THRESHOLD_AT_OR_ABOVE_MAXIMUM, threshold, applicableMaximum))
+                }
+            }
+            crossMetricConflicts.forEach {
+                conflicts += it.restrictedEvidence.kind
+                if (it.reason == M2BHRCrossMetricConflictReason.LT1_NOT_BELOW_LT2) {
+                    conflicts += it.comparedEvidence.kind
+                }
+            }
             val selfReport = if (M2BHeartRateEvidenceKind.SELF_REPORTED_MAXIMUM !in conflicts) {
                 consistent.filterIsInstance<M2BHeartRateEvidence.SelfReportedMaximum>().firstOrNull()?.value
             } else null
             return M2BHeartRateHierarchy(prior, Collections.unmodifiableList(eligible), Collections.unmodifiableSet(conflicts),
-                peak?.let { BeliefState.Bounded(lower = it, authority = EvidenceAuthorityClass.SENSOR_SUPPORTED) }
+                Collections.unmodifiableList(crossMetricConflicts),
+                peak?.let { BeliefState.Bounded(lower = it.value, authority = EvidenceAuthorityClass.SENSOR_SUPPORTED) }
                     ?: BeliefState.Unknown("NO_UNAMBIGUOUS_RELIABLE_PEAK"),
                 selfReport?.let { BeliefState.Estimated(it, EvidenceAuthorityClass.SELF_REPORTED_PROVISIONAL) }
                     ?: BeliefState.Unknown("NO_UNAMBIGUOUS_SELF_REPORTED_MAXIMUM"),
                 quarantined)
+        }
+
+        private fun rate(evidence: M2BHeartRateEvidence): BeatsPerSecond = when (evidence) {
+            is M2BHeartRateEvidence.SelfReportedMaximum -> evidence.value
+            is M2BHeartRateEvidence.ReportedVerifiedAnchor -> evidence.value
+            else -> error("Expected a reported maximum")
         }
 
         private fun plausible(value: BeatsPerSecond): Boolean =

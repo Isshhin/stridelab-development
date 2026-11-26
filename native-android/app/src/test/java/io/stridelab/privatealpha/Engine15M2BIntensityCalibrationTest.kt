@@ -15,6 +15,246 @@ class Engine15M2BIntensityCalibrationTest {
     private val scope = M2BEvaluationContext("athlete", AthleteDiscipline.RUN, instant, ZoneOffset.UTC)
 
     @Test
+    fun crossMetricHrContradictionsPreserveEvidenceAndTheIndependentPeakBound() {
+        fun key(id: String) = M2BHeartRateEvidenceScope(scope.accountId, scope.discipline,
+            scope.physiologicalModality, M2ASourceQualifiedAlias("fixture", id), instant.minusSeconds(1))
+        fun anchor(kind: M2BHeartRateEvidenceKind, bpm: Double) = M2BHeartRateEvidence.ReportedVerifiedAnchor(
+            key(kind.name), kind, BeatsPerSecond.fromBpm(bpm), HeartRateSensorModality.CHEST_STRAP_ECG,
+            TelemetryQualityStatus.VALID_OBSERVED, "reported-protocol"
+        )
+        val peak = M2BHeartRateEvidence.ObservedPeak(key("peak"), BeatsPerSecond.fromBpm(185.0),
+            HeartRateSensorModality.CHEST_STRAP_ECG, TelemetryQualityStatus.VALID_OBSERVED)
+        val self = M2BHeartRateEvidence.SelfReportedMaximum(key("claim"), BeatsPerSecond.fromBpm(175.0))
+        val maximum = anchor(M2BHeartRateEvidenceKind.REPORTED_VERIFIED_MAXIMUM, 180.0)
+        val lt1 = anchor(M2BHeartRateEvidenceKind.REPORTED_VERIFIED_LT1, 181.0)
+        val lt2 = anchor(M2BHeartRateEvidenceKind.REPORTED_VERIFIED_LT2, 180.0)
+        val evidence = listOf(peak, self, maximum, lt1, lt2)
+        val performance = m2aRequest(instant.minus(Duration.ofDays(30)), true)
+        val result = Engine15M2BIntensityCalibrator.calibrate(scope, performance = performance, heartRateEvidence = evidence)
+        assertEquals(evidence.toSet(), result.heartRateHierarchy.evidence.toSet())
+        assertEquals(setOf(
+            M2BHRCrossMetricConflictReason.MAXIMUM_BELOW_OBSERVED_PEAK,
+            M2BHRCrossMetricConflictReason.LT1_NOT_BELOW_LT2,
+            M2BHRCrossMetricConflictReason.THRESHOLD_AT_OR_ABOVE_MAXIMUM
+        ), result.heartRateHierarchy.crossMetricConflicts.map { it.reason }.toSet())
+        assertEquals(5, result.heartRateHierarchy.crossMetricConflicts.size)
+        assertEquals(185.0, (result.heartRateHierarchy.observedPeakLowerBound as BeliefState.Bounded).lower!!.toBpm(),
+            1e-12)
+        assertTrue(result.heartRateHierarchy.unambiguousEvidence(M2BHeartRateEvidenceKind.REPORTED_VERIFIED_MAXIMUM).isEmpty())
+        assertTrue(result.heartRateHierarchy.selfReportedMaximum is BeliefState.Unknown)
+        assertFalse(result.hrZoneAuthorized)
+        assertTrue(result.paceCalibrationEligible)
+        assertTrue(result.paceConflicts.isEmpty())
+        assertEquals(result.contentHash,
+            Engine15M2BIntensityCalibrator.calibrate(scope, performance = performance,
+                heartRateEvidence = evidence.reversed()).contentHash)
+    }
+
+    @Test
+    fun downhillEvidenceRetainsEveryVetoAndRawPerformance() {
+        val original = runningStream(instant.minusSeconds(1))
+        val first = original.segments.single()
+        val split = first.start.plusSeconds(45)
+        val stream = M2BRunningStream(original.activity, original.source, original.surface, emptyList(),
+            M2BRecordingWindow(first.origin, M2BDistanceSemantics.HORIZONTAL, original.activity.telemetryQuality,
+                listOf(M2BRecordingSample(first.start, Meters.of(0.0), 200.0, M2BContinuityEvidence.UNKNOWN),
+                    M2BRecordingSample(split, Meters.of(200.0), 160.0, M2BContinuityEvidence.ACTIVE_CONTIGUOUS),
+                    M2BRecordingSample(first.end, Meters.of(400.0), 60.0, M2BContinuityEvidence.ACTIVE_CONTIGUOUS))))
+        val observation = Engine15M2BPerformanceLowerEnvelope.build(scope, listOf(stream)).exactObservations.single()
+        assertNull(observation.gradeAdjustedSpeed)
+        assertEquals((Math.hypot(200.0, 40.0) + Math.hypot(200.0, 100.0)) / 90.0, observation.rawSpeed.value, 1e-12)
+        assertEquals(listOf(40.0, 100.0), observation.downhillExposure.map { it.elevationLoss.value })
+        assertEquals(listOf(45.0, 45.0), observation.downhillExposure.map { it.duration.value })
+        assertEquals(listOf(200.0, 200.0), observation.downhillExposure.map { it.horizontalDistance.value })
+        assertEquals(Math.hypot(200.0, 100.0), observation.downhillExposure.last().pathDistance.value, 1e-12)
+        assertEquals(listOf(M2BGAPRejectionReason.ECCENTRIC_DOMINATED_QUARANTINE,
+            M2BGAPRejectionReason.GAP_OUT_OF_DOMAIN), observation.gapRejections.map { it.reason })
+        assertFalse(observation.verifiedContinuousPerformance)
+    }
+
+    @Test
+    fun contradictoryBenchmarksBlockHistoricalCoachingButStaleConflictsDoNot() {
+        val recent = instant.minus(Duration.ofDays(20))
+        val stale = instant.minus(Duration.ofDays(200))
+        val historical = M2BConfirmedTrainingReference(scope, M2ASourceQualifiedAlias("manual", "habitual"),
+            M2BRunningReferenceFamily.EASY, instant.minusSeconds(1), MetersPerSecond.of(3.0))
+        fun withCollision(start: Instant): M2APerformanceCalibrationRequest {
+            val original = m2aRequest(start, true)
+            return original.copy(racePerformances = original.racePerformances +
+                m2aRequest(start, true, durationSeconds = 1_650.0).racePerformances)
+        }
+        val blocked = Engine15M2BIntensityCalibrator.calibrate(scope, performance = withCollision(recent),
+            confirmedTraining = historical)
+        assertTrue(blocked.operationalThresholdCalibration!!.operationalThresholdSpeedBelief is BeliefState.Conflicting)
+        assertEquals(setOf(M2BPaceConflict.BENCHMARK_IDENTITY_COLLISION), blocked.paceConflicts)
+        assertEquals(M2BGuidance.EffortFirst, blocked.guidance)
+        assertEquals(M2BTrainingPathway.HISTORICAL_CONFIRMATION, blocked.trainingReferences.single().pathway)
+        assertTrue(Engine15M2BIntensityCalibrator.calibrate(scope, performance = withCollision(stale),
+            confirmedTraining = historical).guidance is M2BGuidance.ProvisionalTraining)
+        val epochA = m2aRequest(recent, true, fitnessEpochId = "period-a")
+        val epochB = m2aRequest(recent, true, fitnessEpochId = "period-b")
+        val conflictingEpoch = Engine15M2BIntensityCalibrator.calibrate(scope,
+            performance = epochA.copy(racePerformances = epochA.racePerformances + epochB.racePerformances),
+            confirmedTraining = historical)
+        assertTrue(conflictingEpoch.operationalThresholdCalibration!!.operationalThresholdBenchmark!!.hasConflictingFitnessEpoch)
+        assertEquals(setOf(M2BPaceConflict.SELECTED_BENCHMARK_FITNESS_EPOCH), conflictingEpoch.paceConflicts)
+        assertEquals(M2BGuidance.EffortFirst, conflictingEpoch.guidance)
+    }
+
+    @Test
+    fun benchmarkFreshnessHasExactNinetyAndOneHundredEightyDayBoundaries() {
+        val cases = listOf(90L to 1.0, 91L to 1.25, 180L to 1.25, 181L to null)
+        for ((days, factor) in cases) {
+            val result = Engine15M2BIntensityCalibrator.calibrate(scope,
+                performance = m2aRequest(instant.minus(Duration.ofDays(days)), true))
+            if (factor == null) {
+                assertEquals(M2BGuidance.EffortFirst, result.guidance)
+                assertTrue(result.operationalThresholdCalibration!!.operationalThresholdSpeedBelief is BeliefState.Stale)
+            } else {
+                val guidance = result.guidance as M2BGuidance.VerifiedBenchmark
+                assertEquals(factor, guidance.referenceFactor, 1e-12)
+                assertEquals(if (days == 90L) M2ABenchmarkFreshness.FRESH else M2ABenchmarkFreshness.AGING,
+                    guidance.evidence.freshness)
+                assertTrue(result.paceCalibrationEligible)
+            }
+            assertFalse(result.workoutPrescriptionAuthorized)
+        }
+    }
+
+    @Test
+    fun missingGpsWithValidCanonicalHrKeepsThePeakAndEffortButNoPace() {
+        val activity = telemetryRun("no-gps", gps = false, optical = false, corroborated = false)
+        assertEquals(TelemetryQualityStatus.MISSING_TELEMETRY, activity.telemetryQuality.distanceQuality)
+        assertEquals(TelemetryQualityStatus.VALID_OBSERVED, activity.telemetryQuality.hrQuality)
+        val peak = peakEvidence(activity, HeartRateSensorModality.CHEST_STRAP_ECG)
+        val result = Engine15M2BIntensityCalibrator.calibrate(scope,
+            streams = listOf(M2BRunningStream(activity, peak.scope.source, M2BSurface.NON_TECHNICAL_ROAD, emptyList())),
+            heartRateEvidence = listOf(peak))
+        assertTrue(result.envelope.exactObservations.isEmpty())
+        assertTrue(result.envelope.elapsedAverages.isEmpty())
+        assertEquals(174.0, (result.heartRateHierarchy.observedPeakLowerBound as BeliefState.Bounded).lower!!.toBpm(), 1e-12)
+        assertEquals(M2BGuidance.EffortFirst, result.guidance)
+        assertFalse(result.paceCalibrationEligible || result.hrZoneAuthorized)
+    }
+
+    @Test
+    fun m1bCadenceLockFlowsThroughM2bWithoutDiscardingIndependentPace() {
+        for (corroborated in listOf(false, true)) {
+            val activity = telemetryRun("lock-$corroborated", gps = true, optical = true, corroborated = corroborated)
+            val status = if (corroborated) TelemetryQualityStatus.QUARANTINED_CADENCE_LOCK
+                else TelemetryQualityStatus.SUSPECTED_CADENCE_LOCK
+            assertEquals(status, activity.telemetryQuality.hrQuality)
+            assertEquals(TelemetryQualityStatus.VALID_OBSERVED, activity.telemetryQuality.distanceQuality)
+            val peak = peakEvidence(activity, HeartRateSensorModality.OPTICAL_WRIST_PPG)
+            val observation = trainingObservation(activity, peak.scope.source).copy(
+                sourceHrQuality = TelemetryQualityStatus.VALID_OBSERVED)
+            val result = Engine15M2BIntensityCalibrator.calibrate(scope,
+                performance = m2aRequest(instant.minus(Duration.ofDays(30)), true),
+                heartRateEvidence = listOf(peak), trainingObservations = listOf(observation))
+            assertTrue(result.heartRateHierarchy.evidence.isEmpty())
+            assertTrue(result.heartRateHierarchy.observedPeakLowerBound is BeliefState.Unknown)
+            assertEquals(listOf(M2BTrainingPathway.COMFORTABLE_AEROBIC), result.trainingReferences.map { it.pathway })
+            assertTrue(result.paceCalibrationEligible)
+            assertFalse(result.hrZoneAuthorized)
+        }
+    }
+
+    @Test
+    fun sourceHrQualityOverridesCleanStableButKeepsComfortablePace() {
+        val activity = telemetryRun("clean", gps = true, optical = false, corroborated = false)
+        val source = M2ASourceQualifiedAlias("garmin", "clean")
+        val observation = trainingObservation(activity, source)
+        val clean = Engine15M2BIntensityCalibrator.calibrate(scope, trainingObservations = listOf(observation))
+        assertTrue(clean.trainingReferences.any { it.pathway == M2BTrainingPathway.PACE_HR_RPE_CONVERGENCE })
+        for (quality in listOf(TelemetryQualityStatus.SUSPECTED_CADENCE_LOCK, TelemetryQualityStatus.DEGRADED,
+            TelemetryQualityStatus.QUARANTINED_UNRELIABLE, TelemetryQualityStatus.MISSING_TELEMETRY)) {
+            val result = Engine15M2BIntensityCalibrator.calibrate(scope,
+                trainingObservations = listOf(observation.copy(sourceHrQuality = quality)))
+            assertEquals(listOf(M2BTrainingPathway.COMFORTABLE_AEROBIC), result.trainingReferences.map { it.pathway })
+        }
+        val raw = activity.rawComponents.single()
+        val trace = M2BRecordingWindow(M2BStreamIdentity.of(activity, raw), M2BDistanceSemantics.HORIZONTAL,
+            TelemetryQualityAssessment(TelemetryQualityStatus.QUARANTINED_UNRELIABLE,
+                TelemetryQualityStatus.VALID_OBSERVED, TelemetryQualityStatus.VALID_OBSERVED), emptyList())
+        val stream = M2BRunningStream(activity, source, M2BSurface.NON_TECHNICAL_ROAD, emptyList(), trace)
+        val result = Engine15M2BIntensityCalibrator.calibrate(scope, streams = listOf(stream),
+            trainingObservations = listOf(observation.copy(sourceHrQuality = TelemetryQualityStatus.VALID_OBSERVED)))
+        assertEquals(listOf(M2BTrainingPathway.COMFORTABLE_AEROBIC), result.trainingReferences.map { it.pathway })
+    }
+
+    @Test
+    fun nestedRecordingAndCalibrationCollectionsRemainImmutable() {
+        val activity = telemetryRun("collections", gps = true, optical = false, corroborated = false)
+        val source = M2ASourceQualifiedAlias("garmin", "collections")
+        val raw = activity.rawComponents.single()
+        val end = m2bSessionEnd(raw)!!
+        val samples = mutableListOf(
+            M2BRecordingSample(raw.startedAtUtc, Meters.of(0.0), 10.0, M2BContinuityEvidence.UNKNOWN),
+            M2BRecordingSample(end, Meters.of(8000.0), 0.0, M2BContinuityEvidence.ACTIVE_CONTIGUOUS)
+        )
+        val window = M2BRecordingWindow(M2BStreamIdentity.of(activity, raw), M2BDistanceSemantics.HORIZONTAL,
+            activity.telemetryQuality, samples)
+        val floors = mutableListOf(BeatsPerSecond.fromBpm(100.0), BeatsPerSecond.fromBpm(140.0))
+        val zones = M2BHeartRateEvidence.Zones(M2BHeartRateEvidenceScope(scope.accountId, scope.discipline,
+            scope.physiologicalModality, source, end), true, floors)
+        val result = Engine15M2BIntensityCalibrator.calibrate(scope,
+            streams = listOf(M2BRunningStream(activity, source, M2BSurface.NON_TECHNICAL_ROAD, emptyList(), window)),
+            trainingObservations = listOf(trainingObservation(activity, source)), heartRateEvidence = listOf(zones))
+        samples.clear()
+        floors.clear()
+        assertEquals(2, result.envelope.recordingTraces.single().window.samples.size)
+        assertEquals(2, (result.heartRateHierarchy.evidence.single() as M2BHeartRateEvidence.Zones).floors.size)
+        val trace = result.envelope.recordingTraces.single()
+        val reference = result.trainingReferences.first()
+        assertThrows(UnsupportedOperationException::class.java) { (trace.window.samples as MutableList).clear() }
+        assertThrows(UnsupportedOperationException::class.java) { (result.envelope.recordingTraces as MutableList).clear() }
+        assertThrows(UnsupportedOperationException::class.java) { (zones.floors as MutableList).clear() }
+        assertThrows(UnsupportedOperationException::class.java) { (reference.observations as MutableList).clear() }
+        assertThrows(UnsupportedOperationException::class.java) { (reference.canonicalActivityIds as MutableSet).clear() }
+        assertThrows(UnsupportedOperationException::class.java) { (result.envelope.bounds.single().downhillExposure as MutableList).clear() }
+        for (provenance in listOf(reference.sourceEvidence, result.envelope.bounds.single().provenance)) {
+            val cause = assertThrows(java.lang.reflect.InvocationTargetException::class.java) {
+                provenance.javaClass.getMethod("clear").invoke(provenance)
+            }.cause
+            assertTrue(cause is UnsupportedOperationException)
+        }
+        assertEquals(setOf(source), reference.sourceEvidence)
+    }
+
+    private fun telemetryRun(id: String, gps: Boolean, optical: Boolean, corroborated: Boolean): CanonicalActivity {
+        val start = instant.minusSeconds(1500)
+        val samples = (0 until 20).map { i ->
+            val cadence = 170.0 + i % 4
+            ActivitySample(i, i * 60.0, if (gps) 150.0 else null,
+                if (optical && i < 13) cadence + 1.0 else 150.0 + i % 4,
+                50.0, if (gps) 37.7749 + i * 0.0008 else null,
+                if (gps) -122.4194 else null, cadence)
+        }
+        val raw = RawActivityObservation(scope.accountId, ActivityRecord(
+            id = id, title = "Telemetry", type = "running", source = "garmin", startedAt = start,
+            distanceM = if (gps) 8_000.0 else null, durationS = 1_200.0, movingTimeS = 1_200.0,
+            recordedPace = if (gps) 150.0 else null, averageHr = 165.0, elevationM = null, maximumHr = 174.0
+        ), detail = ActivityDetail(id, samples, emptyList(), instant.toEpochMilli()),
+            hrSensorModality = if (optical) HeartRateSensorModality.OPTICAL_WRIST_PPG
+            else HeartRateSensorModality.CHEST_STRAP_ECG, hasCorroboratingCadenceLockSignal = corroborated)
+        return Engine15CanonicalActivityProjector.project(listOf(raw)).activities.single()
+    }
+
+    private fun peakEvidence(activity: CanonicalActivity, sensor: HeartRateSensorModality): M2BHeartRateEvidence.ObservedPeak {
+        val source = activity.rawComponents.single()
+        return M2BHeartRateEvidence.ObservedPeak(M2BHeartRateEvidenceScope(scope.accountId, scope.discipline,
+            scope.physiologicalModality, M2ASourceQualifiedAlias(source.provider, source.recordId), m2bSessionEnd(source)!!),
+            BeatsPerSecond.fromBpm(source.rawMaximumHrBpm!!), sensor, activity.telemetryQuality.hrQuality)
+    }
+
+    private fun trainingObservation(activity: CanonicalActivity, source: M2ASourceQualifiedAlias) =
+        M2BTrainingObservation(activity, source, M2BRunningReferenceFamily.EASY,
+            m2bSessionEnd(activity.rawComponents.single())!!, MetersPerSecond.of(4.0), 2.5,
+            M2BTalkTestStage.COMFORTABLE_SENTENCES, M2BTrainingHeartRate.CLEAN_STABLE,
+            flatOrRolling = true, confounded = false, steadyPaceWithAlignedEffort = true,
+            sourceDistanceQuality = activity.telemetryQuality.distanceQuality)
+
+    @Test
     fun exactDurationKeepsDifferentRawAndGapWinners() {
         val finish = instant.minusSeconds(1)
         val level = runningStream(finish, id = "fast-flat")
@@ -129,7 +369,8 @@ class Engine15M2BIntensityCalibrationTest {
 
     @Test
     fun trainingPathsRetainFamilySpecificDescriptiveQuartilesWithoutActionableNumbers() {
-        fun session(id: String, pace: Double) = runningStream(instant.minusSeconds(1), id = id).let {
+        fun session(id: String, pace: Double) = runningStream(instant.minusSeconds(1), id = id,
+            hrQuality = TelemetryQualityStatus.VALID_OBSERVED).let {
             M2BTrainingObservation(it.activity, it.source, M2BRunningReferenceFamily.EASY,
                 it.segments.single().end, MetersPerSecond.fromPaceSecondsPerKm(pace), 2.0,
                 M2BTalkTestStage.COMFORTABLE_SENTENCES, M2BTrainingHeartRate.CLEAN_STABLE,
@@ -540,7 +781,9 @@ class Engine15M2BIntensityCalibrationTest {
         }
     }
 
-    private fun m2aRequest(start: Instant, verified: Boolean): M2APerformanceCalibrationRequest {
+    private fun m2aRequest(
+        start: Instant, verified: Boolean, durationSeconds: Double = 2_460.0, fitnessEpochId: String? = null
+    ): M2APerformanceCalibrationRequest {
         val observed = Engine15ObservedWorkloadAssembler.assemble(
             accountId = scope.accountId, asOfDate = scope.localDate, zoneId = scope.zone,
             canonicalActivities = emptyList(), asOfUtc = scope.asOf
@@ -548,12 +791,12 @@ class Engine15M2BIntensityCalibrationTest {
         val input = M2ARacePerformanceInput(
             performanceId = "benchmark", accountId = scope.accountId, discipline = scope.discipline,
             performedOn = start.atZone(scope.zone).toLocalDate(),
-            distance = Meters.of(10_000.0), duration = Seconds.of(2_460.0),
+            distance = Meters.of(10_000.0), duration = Seconds.of(durationSeconds),
             authority = if (verified) EvidenceAuthorityClass.COACH_OR_RACE_VERIFIED
                 else EvidenceAuthorityClass.SELF_REPORTED_PROVISIONAL,
             performanceIntent = if (verified) M2APerformanceIntent.VERIFIED_OFFICIAL_RACE
                 else M2APerformanceIntent.SELF_REPORTED_RACE_OR_TIME_TRIAL,
-            sourceProvider = if (verified) "garmin" else "manual", observedAtUtc = start
+            sourceProvider = if (verified) "garmin" else "manual", observedAtUtc = start, fitnessEpochId = fitnessEpochId
         )
         return M2APerformanceCalibrationRequest(
             scope.accountId, scope.localDate, scope.zone, observed, listOf(input), scope.asOf
@@ -582,7 +825,8 @@ class Engine15M2BIntensityCalibrationTest {
     private fun runningStream(
         completed: Instant,
         account: String = "athlete",
-        id: String = "source-run"
+        id: String = "source-run",
+        hrQuality: TelemetryQualityStatus = TelemetryQualityStatus.MISSING_TELEMETRY
     ): M2BRunningStream {
         val start = completed.minusSeconds(90)
         val raw = RawSourceComponent(
@@ -596,7 +840,7 @@ class Engine15M2BIntensityCalibrationTest {
             TelemetryQualityAssessment(
                 distanceQuality = TelemetryQualityStatus.VALID_OBSERVED,
                 durationQuality = TelemetryQualityStatus.VALID_OBSERVED,
-                hrQuality = TelemetryQualityStatus.MISSING_TELEMETRY
+                hrQuality = hrQuality
             ),
             CanonicalDeduplicationStatus.SINGLE_SOURCE, listOf(raw)
         )

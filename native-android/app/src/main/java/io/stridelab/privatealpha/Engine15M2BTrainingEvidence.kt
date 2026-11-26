@@ -73,7 +73,8 @@ internal data class M2BTrainingObservation(
     val matchedIntendedRpe: Boolean = false,
     val declaredControlledProgression: Boolean = false,
     val steadyPaceWithAlignedEffort: Boolean = false,
-    val sourceDistanceQuality: TelemetryQualityStatus = TelemetryQualityStatus.MISSING_TELEMETRY
+    val sourceDistanceQuality: TelemetryQualityStatus = TelemetryQualityStatus.MISSING_TELEMETRY,
+    val sourceHrQuality: TelemetryQualityStatus? = null
 )
 
 internal data class M2BDescriptivePaceDistribution(
@@ -140,7 +141,12 @@ internal class M2BTrainingReference private constructor(
 }
 
 internal object Engine15M2BTrainingEvidence {
-    fun extract(context: M2BEvaluationContext, observations: List<M2BTrainingObservation>): List<M2BTrainingReference> {
+    fun extract(
+        context: M2BEvaluationContext,
+        observations: List<M2BTrainingObservation>,
+        streams: List<M2BRunningStream>,
+        hrQuarantined: Boolean
+    ): List<M2BTrainingReference> {
         if (context.discipline != AthleteDiscipline.RUN || context.physiologicalModality != M2BPhysiologicalModality.RUNNING) {
             return emptyList()
         }
@@ -163,6 +169,16 @@ internal object Engine15M2BTrainingEvidence {
         }.groupBy({ it.first }, { it.second })
         val collisions = identityOwners.values.filter { it.distinct().size > 1 }.flatten().toSet()
         val clean = eligible.filterNot { it.activity.canonicalId in collisions }
+        val recordingsByActivity = streams.mapNotNull { stream ->
+            val recording = stream.recording ?: return@mapNotNull null
+            val source = stream.sourceRecord() ?: return@mapNotNull null
+            if (recording.origin == M2BStreamIdentity.of(stream.activity, source)) {
+                stream.activity.canonicalId to recording
+            } else null
+        }.groupBy({ it.first }, { it.second })
+        val usableHr = clean.filterTo(mutableSetOf()) { row ->
+            !hrQuarantined && hasUsableHr(row, recordingsByActivity[row.activity.canonicalId].orEmpty())
+        }
         val progressionIds = clean.filter { it.declaredControlledProgression && it.flatOrRolling }
             .groupBy { it.activity.canonicalId to it.source.canonicalToken() }.filterValues { rows ->
                 val stages = rows.sortedBy { it.endedAt }
@@ -180,7 +196,7 @@ internal object Engine15M2BTrainingEvidence {
                 !it.declaredControlledProgression && it.family == M2BRunningReferenceFamily.EASY &&
                     it.flatOrRolling && it.cr10 in 2.0..3.0 &&
                     it.talkTest == M2BTalkTestStage.COMFORTABLE_SENTENCES &&
-                    it.heartRate != M2BTrainingHeartRate.UNRELIABLE_OR_DRIFTING
+                    (it !in usableHr || it.heartRate != M2BTrainingHeartRate.UNRELIABLE_OR_DRIFTING)
             },
             M2BTrainingPathway.SUCCESSFUL_STRUCTURED to clean.filter {
                 it.family in setOf(M2BRunningReferenceFamily.TEMPO, M2BRunningReferenceFamily.CRUISE,
@@ -193,7 +209,7 @@ internal object Engine15M2BTrainingEvidence {
             },
             M2BTrainingPathway.PACE_HR_RPE_CONVERGENCE to clean.filter {
                 it.family in setOf(M2BRunningReferenceFamily.EASY, M2BRunningReferenceFamily.STEADY) &&
-                    it.steadyPaceWithAlignedEffort && it.heartRate == M2BTrainingHeartRate.CLEAN_STABLE
+                    it.steadyPaceWithAlignedEffort && it.heartRate == M2BTrainingHeartRate.CLEAN_STABLE && it in usableHr
             }
         )
         return Collections.unmodifiableList(byPathway.flatMap { (pathway, evidence) ->
@@ -204,6 +220,18 @@ internal object Engine15M2BTrainingEvidence {
                 M2BTrainingReference.descriptive(pathway, family, unambiguous)
             }
         })
+    }
+
+    private fun hasUsableHr(row: M2BTrainingObservation, recordings: List<M2BRecordingWindow>): Boolean {
+        if (row.activity.telemetryQuality.hrQuality != TelemetryQualityStatus.VALID_OBSERVED) return false
+        val sourceStatuses = recordings.filter {
+            val origin = it.origin
+            origin.provider == row.source.normalizedProvider &&
+                (origin.recordId == row.source.externalId || origin.externalId == row.source.externalId)
+        }.map { it.sourceQuality.hrQuality } + listOfNotNull(row.sourceHrQuality)
+        // A merged activity's primary HR quality cannot establish a different component's quality.
+        return (sourceStatuses.isNotEmpty() || row.activity.rawComponents.size == 1) &&
+            sourceStatuses.all { it == TelemetryQualityStatus.VALID_OBSERVED }
     }
 }
 

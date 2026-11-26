@@ -39,7 +39,12 @@ private fun speedKey(value: M2BObservedSpeed): String = m2bCanonical(
     value.canonicalActivityId, value.source.canonicalToken(), sourceKey(value.provenance),
     value.completed, value.expiresAt, value.duration.canonicalToken(), value.rawSpeed.canonicalToken(),
     value.gradeAdjustedSpeed?.canonicalToken(), value.sensorTolerance?.canonicalToken(),
-    value.effort, value.sourceClass, value.basis
+    value.effort, value.sourceClass, value.basis,
+    value.downhillExposure.joinToString("") {
+        m2bCanonical(it.start, it.end, it.elevationLoss.canonicalToken(), it.horizontalDistance.canonicalToken(),
+            it.pathDistance.canonicalToken(), it.duration.canonicalToken())
+    },
+    value.gapRejections.joinToString("") { m2bCanonical(it.start, it.end, it.reason) }
 )
 
 private fun sourceKey(aliases: Collection<M2ASourceQualifiedAlias>): String =
@@ -80,7 +85,8 @@ internal fun m2bCalibrationContentHash(result: Engine15M2BIntensityCalibrator): 
         m2bCanonical(it.maximumContinuousDuration.canonicalToken(), it.source.canonicalToken())
     }
     val payload = m2bCanonical(result.policyVersion, contextKey(result.context), result.recordedHistoryCoverage,
-        result.operationalThresholdCalibration?.contentHash, result.observedWorkloadContentHash, result.upstreamSnapshotId,
+        result.operationalThresholdCalibration?.contentHash, result.paceConflicts.sorted().joinToString(","),
+        result.observedWorkloadContentHash, result.upstreamSnapshotId,
         result.persistentRestrictionIds.joinToString("") { m2bCanonical(it) },
         result.restrictionDecision.reasons.sorted().joinToString(","), result.hold,
         result.restrictionDecision.hrQuarantined, result.restrictionDecision.recoveryOnly,
@@ -90,7 +96,10 @@ internal fun m2bCalibrationContentHash(result: Engine15M2BIntensityCalibrator): 
         result.envelope.recordingTraces.joinToString("") { m2bCanonical(m2bRecordingTraceKey(it)) },
         result.tanakaPrior.belief.canonicalRepresentation(), result.tanakaPrior.residualFloor?.canonicalToken(),
         result.heartRateHierarchy.evidence.joinToString("") { m2bCanonical(m2bHREvidenceKey(it)) },
-        result.heartRateHierarchy.conflicts.sorted().joinToString(","), hrr)
+        result.heartRateHierarchy.conflicts.sorted().joinToString(","),
+        result.heartRateHierarchy.crossMetricConflicts.joinToString("") {
+            m2bCanonical(it.reason, m2bHREvidenceKey(it.restrictedEvidence), m2bHREvidenceKey(it.comparedEvidence))
+        }, hrr)
     return MessageDigest.getInstance("SHA-256").digest(payload.toByteArray(StandardCharsets.UTF_8))
         .joinToString("") { "%02x".format(it.toInt() and 0xff) }
 }

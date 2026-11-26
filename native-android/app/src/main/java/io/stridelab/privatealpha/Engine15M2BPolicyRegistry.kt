@@ -2,7 +2,7 @@ package io.stridelab.privatealpha
 
 internal object Engine15M2BPolicyRegistry {
     const val SPEC_VERSION = Engine15M2APolicyRegistry.SPEC_VERSION
-    const val POLICY_VERSION = "policy-registry-1.5.0-m2b-isolated-v2"
+    const val POLICY_VERSION = "policy-registry-1.5.0-m2b-isolated-v3"
     const val GAP_MIN_GRADE = -0.45 // POL-014
     const val GAP_MAX_GRADE = 0.45
     const val GAP_MIN_METABOLIC_GRADE = -0.15

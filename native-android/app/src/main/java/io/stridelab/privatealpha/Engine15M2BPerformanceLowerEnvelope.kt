@@ -131,6 +131,21 @@ internal class M2BSourceProvenance private constructor(
     }
 }
 
+internal data class M2BDownhillExposure(
+    val start: Instant,
+    val end: Instant,
+    val elevationLoss: Meters,
+    val horizontalDistance: Meters,
+    val pathDistance: Meters,
+    val duration: Seconds
+)
+
+internal enum class M2BGAPRejectionReason {
+    GAP_OUT_OF_DOMAIN, ECCENTRIC_DOMINATED_QUARANTINE, UNSUPPORTED_SURFACE, INVALID_NUMERIC_INPUT
+}
+
+internal data class M2BGAPRejection(val start: Instant, val end: Instant, val reason: M2BGAPRejectionReason)
+
 internal data class M2BObservedSpeed(
     val canonicalActivityId: String,
     val source: M2ASourceQualifiedAlias,
@@ -143,7 +158,9 @@ internal data class M2BObservedSpeed(
     val sensorTolerance: MetersPerSecond?,
     val effort: M2BEffortClassification,
     val sourceClass: M2BSourceClass,
-    val basis: M2BObservationBasis
+    val basis: M2BObservationBasis,
+    val downhillExposure: List<M2BDownhillExposure> = emptyList(),
+    val gapRejections: List<M2BGAPRejection> = emptyList()
 ) {
     val verifiedContinuousPerformance: Boolean get() = false
 }
@@ -296,22 +313,35 @@ internal class Engine15M2BPerformanceLowerEnvelope private constructor(
             var nextStart = first.start
             var pathDistance = 0.0
             var equivalentDistance = 0.0
-            var adjustedAvailable = stream.surface != M2BSurface.TECHNICAL_OR_UNKNOWN
+            val rejections = mutableListOf<M2BGAPRejection>()
+            val downhill = mutableListOf<M2BDownhillExposure>()
+            if (stream.surface == M2BSurface.TECHNICAL_OR_UNKNOWN) {
+                rejections += M2BGAPRejection(first.start, last.end, M2BGAPRejectionReason.UNSUPPORTED_SURFACE)
+            }
             for (segment in segments) {
                 if (segment.origin != expectedOrigin || segment.start != nextStart || segment.end <= segment.start ||
                     segment.horizontalDistance.value <= 0 || !segment.riseMeters.isFinite()
                 ) return null
                 nextStart = segment.end
-                pathDistance += Math.hypot(segment.horizontalDistance.value, segment.riseMeters)
-                if (adjustedAvailable) {
-                    val adjustment = Engine15M2BIntensityModels.minetti(
-                        segment.horizontalDistance, segment.riseMeters, Seconds.of(seconds(segment.start, segment.end))
-                    )
-                    if (adjustment is M2BGradeAdjustment.Computed) {
-                        equivalentDistance += adjustment.adjustedDistance.value
-                    } else {
-                        adjustedAvailable = false
-                    }
+                val length = Math.hypot(segment.horizontalDistance.value, segment.riseMeters)
+                if (!length.isFinite()) return null
+                pathDistance += length
+                val duration = Seconds.of(seconds(segment.start, segment.end))
+                if (segment.riseMeters < 0.0) {
+                    downhill += M2BDownhillExposure(segment.start, segment.end, Meters.of(-segment.riseMeters),
+                        segment.horizontalDistance, Meters.of(length), duration)
+                }
+                when (val adjustment = Engine15M2BIntensityModels.minetti(
+                    segment.horizontalDistance, segment.riseMeters, duration
+                )) {
+                    is M2BGradeAdjustment.Computed -> equivalentDistance += adjustment.adjustedDistance.value
+                    is M2BGradeAdjustment.Abstained -> rejections += M2BGAPRejection(segment.start, segment.end,
+                        when (adjustment) {
+                            M2BGradeAdjustment.Abstained.OUT_OF_DOMAIN -> M2BGAPRejectionReason.GAP_OUT_OF_DOMAIN
+                            M2BGradeAdjustment.Abstained.ECCENTRIC_DOMINATED ->
+                                M2BGAPRejectionReason.ECCENTRIC_DOMINATED_QUARANTINE
+                            M2BGradeAdjustment.Abstained.INVALID_SEGMENT -> M2BGAPRejectionReason.INVALID_NUMERIC_INPUT
+                        })
                 }
             }
             if (recording != null) {
@@ -329,13 +359,18 @@ internal class Engine15M2BPerformanceLowerEnvelope private constructor(
                 ) return null
             }
             val duration = seconds(first.start, last.end)
+            val adjustedSpeed = if (rejections.isEmpty()) speed(equivalentDistance, duration) else null
+            if (adjustedSpeed == null && rejections.isEmpty()) {
+                rejections += M2BGAPRejection(first.start, last.end, M2BGAPRejectionReason.INVALID_NUMERIC_INPUT)
+            }
             return M2BObservedSpeed(
                 stream.activity.canonicalId, stream.source, provenance, last.end, Seconds.of(duration),
                 speed(pathDistance, duration) ?: return null,
-                if (adjustedAvailable) speed(equivalentDistance, duration) else null, expires(last.end),
+                adjustedSpeed, expires(last.end),
                 stream.sensorTolerance, stream.effort, stream.sourceClass,
                 if (recording == null) M2BObservationBasis.RECONSTRUCTED_DESCRIPTION
-                else M2BObservationBasis.RECORDING_DERIVED_DESCRIPTION
+                else M2BObservationBasis.RECORDING_DERIVED_DESCRIPTION,
+                Collections.unmodifiableList(downhill), Collections.unmodifiableList(rejections)
             )
         }
 
