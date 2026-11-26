@@ -124,6 +124,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 ) {
     private val store = TrainingStore(context, databaseName)
     private val manualStore = ManualDisciplineStore(context, manualDatabaseName)
+    private val m1LocalStore = Engine15M1LocalStore(TrainingStoreM1Backend(store))
     private val appContext = context.applicationContext
     internal val thumbnailCache = SharedThumbnailCacheHolder.get(appContext)
     private val engine15ExerciseLibrary by lazy {
@@ -760,20 +761,91 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 )
             }
         }
-        return { request, generationPeers -> when(selected) {
-            Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(
-                request, owner, generationPeers,
-                exerciseLibrary = if (request.strengthDays > 0 || request.calDays > 0 || request.conditioningDays > 0)
-                    engine15ExerciseLibrary else null,
-                activityEvidence = if (request.runDays > 0 && request.strengthDays == 0 &&
-                    request.calDays == 0 && request.conditioningDays == 0 &&
-                    request.disciplineGoals.keys.all { it == "run" }) activityEvidence else null,
-                qualityEvidence = qualityEvidence,
-                activities = ownerRows,
-                detections = detections
+        val unifiedAssessment = if (FeatureFlags.USE_UNIFIED_ATHLETE_STATE_V1) {
+            buildUnifiedAthleteAssessmentLocked(state, owner, java.time.Instant.now())
+        } else {
+            null
+        }
+        return { request, generationPeers ->
+            val effectiveRequest = if (unifiedAssessment != null) {
+                Engine15UnifiedAthleteAssembler.requireRequestedDisciplinesUnblocked(request, unifiedAssessment)
+                Engine15UnifiedAthleteAssembler.applySafetyAndAssessmentToRequest(request, unifiedAssessment)
+            } else {
+                request
+            }
+            when (selected) {
+                Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(
+                    effectiveRequest, owner, generationPeers,
+                    exerciseLibrary = if (effectiveRequest.strengthDays > 0 || effectiveRequest.calDays > 0 || effectiveRequest.conditioningDays > 0)
+                        engine15ExerciseLibrary else null,
+                    activityEvidence = if (effectiveRequest.runDays > 0 && effectiveRequest.strengthDays == 0 &&
+                        effectiveRequest.calDays == 0 && effectiveRequest.conditioningDays == 0 &&
+                        effectiveRequest.disciplineGoals.keys.all { it == "run" }) activityEvidence else null,
+                    qualityEvidence = qualityEvidence,
+                    activities = ownerRows,
+                    detections = detections
+                )
+                else -> selected.generate(effectiveRequest, owner)
+            }
+        }
+    }
+
+    internal suspend fun loadM1SafetyRestrictions(): M1RestrictionLoadResult = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            m1LocalStore.loadRestrictions(owner)
+        }
+    }
+
+    internal suspend fun saveM1SafetyRestriction(restriction: AthleteSafetyRestriction): Boolean =
+        operation("Saving training safety restriction…") {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            val nowMs = System.currentTimeMillis()
+            m1LocalStore.saveRestriction(owner, restriction, nowMs)
+            m1LocalStore.invalidateDerivedAssessment(owner)
+        }
+
+    internal suspend fun clearM1SafetyRestriction(
+        restrictionId: String,
+        reason: String? = null
+    ): Boolean = operation("Updating training safety restriction…") {
+        val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+        val nowMs = System.currentTimeMillis()
+        m1LocalStore.clearRestriction(owner, restrictionId, java.time.Instant.ofEpochMilli(nowMs), reason, nowMs)
+        m1LocalStore.invalidateDerivedAssessment(owner)
+    }
+
+    internal suspend fun evaluateUnifiedAthleteState(
+        asOfUtc: java.time.Instant = java.time.Instant.now()
+    ): UnifiedAthleteAssessment = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val state = mutable.value
+            val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
+            buildUnifiedAthleteAssessmentLocked(state, owner, asOfUtc)
+        }
+    }
+
+    private fun buildUnifiedAthleteAssessmentLocked(
+        state: TrainingState,
+        owner: String,
+        asOfUtc: java.time.Instant
+    ): UnifiedAthleteAssessment {
+        val ownerRows = state.activities.filter { activityCorrectionOwner(it.id, state) == owner }
+        val freeform = manualStore.listFreeformReadOnly(owner)
+        return Engine15UnifiedAthleteAssembler.assemble(
+            UnifiedAthleteAssemblyInput(
+                accountId = owner,
+                evaluatedAtUtc = asOfUtc,
+                zoneId = java.time.ZoneId.systemDefault(),
+                activityRecords = ownerRows,
+                activityDetails = state.details,
+                freeformWorkouts = freeform,
+                existingPlans = state.plans,
+                hrZoneProfile = resolveExecutionHrZones(null),
+                localStore = m1LocalStore,
+                persistDerivedAssessment = true
             )
-            else -> selected.generate(request,owner)
-        } }
+        )
     }
 
     suspend fun generateHybridPlan(requests: List<HybridTrackRequest>) =

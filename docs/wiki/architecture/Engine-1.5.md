@@ -2,7 +2,7 @@
 title: "Engine 1.5 — Deterministic Training Coach"
 area: architecture
 status: verified
-last_verified_commit: "36a5eeb8"
+last_verified_commit: "eac5cc5c"
 key_files:
   - "native-android/app/src/main/java/io/stridelab/privatealpha/EngineContracts.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine1Engines.kt"
@@ -14,6 +14,12 @@ key_files:
   - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine15ExecutionAnalyzer.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine15AthleteDiagnosticsEngine.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine15PlanAdaptationEngine.kt"
+  - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine15UnifiedAthleteAssembler.kt"
+  - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine15M1SafetyRestrictions.kt"
+  - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine15M1VersioningAndStorage.kt"
+  - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine15M2APerformanceCalibrator.kt"
+  - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine15M2BIntensityCalibrator.kt"
+  - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine15M2CWorkloadIntelligence.kt"
 tags: [stridelab, engine15, periodization, coaching, adaptation]
 ---
 
@@ -41,6 +47,12 @@ Engine 1.5 (`ENGINE15_VERSION = "1.5.0"`) is StrideLab's pure-Kotlin determinist
 - **Post-Run Execution Analyzer (`Engine15ExecutionAnalyzer`):** Grades linked runs across evidence tiers (`LAP_AND_RECORD` → `RECORD_WINDOW` → `SUMMARY_ONLY`) into intent-specific verdicts (`INTENSITY_MISMATCH_TOO_FAST`, `VOLUME_ONLY_MATCH`, `PARTIALLY_EXECUTED`, etc.) with optional verified-zone HR compliance and `Pa:Hr` decoupling.
 - **Confidence-Gated Diagnostics (`Engine15AthleteDiagnosticsEngine`):** Read-only 28d/7d/30d/42d evaluation across `VolumeTolerance`, `QualityExecution`, `EasyDiscipline`, and `AerobicEfficiency`. Physical load counts all runs; quality/easy grading uses linked analyses only; `hiddenFatigueRisk` (`>= 50%` easy gray-zone creep) blocks faster pace checks.
 - **Controlled Adaptation & Rollback (`Engine15PlanAdaptationEngine`):** Never auto-mutates active plans or alters past/completed/linked sessions (`effectiveFromDate = asOfDate.plusDays(1)`). Supports 5 playbooks (`MISSED_WEEK_RECOVERY` 3 tiers, `PROACTIVE_DELOAD_SWAP`, `EASY_PACING_LOCK`, `PACE_RECALIBRATION_UP`, `PACE_RECALIBRATION_DOWN`). Every candidate must pass untouched `validateSaved`; `approveAdaptationProposal` / `revertLastAdaptation` archive and restore exact `previousPlanJson` locally.
+
+## Unified Athlete Intelligence & Calibration (M1-A..F & M2-A..C)
+- **Athlete Evidence, Canonical Reconciliation & Workload Separation (M1-A..C):** `Engine15AthleteStateSnapshot`, `Engine15CanonicalActivityProjector`, `Engine15TelemetryQualityClassifier`, and `Engine15ObservedWorkloadAssembler` / `Engine15ProjectedWorkloadAssembler` enforce SI unit typing (`Engine15SiUnits`), source-qualified identity dedupe, telemetry quality quarantine, and strict separation between observed history and projected plans.
+- **Persistent Safety Restrictions & Local-Only Storage (M1-D..F):** `Engine15M1SafetyRestrictions` models versioned, owner-scoped holds, volume caps, and intensity caps with audit clearing; `Engine15M1LocalStore(TrainingStoreM1Backend)` stores `m1-restriction-*` and derived non-authoritative `m1-assessment-*` records locally under `kind = "workout"` (`server_version = null`, never queued to `outbox`, working identically offline via `LocalPlanOwnership.activeOwner`).
+- **M2-A..C Calibration & Workload Intelligence:** `Engine15M2APerformanceCalibrator` (Vickers & Vertosick race equivalence and operational threshold anchor), `Engine15M2BIntensityCalibrator` (intensity calibration, verified 5-zone HR hierarchy without `220 - age` synthesis, and monotonic restriction checks), and `Engine15M2CWorkloadIntelligence` (exact-date rolling exposure windows, multimodal cross-training separation, downhill exposure, and 10-family quality ledger) are integrated into `native-android`.
+- **Feature-Flagged Repository Wiring (`Engine15UnifiedAthleteAssembler`):** Unites canonical Garmin/`.FIT` activities, read-only Freeform/Custom workouts (`ManualDisciplineStore.listFreeformReadOnly`), plan sessions, verified HR profiles, and M1-D restrictions into M2-A..C, projecting verified safety limits into `PlanRequest` via `applySafetyAndAssessmentToRequest` behind `FeatureFlags.USE_UNIFIED_ATHLETE_STATE_V1` so `validateSaved(plan)` remains deterministic from `plan.request` alone.
 
 ## Protected Boundaries
 Engine 1.5 is completely isolated from [[Freeform-Logger]] and [[Templates-and-Custom-Planner]] (see [[ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging]]). Shadow research modules (`Engine15I3..I10`, `IndependentAdaptiveWeek`, `Engine15HistoryInformedPlanner`) remain unwired from production generation.

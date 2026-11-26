@@ -5,6 +5,8 @@ status: verified
 last_verified_commit: "36a5eeb8"
 key_files:
   - "android-app/android/app/src/main/java/io/stridelab/privatealpha/TrainingStore.java"
+  - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine15M1SafetyRestrictions.kt"
+  - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine15M1VersioningAndStorage.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/ManualDisciplineStore.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/EngineContracts.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/SharePresetStore.kt"
@@ -32,6 +34,8 @@ StrideLab separates durable athlete data across purpose-built local SQLite datab
   - `athlete-diagnostic-*` (SHA-256 keyed rolling diagnostics)
   - `plan-adaptation-*` (adaptation proposals and rollback `previousPlanJson` revisions)
   - `player-exec-*` (durable guided workout execution checkpoints and completion receipts)
+  - `m1-restriction-*` (M1-D persistent athlete safety restrictions; never silently wiped on corrupt/future schema)
+  - `m1-assessment-*` (M1-E/F versioned derived M1 assessment cache; rebuildable without touching restrictions)
 - **Large FIT Detail Ceiling:** `MAX_LOCAL_RECORDING_BYTES = 16 MiB` UTF-8 JSON for local Garmin FIT recordings, read in UTF-8 byte windows so dense GPS files never hit the shared 2 MiB record cap or create cloud outbox entries.
 
 ## 2. Plan & Prescription Contracts (`EngineContracts.kt`)

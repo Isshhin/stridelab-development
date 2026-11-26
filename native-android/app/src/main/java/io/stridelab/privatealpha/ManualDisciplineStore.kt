@@ -249,14 +249,18 @@ internal class ManualDisciplineStore(
         })
     }
 
-    suspend fun listFreeform(owner: String): List<FreeformWorkout> = withContext(Dispatchers.IO) {
+    internal fun listFreeformReadOnly(owner: String): List<FreeformWorkout> {
         RecordPolicy.identifier(owner)
-        readableDatabase.query("freeform_workouts", arrayOf("payload"), "owner=?", arrayOf(owner),
+        return readableDatabase.query("freeform_workouts", arrayOf("payload"), "owner=?", arrayOf(owner),
             null, null, "modified_at DESC,record_id DESC").use { cursor ->
             buildList {
                 while (cursor.moveToNext()) add(FreeformCodec.decode(cursor.getString(0), owner))
             }
         }
+    }
+
+    suspend fun listFreeform(owner: String): List<FreeformWorkout> = withContext(Dispatchers.IO) {
+        listFreeformReadOnly(owner)
     }
 
     suspend fun createFreeformDraft(draft: FreeformWorkout): FreeformWorkout = withContext(Dispatchers.IO) {
