@@ -2,7 +2,7 @@
 title: "Engine 1.5 — Deterministic Training Coach"
 area: architecture
 status: verified
-last_verified_commit: "36a5eeb8"
+last_verified_commit: "016688d0"
 key_files:
   - "native-android/app/src/main/java/io/stridelab/privatealpha/EngineContracts.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine1Engines.kt"
@@ -41,6 +41,12 @@ Engine 1.5 (`ENGINE15_VERSION = "1.5.0"`) is StrideLab's pure-Kotlin determinist
 - **Post-Run Execution Analyzer (`Engine15ExecutionAnalyzer`):** Grades linked runs across evidence tiers (`LAP_AND_RECORD` → `RECORD_WINDOW` → `SUMMARY_ONLY`) into intent-specific verdicts (`INTENSITY_MISMATCH_TOO_FAST`, `VOLUME_ONLY_MATCH`, `PARTIALLY_EXECUTED`, etc.) with optional verified-zone HR compliance and `Pa:Hr` decoupling.
 - **Confidence-Gated Diagnostics (`Engine15AthleteDiagnosticsEngine`):** Read-only 28d/7d/30d/42d evaluation across `VolumeTolerance`, `QualityExecution`, `EasyDiscipline`, and `AerobicEfficiency`. Physical load counts all runs; quality/easy grading uses linked analyses only; `hiddenFatigueRisk` (`>= 50%` easy gray-zone creep) blocks faster pace checks.
 - **Controlled Adaptation & Rollback (`Engine15PlanAdaptationEngine`):** Never auto-mutates active plans or alters past/completed/linked sessions (`effectiveFromDate = asOfDate.plusDays(1)`). Supports 5 playbooks (`MISSED_WEEK_RECOVERY` 3 tiers, `PROACTIVE_DELOAD_SWAP`, `EASY_PACING_LOCK`, `PACE_RECALIBRATION_UP`, `PACE_RECALIBRATION_DOWN`). Every candidate must pass untouched `validateSaved`; `approveAdaptationProposal` / `revertLastAdaptation` archive and restore exact `previousPlanJson` locally.
+
+## Isolated M2-B Intensity Calibration
+
+- `Engine15M2BIntensityCalibrator` evaluates running evidence against an explicit account, discipline, evaluation instant and zone. It reuses the M2-A R3 benchmark contract and keeps elapsed session averages, continuous duration observations, operational guidance and research-only HRR distinct.
+- A reported persistent restriction or unresolved clearance withholds guidance. Cold starts without reported restrictions retain conversational effort guidance. No production caller consumes the candidate.
+
 
 ## Protected Boundaries
 Engine 1.5 is completely isolated from [[Freeform-Logger]] and [[Templates-and-Custom-Planner]] (see [[ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging]]). Shadow research modules (`Engine15I3..I10`, `IndependentAdaptiveWeek`, `Engine15HistoryInformedPlanner`) remain unwired from production generation.
