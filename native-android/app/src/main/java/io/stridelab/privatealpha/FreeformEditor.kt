@@ -1,6 +1,9 @@
 package io.stridelab.privatealpha
 
+import android.app.DatePickerDialog
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,6 +14,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -28,12 +33,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -47,12 +57,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
-internal enum class PickerScope(val label: String) {
-    DISCIPLINE("Discipline"),
-    RECENT("Recent"),
-    ALL("All")
+internal enum class PickerScope(
+    val label: String,
+    val discipline: ManualDiscipline? = null,
+    val tagSuffix: String
+) {
+    ALL("All", null, "all"),
+    RECENT("Recent", null, "recent"),
+    STRENGTH("Strength", ManualDiscipline.STRENGTH, "strength"),
+    CALISTHENICS("Calisthenics", ManualDiscipline.CALISTHENICS, "calisthenics"),
+    PLYOMETRICS("Plyometrics", ManualDiscipline.PLYOMETRICS, "plyometrics"),
+    ISOMETRICS("Isometrics", ManualDiscipline.ISOMETRICS, "isometrics"),
+    CONDITIONING("Conditioning", ManualDiscipline.CONDITIONING, "conditioning"),
+    MOBILITY("Mobility", null, "mobility")
 }
 
 internal data class PickerExerciseOption(
@@ -61,143 +83,50 @@ internal data class PickerExerciseOption(
     val subtitle: String,
     val categories: List<String>,
     val primaryMuscles: List<String> = emptyList(),
-    val secondaryMuscles: List<String> = emptyList()
+    val secondaryMuscles: List<String> = emptyList(),
+    val discipline: ManualDiscipline = ManualDiscipline.STRENGTH
 )
 
 internal object FreeformExerciseCatalog {
-    private val builtinPlyometrics = listOf(
-        builtin(
-            "plyo-pogo-hops", "Pogo hops", "Plyometrics · Ankle stiffness",
-            listOf("calves", "foot_stabilizers"), listOf("quadriceps", "tibialis_anterior")
-        ),
-        builtin(
-            "plyo-box-jump", "Box jump", "Plyometrics · Lower power",
-            listOf("quadriceps", "gluteus_maximus"), listOf("calves", "hamstrings")
-        ),
-        builtin(
-            "plyo-broad-jump", "Broad jump", "Plyometrics · Horizontal power",
-            listOf("gluteus_maximus", "quadriceps"), listOf("hamstrings", "calves")
-        ),
-        builtin(
-            "plyo-depth-drop", "Depth drop", "Plyometrics · Landing mechanics",
-            listOf("quadriceps", "gluteus_maximus"), listOf("calves", "trunk_stabilizers")
-        ),
-        builtin(
-            "plyo-single-leg-hop", "Single-leg hop", "Plyometrics · Unilateral reactivity",
-            listOf("calves", "quadriceps"), listOf("gluteus_medius", "foot_stabilizers")
-        ),
-        builtin(
-            "plyo-split-squat-jump", "Split squat jump", "Plyometrics · Explosive stride",
-            listOf("quadriceps", "gluteus_maximus"), listOf("calves", "gluteus_medius")
-        ),
-        builtin(
-            "plyo-skater-hops", "Skater hops", "Plyometrics · Lateral reactive",
-            listOf("gluteus_medius", "quadriceps"), listOf("calves", "adductors")
-        ),
-        builtin(
-            "plyo-bounds", "Alternate leg bounds", "Plyometrics · Running power",
-            listOf("gluteus_maximus", "hamstrings"), listOf("calves", "quadriceps")
-        ),
-        builtin(
-            "plyo-a-skip", "A-skip", "Plyometrics · Coordination & stiffness",
-            listOf("hip_flexors", "calves"), listOf("gluteus_maximus", "abdominals")
-        ),
-        builtin(
-            "plyo-tuck-jump", "Tuck jump", "Plyometrics · Vertical elastic",
-            listOf("quadriceps", "hip_flexors"), listOf("calves", "abdominals")
-        )
-    )
+    fun builtinRecords(): List<ExerciseLibraryRecordV2> = ExpandedExerciseCatalog.allRecords()
 
-    private val builtinIsometrics = listOf(
-        builtin(
-            "iso-wall-sit", "Wall sit", "Isometrics · Quad endurance",
-            listOf("quadriceps"), listOf("gluteus_maximus", "calves")
-        ),
-        builtin(
-            "iso-calf-hold", "Single-leg calf isometric hold", "Isometrics · Achilles & soleus",
-            listOf("calves"), listOf("foot_stabilizers", "tibialis_anterior")
-        ),
-        builtin(
-            "iso-split-squat-hold", "Split squat isometric hold", "Isometrics · Single-leg stability",
-            listOf("quadriceps", "gluteus_maximus"), listOf("gluteus_medius", "trunk_stabilizers")
-        ),
-        builtin(
-            "iso-glute-bridge-hold", "Glute bridge isometric hold", "Isometrics · Posterior chain",
-            listOf("gluteus_maximus"), listOf("hamstrings", "spinal_extensors")
-        ),
-        builtin(
-            "iso-forearm-plank", "Forearm plank", "Isometrics · Core bracing",
-            listOf("abdominals", "trunk_stabilizers"), listOf("shoulder_stabilizers", "gluteus_maximus")
-        ),
-        builtin(
-            "iso-side-plank", "Side plank", "Isometrics · Lateral trunk",
-            listOf("obliques", "lateral_trunk_muscles"), listOf("gluteus_medius", "shoulder_stabilizers")
-        ),
-        builtin(
-            "iso-dead-hang", "Dead hang", "Isometrics · Grip & shoulder",
-            listOf("forearm_grip", "latissimus_dorsi"), listOf("shoulder_stabilizers", "lower_trapezius")
-        ),
-        builtin(
-            "iso-hamstring-hold", "Hamstring bridge isometric hold", "Isometrics · Hamstring tendon",
-            listOf("hamstrings"), listOf("gluteus_maximus", "calves")
-        ),
-        builtin(
-            "iso-hollow-hold", "Hollow body hold", "Isometrics · Anterior core",
-            listOf("abdominals"), listOf("hip_flexors", "trunk_stabilizers")
-        )
-    )
-
-    private fun builtin(
-        id: String,
-        name: String,
-        subtitle: String,
-        primaryMuscles: List<String>,
-        secondaryMuscles: List<String>
-    ): ExerciseLibraryRecordV2 =
-        ExerciseLibraryRecordV2(
-            id = id,
-            name = name,
-            kind = "exercise",
-            categories = listOf(if (id.startsWith("plyo-")) "plyometrics" else "isometrics"),
-            movementPatterns = listOf(subtitle),
-            primaryMuscles = primaryMuscles,
-            secondaryMuscles = secondaryMuscles,
-            equipmentOptions = listOf(emptySet()),
-            setupNotes = emptyList(),
-            difficulty = "all",
-            prerequisites = emptySet(),
-            prerequisiteNotes = emptyList(),
-            regressions = emptyList(),
-            progressions = emptyList(),
-            alternatives = emptyList(),
-            technique = emptyList(),
-            easier = "",
-            harder = "",
-            caveats = emptyList(),
-            provenance = emptyList(),
-            media = ExerciseMediaV2(
-                status = "none",
-                bundledFile = null,
-                author = null,
-                license = null,
-                licenseUrl = null,
-                verificationUrls = emptyList(),
-                reason = "built-in",
-                fit = ""
-            )
-        )
-
-    fun builtinRecords(): List<ExerciseLibraryRecordV2> = builtinPlyometrics + builtinIsometrics
+    fun isRunningRecord(record: ExerciseLibraryRecordV2): Boolean =
+        record.categories.any { it.equals("running", ignoreCase = true) }
 
     fun augment(records: List<ExerciseLibraryRecordV2>): List<ExerciseLibraryRecordV2> {
-        val byName = records.mapTo(HashSet()) { it.name.trim().lowercase(Locale.ROOT) }
-        val additions = (builtinPlyometrics + builtinIsometrics).filter {
-            it.name.lowercase(Locale.ROOT) !in byName
+        val nonRunning = records.filterNot(::isRunningRecord)
+        val byId = nonRunning.mapTo(HashSet()) { it.id.trim().lowercase(Locale.ROOT) }
+        val byName = nonRunning.mapTo(HashSet()) { it.name.trim().lowercase(Locale.ROOT) }
+        val additions = builtinRecords().filter {
+            it.id.trim().lowercase(Locale.ROOT) !in byId &&
+                it.name.trim().lowercase(Locale.ROOT) !in byName
         }
-        return records + additions
+        return nonRunning + additions
+    }
+
+    fun matchesScope(record: ExerciseLibraryRecordV2, scope: PickerScope): Boolean {
+        if (isRunningRecord(record)) return false
+        return when (scope) {
+            PickerScope.ALL, PickerScope.RECENT -> true
+            PickerScope.MOBILITY -> record.categories.any { it.equals("mobility", ignoreCase = true) }
+            else -> scope.discipline?.let { matchesDiscipline(record, it) } ?: true
+        }
+    }
+
+    private fun matchesQuery(record: ExerciseLibraryRecordV2, search: String): Boolean {
+        if (search.isBlank()) return true
+        if (record.name.contains(search, ignoreCase = true)) return true
+        if (record.movementPatterns.any { it.contains(search, ignoreCase = true) }) return true
+        if (record.categories.any { it.contains(search, ignoreCase = true) }) return true
+        val muscles = record.primaryMuscles + record.secondaryMuscles
+        return muscles.any { key ->
+            key.contains(search, ignoreCase = true) ||
+                ExerciseMuscleCatalog.formatLabel(key).contains(search, ignoreCase = true)
+        }
     }
 
     fun matchesDiscipline(record: ExerciseLibraryRecordV2, discipline: ManualDiscipline): Boolean {
+        if (isRunningRecord(record)) return false
         val cats = record.categories.map { it.lowercase(Locale.ROOT) }.toSet()
         val n = record.name.lowercase(Locale.ROOT)
         return when (discipline) {
@@ -208,9 +137,45 @@ internal object FreeformExerciseCatalog {
                 n.contains("jump") || n.contains("hop") || n.contains("bound") || n.contains("skip")
             ManualDiscipline.ISOMETRICS -> "isometrics" in cats || "isometric" in cats ||
                 n.contains("hold") || n.contains("plank") || n.contains("wall sit") || n.contains("hang")
-            ManualDiscipline.RUNNING -> "running" in cats
+            ManualDiscipline.RUNNING -> false
         }
     }
+
+    fun resolveRecordDiscipline(record: ExerciseLibraryRecordV2): ManualDiscipline = when {
+        matchesDiscipline(record, ManualDiscipline.PLYOMETRICS) -> ManualDiscipline.PLYOMETRICS
+        matchesDiscipline(record, ManualDiscipline.ISOMETRICS) -> ManualDiscipline.ISOMETRICS
+        matchesDiscipline(record, ManualDiscipline.CONDITIONING) -> ManualDiscipline.CONDITIONING
+        matchesDiscipline(record, ManualDiscipline.CALISTHENICS) &&
+            "strength_gym" !in record.categories.map { it.lowercase(Locale.ROOT) } -> ManualDiscipline.CALISTHENICS
+        else -> ManualDiscipline.STRENGTH
+    }
+
+    fun findRecord(
+        exercise: FreeformExercise,
+        catalog: List<ExerciseLibraryRecordV2>
+    ): ExerciseLibraryRecordV2? {
+        val augmented = augment(catalog)
+        return exercise.catalogId?.let { id -> augmented.firstOrNull { it.id == id } }
+            ?: augmented.firstOrNull { it.name.equals(exercise.name.trim(), ignoreCase = true) }
+    }
+
+    fun resolveExerciseDiscipline(
+        exercise: FreeformExercise,
+        catalog: List<ExerciseLibraryRecordV2>,
+        fallback: ManualDiscipline = ManualDiscipline.STRENGTH
+    ): ManualDiscipline {
+        val found = findRecord(exercise, catalog)
+        if (found != null) return resolveRecordDiscipline(found)
+        val n = exercise.name.lowercase(Locale.ROOT)
+        return when {
+            n.contains("jump") || n.contains("hop") || n.contains("bound") -> ManualDiscipline.PLYOMETRICS
+            n.contains("hold") || n.contains("plank") || n.contains("wall sit") || n.contains("hang") -> ManualDiscipline.ISOMETRICS
+            else -> if (fallback == ManualDiscipline.RUNNING) ManualDiscipline.STRENGTH else fallback
+        }
+    }
+
+    fun isCustomExercise(exercise: FreeformExercise, catalog: List<ExerciseLibraryRecordV2>): Boolean =
+        exercise.catalogId == null && findRecord(exercise, catalog) == null
 
     private fun subtitleFor(record: ExerciseLibraryRecordV2, fallbackDiscipline: ManualDiscipline): String {
         val primary = record.movementPatterns.firstOrNull()?.takeIf { it.isNotBlank() }
@@ -224,7 +189,6 @@ internal object FreeformExerciseCatalog {
             "strength_gym" in record.categories -> "Strength"
             "calisthenics" in record.categories -> "Calisthenics"
             "conditioning" in record.categories -> "Conditioning"
-            "running" in record.categories -> "Running"
             "mobility" in record.categories -> "Mobility"
             "bodyweight" in record.categories -> "Bodyweight"
             else -> fallbackDiscipline.label
@@ -238,7 +202,6 @@ internal object FreeformExerciseCatalog {
 
     fun filter(
         catalog: List<ExerciseLibraryRecordV2>,
-        discipline: ManualDiscipline,
         scope: PickerScope,
         query: String,
         recentNames: List<String>
@@ -250,42 +213,62 @@ internal object FreeformExerciseCatalog {
                 .filter { search.isBlank() || it.contains(search, ignoreCase = true) }
                 .map { name ->
                     val found = augmented.firstOrNull { it.name.equals(name, ignoreCase = true) }
+                    val resolved = found?.let(::resolveRecordDiscipline) ?: ManualDiscipline.STRENGTH
                     PickerExerciseOption(
                         id = found?.id,
                         name = name,
-                        subtitle = found?.let { subtitleFor(it, discipline) } ?: "${discipline.label} · Recent",
+                        subtitle = found?.let { subtitleFor(it, resolved) } ?: "Recent",
                         categories = found?.categories.orEmpty(),
                         primaryMuscles = found?.primaryMuscles.orEmpty(),
-                        secondaryMuscles = found?.secondaryMuscles.orEmpty()
+                        secondaryMuscles = found?.secondaryMuscles.orEmpty(),
+                        discipline = resolved
                     )
                 }
         }
 
-        val filtered = augmented.asSequence()
+        val targetDiscipline = scope.discipline
+        return augmented.asSequence()
             .filter { record ->
-                (scope == PickerScope.ALL || matchesDiscipline(record, discipline)) &&
-                    (search.isBlank() || record.name.contains(search, ignoreCase = true))
+                matchesScope(record, scope) && matchesQuery(record, search)
             }
             .sortedWith(
-                compareByDescending<ExerciseLibraryRecordV2> { matchesDiscipline(it, discipline) }
-                    .thenByDescending { it.id.startsWith("plyo-") || it.id.startsWith("iso-") }
-                    .thenBy { it.name.lowercase(Locale.ROOT) }
+                compareBy<ExerciseLibraryRecordV2> { it.name.lowercase(Locale.ROOT) }
             )
-            .take(80)
             .map { record ->
+                val resolved = targetDiscipline ?: resolveRecordDiscipline(record)
                 PickerExerciseOption(
                     id = record.id,
                     name = record.name,
-                    subtitle = subtitleFor(record, discipline),
+                    subtitle = subtitleFor(record, resolved),
                     categories = record.categories,
                     primaryMuscles = record.primaryMuscles,
-                    secondaryMuscles = record.secondaryMuscles
+                    secondaryMuscles = record.secondaryMuscles,
+                    discipline = resolved
                 )
             }
             .toList()
-
-        return filtered
     }
+}
+
+private val loggerHeaderDateFormatter: DateTimeFormatter =
+    DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH)
+
+private fun FreeformWorkout.formattedDateLabel(): String =
+    date?.format(loggerHeaderDateFormatter) ?: performedOn
+
+private fun FreeformWorkout.withInferredDiscipline(catalog: List<ExerciseLibraryRecordV2>): FreeformWorkout {
+    if (discipline == ManualDiscipline.RUNNING) return this
+    val confirmedDisciplines = exercises
+        .filter { ex -> ex.sets.any { it.completed } }
+        .map { ex -> FreeformExerciseCatalog.resolveExerciseDiscipline(ex, catalog, discipline) }
+        .distinct()
+    val inferred = confirmedDisciplines.singleOrNull() ?: ManualDiscipline.STRENGTH
+    val normalizedExercises = if (inferred == ManualDiscipline.CONDITIONING) {
+        exercises
+    } else {
+        exercises.map { it.copy(format = ConditioningFormat.INTERVALS, blockMinutes = "") }
+    }
+    return copy(discipline = inferred, exercises = normalizedExercises)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -322,10 +305,10 @@ internal fun FreeformEditor(
     val scope = rememberCoroutineScope()
     val persistMutex = remember(initial.id) { Mutex() }
 
-    val recentExercises = remember(board.workouts, draft.discipline, draft.exercises) {
+    val recentExercises = remember(board.workouts, draft.exercises) {
         val existingNames = draft.exercises.map { it.name.trim().lowercase(Locale.ROOT) }.toSet()
         board.workouts.asSequence()
-            .filter { it.isComplete && it.discipline == draft.discipline }
+            .filter { it.isComplete && it.discipline != ManualDiscipline.RUNNING }
             .flatMap { it.exercises.asSequence() }
             .map { it.name.trim() }
             .filter { it.isNotEmpty() && it.lowercase(Locale.ROOT) !in existingNames }
@@ -407,7 +390,12 @@ internal fun FreeformEditor(
     }
 
     if (review) {
-        FreeformPage("Review workout", "${draft.discipline.label} · ${draft.performedOn}", ::back) {
+        val reviewSubtitle = if (draft.discipline == ManualDiscipline.RUNNING) {
+            "${draft.discipline.label} · ${draft.formattedDateLabel()}"
+        } else {
+            draft.formattedDateLabel()
+        }
+        FreeformPage("Review workout", reviewSubtitle, ::back) {
             LazyColumn(
                 Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(16.dp),
@@ -447,6 +435,9 @@ internal fun FreeformEditor(
                 }
                 draft.exercises.filter { exercise -> exercise.sets.any { it.completed } }.forEach { exercise ->
                     item(key = exercise.id) {
+                        val exDiscipline = FreeformExerciseCatalog.resolveExerciseDiscipline(
+                            exercise, exerciseCatalog, draft.discipline
+                        )
                         Column(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -459,7 +450,7 @@ internal fun FreeformEditor(
                             )
                             exercise.sets.filter { it.completed }.forEach { set ->
                                 Text(
-                                    set.actual.label(draft.discipline).ifBlank { "Round completed" },
+                                    set.actual.label(exDiscipline).ifBlank { "Round completed" },
                                     color = StrideLabSurfaceTokens.inkSecondary,
                                     style = TabularTextStyle
                                 )
@@ -474,6 +465,7 @@ internal fun FreeformEditor(
                 Modifier
                     .fillMaxWidth()
                     .background(StrideLabSurfaceTokens.surfaceElevated)
+                    .navigationBarsPadding()
                     .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
                 FreeformError(error)
@@ -484,7 +476,8 @@ internal fun FreeformEditor(
                             working = true
                             error = null
                             freeformAttempt {
-                                val target = persistDraft(draft)
+                                val normalized = draft.withInferredDiscipline(exerciseCatalog)
+                                val target = persistDraft(normalized)
                                 persistMutex.withLock { access.finish(target) }
                             }.onSuccess {
                                 update(it)
@@ -503,15 +496,113 @@ internal fun FreeformEditor(
         return
     }
 
-    FreeformPage(
-        draft.workoutName.ifBlank { draft.discipline.label },
-        draft.date?.toString(),
-        ::back
+    val editorContext = LocalContext.current
+    val confirmedSets = remember(draft.exercises) {
+        draft.exercises.flatMap { it.sets }.filter { it.completed }
+    }
+    val hasConfirmedSet = confirmedSets.isNotEmpty() || (
+        draft.discipline == ManualDiscipline.RUNNING &&
+            draft.distanceKm.isNotBlank() && draft.durationMinutes.isNotBlank()
+        )
+    val confirmedVolume = remember(confirmedSets) {
+        confirmedSets.sumOf { set ->
+            val q = set.actual.quantity.trim().toIntOrNull() ?: 0
+            val kg = set.actual.kg.trim().replace(',', '.').toDoubleOrNull() ?: 0.0
+            q * kg
+        }
+    }
+    val confirmedHoldSec = remember(confirmedSets) {
+        confirmedSets.sumOf { it.actual.seconds.trim().toIntOrNull() ?: 0 }
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(StrideLabSurfaceTokens.canvas)
+            .statusBarsPadding()
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = ::back)
+                    .semantics { contentDescription = "Back" },
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = CircleShape,
+                    color = PlanBuilderPalette.surface,
+                    border = BorderStroke(1.dp, PlanBuilderPalette.border)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            "‹",
+                            color = StrideLabSurfaceTokens.ink,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(1.dp)
+            ) {
+                Text(
+                    text = draft.workoutName.ifBlank {
+                        if (draft.discipline == ManualDiscipline.RUNNING) draft.discipline.label else "Log Workout"
+                    },
+                    color = StrideLabSurfaceTokens.ink,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.3).sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = draft.formattedDateLabel(),
+                    color = StrideLabSurfaceTokens.inkSecondary,
+                    fontSize = 12.5.sp,
+                    style = TabularTextStyle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            IconButton(
+                onClick = {
+                    if (!isPersisted && draft == initial) {
+                        remove(draft.id)
+                        leave()
+                    } else {
+                        discard = true
+                    }
+                },
+                enabled = !working,
+                modifier = Modifier
+                    .sizeIn(minWidth = 48.dp, minHeight = 48.dp)
+                    .testTag("freeform-discard")
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = "Discard draft",
+                    tint = StrideLabSurfaceTokens.inkSecondary
+                )
+            }
+        }
+        StrideLabHairline()
+
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth().testTag("freeform-editor"),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             if (draft.discipline == ManualDiscipline.RUNNING) {
                 item {
@@ -565,70 +656,176 @@ internal fun FreeformEditor(
                     }
                 }
             } else {
+                item(key = "freeform-live-summary") {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = PlanBuilderPalette.surface,
+                        border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 11.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            LoggerSummaryMetric(
+                                label = "EXERCISES",
+                                value = draft.exercises.size.toString(),
+                                accent = false,
+                                modifier = Modifier.weight(1f)
+                            )
+                            LoggerSummaryMetric(
+                                label = "CONFIRMED",
+                                value = "${confirmedSets.size} sets",
+                                accent = confirmedSets.isNotEmpty(),
+                                modifier = Modifier.weight(1f)
+                            )
+                            val thirdLabel = if (confirmedVolume <= 0.0 && confirmedHoldSec > 0) "TIME" else "VOLUME"
+                            val thirdValue = when {
+                                confirmedVolume > 0.0 -> "${freeformNumber(confirmedVolume)} kg"
+                                confirmedHoldSec > 0 -> "${confirmedHoldSec}s"
+                                else -> "—"
+                            }
+                            LoggerSummaryMetric(
+                                label = thirdLabel,
+                                value = thirdValue,
+                                accent = false,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
                 if (draft.exercises.isEmpty()) {
                     item(key = "freeform-empty") {
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 16.dp)
-                                .testTag("freeform-empty-state"),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            Text(
-                                "Empty ${draft.discipline.label.lowercase(Locale.getDefault())} workout",
-                                color = StrideLabSurfaceTokens.ink,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "Add your first movement to begin logging sets.",
-                                color = StrideLabSurfaceTokens.inkSecondary,
-                                fontSize = 13.5.sp
-                            )
-                            FreeformPrimary(
-                                label = "+ Add exercise",
-                                onClick = { picker = true },
+                            Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .testTag("freeform-add-exercise"),
-                                enabled = !working
-                            )
-                            if (recentExercises.isNotEmpty()) {
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    "QUICK ADD RECENT",
-                                    color = StrideLabSurfaceTokens.inkMuted,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.8.sp
-                                )
-                                FlowRow(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    recentExercises.take(5).forEach { name ->
-                                        Surface(
-                                            onClick = {
-                                                edit(draft.copy(exercises = draft.exercises + FreeformExercise(name = name)))
-                                            },
-                                            enabled = !working,
-                                            shape = RoundedCornerShape(10.dp),
-                                            color = Color(0xFF161616),
-                                            modifier = Modifier
-                                                .heightIn(min = 48.dp)
-                                                .testTag("freeform-quick-add-$name")
-                                        ) {
-                                            Box(
-                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Text(
-                                                    "+ $name",
-                                                    color = StrideLabSurfaceTokens.ink,
-                                                    fontSize = 13.sp,
-                                                    fontWeight = FontWeight.Medium
+                                    .testTag("freeform-empty-state"),
+                                shape = RoundedCornerShape(18.dp),
+                                color = PlanBuilderPalette.surface,
+                                border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                listOf(
+                                                    StrideLabSurfaceTokens.lime.copy(alpha = 0.06f),
+                                                    Color.Transparent
                                                 )
+                                            )
+                                        )
+                                        .padding(18.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Text(
+                                        "UNIVERSAL WORKOUT",
+                                        color = StrideLabSurfaceTokens.lime,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.2.sp
+                                    )
+                                    Text(
+                                        "Ready to log",
+                                        color = StrideLabSurfaceTokens.ink,
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        letterSpacing = (-0.4).sp
+                                    )
+                                    Text(
+                                        "Mix strength, calisthenics, plyometrics, isometrics, or conditioning in one session.",
+                                        color = StrideLabSurfaceTokens.inkSecondary,
+                                        fontSize = 13.5.sp,
+                                        lineHeight = 19.sp
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    Button(
+                                        onClick = { picker = true },
+                                        enabled = !working,
+                                        shape = RoundedCornerShape(14.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = StrideLabSurfaceTokens.lime,
+                                            contentColor = StrideLabSurfaceTokens.onLime
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(min = 50.dp)
+                                            .testTag("freeform-add-exercise")
+                                    ) {
+                                        Text(
+                                            "+ Add exercise",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                    }
+                                }
+                            }
+                            if (recentExercises.isNotEmpty()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        "QUICK ADD RECENT",
+                                        color = StrideLabSurfaceTokens.inkMuted,
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.0.sp
+                                    )
+                                    FlowRow(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        recentExercises.take(6).forEach { name ->
+                                            val matched = remember(name, exerciseCatalog) {
+                                                FreeformExerciseCatalog.augment(exerciseCatalog)
+                                                    .firstOrNull { it.name.equals(name, ignoreCase = true) }
+                                            }
+                                            Surface(
+                                                onClick = {
+                                                    edit(
+                                                        draft.copy(
+                                                            exercises = draft.exercises + FreeformExercise(
+                                                                name = name,
+                                                                catalogId = matched?.id
+                                                            )
+                                                        )
+                                                    )
+                                                },
+                                                enabled = !working,
+                                                shape = RoundedCornerShape(100.dp),
+                                                color = StrideLabSurfaceTokens.surfaceSubtle,
+                                                border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline),
+                                                modifier = Modifier
+                                                    .heightIn(min = 48.dp)
+                                                    .testTag("freeform-quick-add-$name")
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                ) {
+                                                    Text(
+                                                        "+",
+                                                        color = StrideLabSurfaceTokens.lime,
+                                                        fontSize = 14.sp,
+                                                        fontWeight = FontWeight.ExtraBold
+                                                    )
+                                                    Text(
+                                                        name,
+                                                        color = StrideLabSurfaceTokens.ink,
+                                                        fontSize = 13.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -638,10 +835,18 @@ internal fun FreeformEditor(
                     }
                 } else {
                     itemsIndexed(draft.exercises, key = { _, exercise -> exercise.id }) { index, exercise ->
+                        val exerciseDiscipline = remember(exercise, exerciseCatalog, draft.discipline) {
+                            FreeformExerciseCatalog.resolveExerciseDiscipline(
+                                exercise, exerciseCatalog, draft.discipline
+                            )
+                        }
+                        val customExercise = remember(exercise, exerciseCatalog) {
+                            FreeformExerciseCatalog.isCustomExercise(exercise, exerciseCatalog)
+                        }
                         FreeformExercisePanel(
                             exercise = exercise,
-                            discipline = draft.discipline,
-                            previous = board.previous(draft.discipline, exercise),
+                            discipline = exerciseDiscipline,
+                            previous = board.previous(exerciseDiscipline, exercise),
                             hasPrevious = index > 0,
                             hasNext = index < draft.exercises.lastIndex,
                             change = { editExercise(index, it) },
@@ -657,15 +862,17 @@ internal fun FreeformEditor(
                             onSetConfirmed = {
                                 restRemainingSeconds = restPresetSeconds
                                 restRunning = true
-                            }
+                            },
+                            allowAllMetrics = customExercise
                         )
                     }
                     item(key = "freeform-add-exercise-btn") {
                         Surface(
                             onClick = { picker = true },
                             enabled = draft.exercises.size < 30 && !working,
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFF161616),
+                            shape = RoundedCornerShape(14.dp),
+                            color = StrideLabSurfaceTokens.surfaceElevated,
+                            border = BorderStroke(1.dp, StrideLabSurfaceTokens.lime.copy(alpha = 0.45f)),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 48.dp)
@@ -685,161 +892,239 @@ internal fun FreeformEditor(
             }
 
             item(key = "freeform-details-section") {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { details = !details }
-                            .padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            "Date, effort & notes",
-                            color = StrideLabSurfaceTokens.inkSecondary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        val preview = listOfNotNull(
-                            draft.performedOn.takeIf { it.isNotBlank() },
-                            draft.effort.takeIf { it.isNotBlank() }?.let { "RPE $it" }
-                        ).joinToString(" · ")
-                        Text(
-                            if (details) "Hide" else preview.ifBlank { "Add" },
-                            color = StrideLabSurfaceTokens.inkMuted,
-                            fontSize = 12.5.sp,
-                            style = TabularTextStyle
-                        )
-                    }
-                    if (details) {
-                        Column(
-                            modifier = Modifier.padding(bottom = 10.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            FreeformField(
-                                "Date (YYYY-MM-DD)",
-                                draft.performedOn,
-                                { edit(draft.copy(performedOn = it)) },
-                                Modifier.fillMaxWidth(),
-                                "freeform-date"
-                            )
-                            FreeformField(
-                                "Effort (1–10, optional)",
-                                draft.effort,
-                                { edit(draft.copy(effort = it)) },
-                                Modifier.fillMaxWidth(),
-                                "freeform-workout-effort",
-                                integer = true
-                            )
-                            FreeformField(
-                                "Workout notes",
-                                draft.notes,
-                                { edit(draft.copy(notes = it)) },
-                                Modifier.fillMaxWidth(),
-                                "freeform-workout-notes",
-                                limit = 2000,
-                                lines = 3
-                            )
-                        }
-                    }
-                    StrideLabHairline()
-                }
-            }
-
-            item(key = "freeform-discard-action") {
-                TextButton(
-                    onClick = {
-                        if (!isPersisted && draft == initial) {
-                            remove(draft.id)
-                            leave()
-                        } else {
-                            discard = true
-                        }
-                    },
-                    enabled = !working,
-                    modifier = Modifier
-                        .heightIn(min = 48.dp)
-                        .testTag("freeform-discard")
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = PlanBuilderPalette.surface,
+                    border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
                 ) {
-                    Text("Discard draft", color = freeformPalette.highCoral)
+                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 50.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { details = !details }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Session details",
+                                color = StrideLabSurfaceTokens.ink,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            val preview = listOfNotNull(
+                                draft.workoutName.takeIf { it.isNotBlank() },
+                                draft.formattedDateLabel(),
+                                draft.effort.takeIf { it.isNotBlank() }?.let { "RPE $it" }
+                            ).joinToString(" · ")
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    if (details) "Hide" else preview,
+                                    color = StrideLabSurfaceTokens.inkMuted,
+                                    fontSize = 12.sp,
+                                    style = TabularTextStyle,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    if (details) "▴" else "▾",
+                                    color = StrideLabSurfaceTokens.inkMuted,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                        if (details) {
+                            StrideLabHairline()
+                            Column(
+                                modifier = Modifier.padding(top = 10.dp, bottom = 14.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                FreeformField(
+                                    "Workout name (optional)",
+                                    draft.workoutName,
+                                    { edit(draft.copy(workoutName = it)) },
+                                    Modifier.fillMaxWidth(),
+                                    "freeform-workout-name",
+                                    limit = 100
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.Bottom,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    FreeformField(
+                                        "Date (YYYY-MM-DD)",
+                                        draft.performedOn,
+                                        { edit(draft.copy(performedOn = it)) },
+                                        Modifier.weight(1f),
+                                        "freeform-date"
+                                    )
+                                    OutlinedButton(
+                                        onClick = {
+                                            val initialDate = draft.date ?: LocalDate.now()
+                                            DatePickerDialog(
+                                                editorContext,
+                                                { _, y, m, d ->
+                                                    edit(draft.copy(performedOn = LocalDate.of(y, m + 1, d).toString()))
+                                                },
+                                                initialDate.year,
+                                                initialDate.monthValue - 1,
+                                                initialDate.dayOfMonth
+                                            ).show()
+                                        },
+                                        shape = RoundedCornerShape(10.dp),
+                                        border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline),
+                                        modifier = Modifier.heightIn(min = 52.dp)
+                                    ) {
+                                        Text("Pick", color = StrideLabSurfaceTokens.lime, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                FreeformField(
+                                    "Effort (1–10, optional)",
+                                    draft.effort,
+                                    { edit(draft.copy(effort = it)) },
+                                    Modifier.fillMaxWidth(),
+                                    "freeform-workout-effort",
+                                    integer = true
+                                )
+                                FreeformField(
+                                    "Workout notes",
+                                    draft.notes,
+                                    { edit(draft.copy(notes = it)) },
+                                    Modifier.fillMaxWidth(),
+                                    "freeform-workout-notes",
+                                    limit = 2000,
+                                    lines = 3
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        if (draft.discipline != ManualDiscipline.RUNNING) {
-            FreeformRestTimerBar(
-                presetSeconds = restPresetSeconds,
-                remainingSeconds = restRemainingSeconds,
-                running = restRunning,
-                onCyclePreset = {
-                    val next = when (restPresetSeconds) {
-                        60 -> 90
-                        90 -> 120
-                        else -> 60
-                    }
-                    restPresetSeconds = next
-                    if (!restRunning && restRemainingSeconds == 0) {
-                        restRemainingSeconds = 0
-                    }
-                },
-                onToggle = {
-                    if (restRunning) {
-                        restRunning = false
-                    } else {
-                        if (restRemainingSeconds <= 0) restRemainingSeconds = restPresetSeconds
-                        restRunning = true
-                    }
-                },
-                onAddFifteen = {
-                    restRemainingSeconds = (if (restRemainingSeconds <= 0) restPresetSeconds else restRemainingSeconds) + 15
-                    restRunning = true
-                },
-                onReset = {
-                    restRunning = false
-                    restRemainingSeconds = 0
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0A0B0D))
+                .navigationBarsPadding()
+        ) {
+            if (restRunning && restRemainingSeconds > 0) {
+                val denom = maxOf(restPresetSeconds, restRemainingSeconds).coerceAtLeast(1)
+                val fraction = (restRemainingSeconds.toFloat() / denom.toFloat()).coerceIn(0f, 1f)
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(2.dp)
+                        .background(StrideLabSurfaceTokens.hairline)
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(fraction)
+                            .fillMaxHeight()
+                            .background(StrideLabSurfaceTokens.lime)
+                    )
                 }
-            )
-        }
+            } else {
+                StrideLabHairline()
+            }
 
-        StrideLabHairline()
-        Surface(color = StrideLabSurfaceTokens.surfaceElevated) {
             Column(
-                Modifier
+                modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                if (draft.discipline != ManualDiscipline.RUNNING) {
+                    FreeformRestTimerBar(
+                        presetSeconds = restPresetSeconds,
+                        remainingSeconds = restRemainingSeconds,
+                        running = restRunning,
+                        onCyclePreset = {
+                            val next = when (restPresetSeconds) {
+                                60 -> 90
+                                90 -> 120
+                                else -> 60
+                            }
+                            restPresetSeconds = next
+                            if (!restRunning && restRemainingSeconds == 0) {
+                                restRemainingSeconds = 0
+                            }
+                        },
+                        onToggle = {
+                            if (restRunning) {
+                                restRunning = false
+                            } else {
+                                if (restRemainingSeconds <= 0) restRemainingSeconds = restPresetSeconds
+                                restRunning = true
+                            }
+                        },
+                        onAddFifteen = {
+                            restRemainingSeconds = (if (restRemainingSeconds <= 0) restPresetSeconds else restRemainingSeconds) + 15
+                            restRunning = true
+                        },
+                        onReset = {
+                            restRunning = false
+                            restRemainingSeconds = 0
+                        }
+                    )
+                }
                 FreeformError(error)
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    TextButton(
+                    OutlinedButton(
                         onClick = ::saveAndLeave,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, PlanBuilderPalette.border),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color(0xFF14161A),
+                            contentColor = StrideLabSurfaceTokens.inkSecondary
+                        ),
                         modifier = Modifier
-                            .weight(0.42f)
-                            .heightIn(min = 48.dp)
+                            .weight(0.40f)
+                            .heightIn(min = 50.dp)
                             .testTag("freeform-save-progress"),
                         enabled = !working
                     ) {
-                        Text("Save draft", color = StrideLabSurfaceTokens.inkSecondary)
+                        Text("Save draft", fontWeight = FontWeight.SemiBold, maxLines = 1)
                     }
-                    FreeformPrimary(
-                        "Finish workout",
-                        {
-                            runCatching { draft.finish(System.currentTimeMillis()) }
+                    Button(
+                        onClick = {
+                            runCatching {
+                                draft.withInferredDiscipline(exerciseCatalog).finish(System.currentTimeMillis())
+                            }
                                 .onSuccess {
                                     error = null
                                     review = true
                                 }
                                 .onFailure { error = it.freeformMessage("Check the workout before finishing.") }
                         },
-                        Modifier.weight(0.58f).testTag("freeform-finish"),
+                        shape = RoundedCornerShape(14.dp),
+                        border = if (hasConfirmedSet) null else BorderStroke(
+                            1.dp,
+                            StrideLabSurfaceTokens.lime.copy(alpha = 0.35f)
+                        ),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (hasConfirmedSet) StrideLabSurfaceTokens.lime else StrideLabSurfaceTokens.surfaceSubtle,
+                            contentColor = if (hasConfirmedSet) StrideLabSurfaceTokens.onLime else StrideLabSurfaceTokens.lime
+                        ),
+                        modifier = Modifier
+                            .weight(0.60f)
+                            .heightIn(min = 50.dp)
+                            .testTag("freeform-finish"),
                         enabled = !working
-                    )
+                    ) {
+                        Text("Finish workout", fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                    }
                 }
             }
         }
@@ -847,7 +1132,6 @@ internal fun FreeformEditor(
 
     if (picker) {
         FreeformExercisePicker(
-            discipline = draft.discipline,
             recentExerciseNames = recentExercises,
             close = { picker = false }
         ) { exercise ->
@@ -856,11 +1140,14 @@ internal fun FreeformEditor(
         }
     }
     inspectExercise?.let { target ->
+        val inspectDiscipline = FreeformExerciseCatalog.resolveExerciseDiscipline(
+            target, exerciseCatalog, draft.discipline
+        )
         ExerciseInfoSheet(
             exerciseId = target.catalogId,
             exerciseName = target.name,
-            disciplineLabel = draft.discipline.label,
-            disciplineTint = draft.discipline.markColor,
+            disciplineLabel = inspectDiscipline.label,
+            disciplineTint = inspectDiscipline.markColor,
             catalog = exerciseCatalog,
             onDismiss = { inspectExercise = null }
         )
@@ -898,6 +1185,38 @@ internal fun FreeformEditor(
 }
 
 @Composable
+private fun LoggerSummaryMetric(
+    label: String,
+    value: String,
+    accent: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = label,
+            color = StrideLabSurfaceTokens.inkMuted,
+            fontSize = 9.5.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.8.sp,
+            maxLines = 1
+        )
+        Text(
+            text = value,
+            color = if (accent) StrideLabSurfaceTokens.lime else StrideLabSurfaceTokens.ink,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.ExtraBold,
+            style = TabularTextStyle,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
 private fun FreeformRestTimerBar(
     presetSeconds: Int,
     remainingSeconds: Int,
@@ -911,75 +1230,84 @@ private fun FreeformRestTimerBar(
     val displaySeconds = if (active) remainingSeconds else presetSeconds
     val formatted = String.format(Locale.US, "%d:%02d", displaySeconds / 60, displaySeconds % 60)
 
-    StrideLabHairline()
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .background(StrideLabSurfaceTokens.surfaceElevated)
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .heightIn(min = 48.dp)
             .testTag("freeform-rest-timer"),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFF14161A),
+        border = BorderStroke(
+            1.dp,
+            if (running) StrideLabSurfaceTokens.lime.copy(alpha = 0.45f) else PlanBuilderPalette.border
+        )
     ) {
         Row(
             modifier = Modifier
-                .weight(1f)
-                .heightIn(min = 48.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = onCyclePreset)
-                .padding(vertical = 8.dp),
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 6.dp)
+                .heightIn(min = 48.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Text(
-                text = if (running) "REST" else "TIMER",
-                color = if (running) StrideLabSurfaceTokens.lime else StrideLabSurfaceTokens.inkMuted,
-                fontSize = 10.5.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.8.sp
-            )
-            Text(
-                text = formatted,
-                color = if (active) StrideLabSurfaceTokens.ink else StrideLabSurfaceTokens.inkSecondary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                style = TabularTextStyle
-            )
-        }
-        TextButton(
-            onClick = onAddFifteen,
-            modifier = Modifier
-                .heightIn(min = 48.dp)
-                .testTag("freeform-rest-plus15"),
-            contentPadding = PaddingValues(horizontal = 10.dp)
-        ) {
-            Text("+15s", color = StrideLabSurfaceTokens.inkSecondary, fontSize = 12.5.sp, style = TabularTextStyle)
-        }
-        if (active) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onCyclePreset)
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = if (running) "REST" else "TIMER",
+                    color = if (running) StrideLabSurfaceTokens.lime else StrideLabSurfaceTokens.inkMuted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.9.sp
+                )
+                Text(
+                    text = formatted,
+                    color = if (active) StrideLabSurfaceTokens.ink else StrideLabSurfaceTokens.inkSecondary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    style = TabularTextStyle
+                )
+            }
             TextButton(
-                onClick = onReset,
+                onClick = onAddFifteen,
                 modifier = Modifier
                     .heightIn(min = 48.dp)
-                    .testTag("freeform-rest-reset"),
+                    .testTag("freeform-rest-plus15"),
+                contentPadding = PaddingValues(horizontal = 8.dp)
+            ) {
+                Text("+15s", color = StrideLabSurfaceTokens.inkSecondary, fontSize = 12.sp, style = TabularTextStyle)
+            }
+            if (active) {
+                TextButton(
+                    onClick = onReset,
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .testTag("freeform-rest-reset"),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    Text("Reset", color = StrideLabSurfaceTokens.inkMuted, fontSize = 12.sp)
+                }
+            }
+            TextButton(
+                onClick = onToggle,
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .testTag("freeform-rest-toggle"),
                 contentPadding = PaddingValues(horizontal = 10.dp)
             ) {
-                Text("Reset", color = StrideLabSurfaceTokens.inkMuted, fontSize = 12.5.sp)
+                Text(
+                    if (running) "Pause" else "Start",
+                    color = StrideLabSurfaceTokens.lime,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
             }
-        }
-        TextButton(
-            onClick = onToggle,
-            modifier = Modifier
-                .heightIn(min = 48.dp)
-                .testTag("freeform-rest-toggle"),
-            contentPadding = PaddingValues(horizontal = 10.dp)
-        ) {
-            Text(
-                if (running) "Pause" else "Start",
-                color = StrideLabSurfaceTokens.lime,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
-            )
         }
     }
 }
@@ -996,7 +1324,8 @@ internal fun FreeformExercisePanel(
     delete: () -> Unit,
     authoring: Boolean = false,
     onInspect: (() -> Unit)? = null,
-    onSetConfirmed: () -> Unit = {}
+    onSetConfirmed: () -> Unit = {},
+    allowAllMetrics: Boolean = false
 ) {
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by rememberSaveable(exercise.id) { mutableStateOf(false) }
@@ -1005,6 +1334,10 @@ internal fun FreeformExercisePanel(
     val firstUncompletedIndex = remember(exercise.sets) {
         exercise.sets.indexOfFirst { !it.completed }
     }
+    val metrics = remember(discipline, allowAllMetrics) {
+        if (allowAllMetrics) listOf(MeasureInput.REPS, MeasureInput.LOAD, MeasureInput.HOLD)
+        else measureInputs(discipline)
+    }
 
     Column(
         modifier = Modifier
@@ -1012,7 +1345,18 @@ internal fun FreeformExercisePanel(
             .padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(26.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(discipline.markColor)
+            )
             Column(
                 Modifier
                     .weight(1f)
@@ -1139,7 +1483,7 @@ internal fun FreeformExercisePanel(
             }
         }
 
-        val compact = discipline != ManualDiscipline.CALISTHENICS && !authoring
+        val compact = !authoring
         if (compact && exercise.sets.isNotEmpty()) {
             Row(
                 Modifier
@@ -1165,7 +1509,7 @@ internal fun FreeformExercisePanel(
                     textAlign = TextAlign.Center,
                     maxLines = 1
                 )
-                measureInputs(discipline).forEach { metric ->
+                metrics.forEach { metric ->
                     Text(
                         metric.headerLabel,
                         Modifier.weight(1f),
@@ -1196,6 +1540,7 @@ internal fun FreeformExercisePanel(
                     canRemove = exercise.sets.size > 1,
                     isNextActive = !set.completed && index == firstUncompletedIndex,
                     discipline = discipline,
+                    metrics = metrics,
                     format = exercise.format,
                     previousHint = set.target.label(discipline).ifBlank {
                         previous?.label(discipline).orEmpty()
@@ -1226,8 +1571,9 @@ internal fun FreeformExercisePanel(
                     }
                     change(exercise.copy(sets = exercise.sets + nextSet))
                 },
-                shape = RoundedCornerShape(10.dp),
-                color = Color(0xFF161616),
+                shape = RoundedCornerShape(12.dp),
+                color = StrideLabSurfaceTokens.surfaceElevated,
+                border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline),
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 48.dp)
@@ -1270,6 +1616,7 @@ private fun FreeformSetRow(
     canRemove: Boolean,
     isNextActive: Boolean,
     discipline: ManualDiscipline,
+    metrics: List<MeasureInput>,
     format: ConditioningFormat,
     previousHint: String,
     edit: (FreeformSet) -> Unit,
@@ -1326,8 +1673,12 @@ private fun FreeformSetRow(
         return
     }
 
-    val rowBg = if (isNextActive) StrideLabSurfaceTokens.surfaceElevated else Color.Transparent
-    val rowAlpha = if (set.completed) 0.65f else 1f
+    val rowBg = when {
+        set.completed -> StrideLabSurfaceTokens.lime.copy(alpha = 0.07f)
+        isNextActive -> StrideLabSurfaceTokens.surfaceElevated
+        else -> Color.Transparent
+    }
+    val rowAlpha = if (set.completed) 0.9f else 1f
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart && canRemove) {
@@ -1426,7 +1777,7 @@ private fun FreeformSetRow(
                             .graphicsLayer { alpha = rowAlpha },
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        measureInputs(discipline).forEach { metric ->
+                        metrics.forEach { metric ->
                             CompactSetInput(
                                 value = metric.get(set.actual),
                                 label = "Actual ${metric.label}",
@@ -1463,7 +1814,12 @@ private fun FreeformSetRow(
                             .clip(CircleShape)
                             .background(
                                 if (set.completed) StrideLabSurfaceTokens.lime
-                                else Color(0xFF1E2228)
+                                else Color(0xFF14161A)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = if (set.completed) StrideLabSurfaceTokens.lime else PlanBuilderPalette.border,
+                                shape = CircleShape
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -1616,7 +1972,7 @@ private fun CompactSetInput(
     change: (String) -> Unit
 ) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(10.dp)
     BasicTextField(
         value = value,
         onValueChange = { if (it.length <= 32) change(it) },
@@ -1625,10 +1981,11 @@ private fun CompactSetInput(
             .testTag(tag)
             .onFocusChanged { focused = it.isFocused }
             .semantics { contentDescription = label }
-            .background(Color(0xFF161616), shape)
-            .then(
-                if (focused) Modifier.border(1.dp, StrideLabSurfaceTokens.lime, shape)
-                else Modifier
+            .background(PlanBuilderPalette.surface, shape)
+            .border(
+                width = if (focused) 1.5.dp else 1.dp,
+                color = if (focused) StrideLabSurfaceTokens.lime else PlanBuilderPalette.border,
+                shape = shape
             ),
         singleLine = true,
         cursorBrush = SolidColor(StrideLabSurfaceTokens.lime),
@@ -1733,15 +2090,16 @@ internal fun FreeformField(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun FreeformExercisePicker(
-    discipline: ManualDiscipline,
     recentExerciseNames: List<String> = emptyList(),
     close: () -> Unit,
     select: (FreeformExercise) -> Unit
 ) {
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    val reducedMotion = remember(context) { isSystemReducedMotion(context) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var query by rememberSaveable { mutableStateOf("") }
-    var scopeFilter by rememberSaveable(discipline) { mutableStateOf(PickerScope.DISCIPLINE) }
+    var scopeFilter by rememberSaveable { mutableStateOf(PickerScope.ALL) }
     var loadingCatalog by remember { mutableStateOf(true) }
     var inspectOption by remember { mutableStateOf<PickerExerciseOption?>(null) }
     val catalog by produceState<List<ExerciseLibraryRecordV2>>(emptyList(), context) {
@@ -1753,8 +2111,8 @@ internal fun FreeformExercisePicker(
     }
     val augmentedCatalog = remember(catalog) { FreeformExerciseCatalog.augment(catalog) }
     val showSkeleton = rememberDelayedSkeletonVisible(loadingCatalog && catalog.isEmpty())
-    val matches = remember(catalog, query, discipline, scopeFilter, recentExerciseNames) {
-        FreeformExerciseCatalog.filter(catalog, discipline, scopeFilter, query, recentExerciseNames)
+    val matches = remember(catalog, query, scopeFilter, recentExerciseNames) {
+        FreeformExerciseCatalog.filter(catalog, scopeFilter, query, recentExerciseNames)
     }
 
     ModalBottomSheet(
@@ -1808,19 +2166,73 @@ internal fun FreeformExercisePicker(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState())
+                    .selectableGroup()
                     .testTag("freeform-picker-filters"),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 PickerScope.entries.forEach { entry ->
-                    val label = if (entry == PickerScope.DISCIPLINE) discipline.label else entry.label
-                    FilterChip(
-                        selected = scopeFilter == entry,
-                        onClick = { scopeFilter = entry },
-                        label = { Text(label) },
-                        modifier = Modifier
-                            .heightIn(min = 48.dp)
-                            .testTag("freeform-picker-filter-${entry.name.lowercase(Locale.ROOT)}")
+                    val selected = scopeFilter == entry
+                    val accent = entry.discipline?.markColor ?: StrideLabSurfaceTokens.lime
+                    val animMs = if (reducedMotion) 0 else 160
+                    val bg by animateColorAsState(
+                        targetValue = if (selected) accent else StrideLabSurfaceTokens.surfaceSubtle,
+                        animationSpec = tween(animMs),
+                        label = "picker-pill-bg-${entry.tagSuffix}"
                     )
+                    val border by animateColorAsState(
+                        targetValue = if (selected) accent else StrideLabSurfaceTokens.hairline,
+                        animationSpec = tween(animMs),
+                        label = "picker-pill-border-${entry.tagSuffix}"
+                    )
+                    val ink by animateColorAsState(
+                        targetValue = if (selected) StrideLabSurfaceTokens.onLime else StrideLabSurfaceTokens.ink,
+                        animationSpec = tween(animMs),
+                        label = "picker-pill-ink-${entry.tagSuffix}"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .heightIn(min = StrideLabSurfaceTokens.minTouchTarget)
+                            .clip(RoundedCornerShape(100.dp))
+                            .selectable(selected = selected, role = Role.Tab) {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                scopeFilter = entry
+                            }
+                            .testTag("freeform-picker-filter-${entry.tagSuffix}")
+                            .semantics { this.selected = selected },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Surface(
+                            color = bg,
+                            shape = RoundedCornerShape(100.dp),
+                            border = BorderStroke(1.dp, border)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .height(34.dp)
+                                    .padding(horizontal = 13.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                if (entry.discipline != null && !selected) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(accent)
+                                    )
+                                }
+                                Text(
+                                    text = entry.label,
+                                    color = ink,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -1864,8 +2276,8 @@ internal fun FreeformExercisePicker(
                     if (matches.isEmpty()) {
                         item {
                             Text(
-                                text = if (scopeFilter == PickerScope.RECENT) "No recent exercises for ${discipline.label} yet."
-                                else "No matching exercises in ${if (scopeFilter == PickerScope.DISCIPLINE) discipline.label else "catalog"}.",
+                                text = if (scopeFilter == PickerScope.RECENT) "No recent exercises yet."
+                                else "No matching exercises in ${scopeFilter.label.lowercase(Locale.ROOT)}.",
                                 color = StrideLabSurfaceTokens.inkMuted,
                                 fontSize = 13.5.sp,
                                 modifier = Modifier.padding(vertical = 16.dp)
@@ -1876,7 +2288,7 @@ internal fun FreeformExercisePicker(
                             StrideLabFlatRow(
                                 title = option.name,
                                 subtitle = option.subtitle,
-                                accentColor = discipline.markColor,
+                                accentColor = option.discipline.markColor,
                                 onClick = {
                                     select(FreeformExercise(name = option.name, catalogId = option.id))
                                 },
@@ -1905,8 +2317,8 @@ internal fun FreeformExercisePicker(
         ExerciseInfoSheet(
             exerciseId = option.id,
             exerciseName = option.name,
-            disciplineLabel = discipline.label,
-            disciplineTint = discipline.markColor,
+            disciplineLabel = option.discipline.label,
+            disciplineTint = option.discipline.markColor,
             catalog = augmentedCatalog,
             onDismiss = { inspectOption = null }
         )

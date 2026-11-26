@@ -9,6 +9,7 @@ key_files:
   - "native-android/app/src/main/java/io/stridelab/privatealpha/ExerciseInfoSheet.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/StrengthCalisthenicsProgression.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/ExerciseLibraryV2.kt"
+  - "native-android/app/src/main/java/io/stridelab/privatealpha/ExpandedExerciseCatalog.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/ExerciseAlternatives.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/CoachedSetTable.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/FreeformEditor.kt"
@@ -27,12 +28,12 @@ tags: [stridelab, roadmap, ui, anatomy, muscle-map, compose]
 > **Verified Implementation (`status: verified`):** Shipped and verified across Placements 1 and 2 (`MuscleFocusProjector.kt`, `AnatomicalMuscleMap.kt`, `ExerciseInfoSheet.kt`). Preserves `PLAN_SCHEMA = 1`, offline parity ([[ADR-03-Offline-First-Independent-Local-Ownership]]), and confirmed-only set honesty ([[Hard-Guardrails]]). Placement 3 (7-day rolling heatmap on `Training`) remains parked for v2.
 
 ## 1. Audited Canonical Muscle Keys (100% Coverage)
-All 66 records in `exercise-library-v2.json` and all 19 built-in Plyometrics/Isometrics entries in `FreeformExerciseCatalog` (`FreeformEditor.kt`) share the exact 28 canonical `snake_case` keys listed in `ExerciseMuscleCatalog.STANDARD_MUSCLES` (`StrengthCalisthenicsProgression.kt`):
+All 66 baseline records in `exercise-library-v2.json` and all 170 curated exercises in `ExpandedExerciseCatalog` (`ExpandedExerciseCatalog.kt`, surfaced via `FreeformExerciseCatalog` across Strength, Calisthenics, Plyometrics, Isometrics, Conditioning, and Mobility) share the exact 29 canonical `snake_case` keys listed in `ExerciseMuscleCatalog.STANDARD_MUSCLES` (`StrengthCalisthenicsProgression.kt`):
 
-`abdominals`, `adductors`, `anterior_deltoid`, `calves`, `elbow_flexors`, `foot_stabilizers`, `forearm_grip`, `gluteus_maximus`, `gluteus_medius`, `hamstrings`, `hip_flexors`, `lateral_trunk_muscles`, `latissimus_dorsi`, `lower_trapezius`, `neck_rotators`, `obliques`, `pectoralis_major`, `posterior_deltoid`, `quadriceps`, `rhomboids`, `serratus_anterior`, `shoulder_stabilizers`, `spinal_extensors`, `tibialis_anterior`, `trapezius`, `triceps`, `trunk_rotators`, `trunk_stabilizers`.
+`abdominals`, `adductors`, `anterior_deltoid`, `calves`, `elbow_flexors`, `foot_stabilizers`, `forearm_grip`, `gluteus_maximus`, `gluteus_medius`, `hamstrings`, `hip_flexors`, `lateral_deltoid`, `lateral_trunk_muscles`, `latissimus_dorsi`, `lower_trapezius`, `neck_rotators`, `obliques`, `pectoralis_major`, `posterior_deltoid`, `quadriceps`, `rhomboids`, `serratus_anterior`, `shoulder_stabilizers`, `spinal_extensors`, `tibialis_anterior`, `trapezius`, `triceps`, `trunk_rotators`, `trunk_stabilizers`.
 
 ## 2. Pure-Kotlin Projection (`MuscleFocusProjector.kt`)
-- **Regions (`AnatomicalMuscleRegion`, `BodySide`):** Maps 100% of the 28 canonical keys deterministically across concrete `FRONT` and `BACK` silhouette regions with zero silently dropped keys. Resolves legacy ID aliases, `swap-*-regression` / `swap-*-progression` wrappers, and case-insensitive movement name fallbacks.
+- **Regions (`AnatomicalMuscleRegion`, `BodySide`):** Maps 100% of the 29 canonical keys deterministically across concrete `FRONT` and `BACK` silhouette regions (including distinct outer-cap `LATERAL_DELTS_FRONT` / `LATERAL_DELTS_BACK`) with zero silently dropped keys. Resolves legacy ID aliases, `swap-*-regression` / `swap-*-progression` wrappers, and case-insensitive movement name fallbacks.
 - **Projectors (`MuscleFocusMap`):**
   - `forExercise`: Maps `primaryMuscles` to `1.0f` and `secondaryMuscles` to `0.35f` (primary wins on region overlap).
   - `forPlannedSession`: Weights target sets (`Primary = 1.0f * sets`, `Secondary = 0.4f * sets`) and normalizes `0f..1f`.

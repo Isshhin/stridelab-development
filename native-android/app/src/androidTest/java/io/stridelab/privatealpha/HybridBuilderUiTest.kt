@@ -37,7 +37,7 @@ class HybridBuilderUiTest {
     }
 
 
-    @Test fun trainYourWayShowsBaselineBeforeTargetsAndKeepsEdits() {
+    @Test fun trainYourWayShowsRunningWeekBeforeTargetsAndKeepsEdits() {
         showBuilder()
         next()
         compose.onNodeWithTag("builder-option-custom").performScrollTo().performClick()
@@ -52,23 +52,31 @@ class HybridBuilderUiTest {
         next()
 
         compose.onNodeWithText("3 / 6").assertExists()
+        compose.onNodeWithText("Your running week").assertExists()
+        compose.onNodeWithTag("builder-run-plus").performScrollTo().performClick()
+        next()
+
+        compose.onNodeWithText("4 / 6").assertExists()
         compose.onNodeWithText("Training targets").assertExists()
-        compose.onNodeWithTag("builder-advanced-quality-count-2").assertIsNotEnabled()
-        compose.onNodeWithTag("builder-quality-frequency-reason").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("builder-quality-frequency-reason").assertDoesNotExist()
+        compose.onNodeWithTag("builder-advanced-quality-count-2").performScrollTo().assertIsEnabled().performClick()
         setSlider("builder-target-mileage-slider", 40f)
 
+        back()
+        compose.onNodeWithText("3 / 6").assertExists()
+        compose.onNodeWithTag("builder-run-minus").performScrollTo().performClick()
+        next()
+
+        compose.onNodeWithText("4 / 6").assertExists()
+        assertSlider("builder-target-mileage-slider", 40f)
+        compose.onNodeWithTag("builder-advanced-quality-count-2").assertIsNotEnabled()
+        compose.onNodeWithTag("builder-quality-frequency-reason").performScrollTo().assertIsDisplayed()
+
+        back()
         back()
         assertSlider("builder-ability-weekly-slider", 30f)
         assertSlider("builder-ability-longest-slider", 12f)
         next()
-        assertSlider("builder-target-mileage-slider", 40f)
-        next()
-        compose.onNodeWithTag("builder-run-plus").performScrollTo().performClick()
-        back()
-
-        compose.onNodeWithText("3 / 6").assertExists()
-        compose.onNodeWithTag("builder-quality-frequency-reason").assertDoesNotExist()
-        compose.onNodeWithTag("builder-advanced-quality-count-2").performScrollTo().assertIsEnabled().performClick()
         next()
         next()
         compose.onNodeWithText("5 / 6").assertExists()
@@ -85,8 +93,8 @@ class HybridBuilderUiTest {
         next() // Running goal
         compose.onNodeWithTag("builder-option-custom").performScrollTo().performClick()
         next() // Baseline
-        next() // Targets
         next() // Running week
+        next() // Targets
         next() // Strength goal
         next() // Strength setup
         next() // Cross-training goals

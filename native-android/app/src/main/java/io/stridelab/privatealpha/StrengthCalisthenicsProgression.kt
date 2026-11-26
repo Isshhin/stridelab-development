@@ -37,11 +37,17 @@ internal fun ExercisePrescription.metricType(discipline: String): ExerciseMetric
     }
 }
 
+private val bodyweightFixtureEquipment = setOf(
+    "pullup_bar", "rings", "parallel_bars", "bench", "box", "hurdles", "pad", "rope", "ropes", "wall", "floor", "mat"
+)
+
 internal fun ExerciseLibraryRecordV2.metricType(): ExerciseMetricType {
     val text = (name + " " + movementPatterns.joinToString(" ")).lowercase(Locale.ROOT)
     val isHold = "hold" in categories || "isometrics" in categories || "isometric" in categories ||
         "plank" in text || "hold" in text || "wall sit" in text || "hang" in text
-    val bodyweightOnly = equipmentOptions.all { it.isEmpty() }
+    val bodyweightOnly = equipmentOptions.all { option ->
+        option.all { eq -> eq.lowercase(Locale.ROOT) in bodyweightFixtureEquipment }
+    }
     return when {
         isHold && bodyweightOnly -> ExerciseMetricType.HOLD_SECONDS
         isHold -> ExerciseMetricType.WEIGHT_AND_HOLD
@@ -415,7 +421,7 @@ internal object ExerciseMuscleCatalog {
     val STANDARD_MUSCLES: Set<String> = setOf(
         "abdominals", "adductors", "anterior_deltoid", "calves", "elbow_flexors",
         "foot_stabilizers", "forearm_grip", "gluteus_maximus", "gluteus_medius",
-        "hamstrings", "hip_flexors", "lateral_trunk_muscles", "latissimus_dorsi",
+        "hamstrings", "hip_flexors", "lateral_deltoid", "lateral_trunk_muscles", "latissimus_dorsi",
         "lower_trapezius", "neck_rotators", "obliques", "pectoralis_major",
         "posterior_deltoid", "quadriceps", "rhomboids", "serratus_anterior",
         "shoulder_stabilizers", "spinal_extensors", "tibialis_anterior", "trapezius",

@@ -37,7 +37,10 @@ internal data class FreeformBoard(
     fun without(id: String) = copy(workouts = workouts.filterNot { it.id == id })
 
     fun previous(discipline: ManualDiscipline, exercise: FreeformExercise): FreeformMeasure? =
-        workouts.asSequence().filter { it.isComplete && it.discipline == discipline }
+        workouts.asSequence().filter {
+            it.isComplete && if (discipline == ManualDiscipline.RUNNING) it.discipline == discipline
+            else it.discipline != ManualDiscipline.RUNNING
+        }
             .sortedWith(compareByDescending<FreeformWorkout> { it.date }.thenByDescending { it.completedAt })
             .firstNotNullOfOrNull { workout ->
                 workout.exercises.firstNotNullOfOrNull { saved ->

@@ -91,7 +91,7 @@ internal fun ActivityHistoryTabScreen(
             top = 14.dp,
             bottom = if (LocalFloatingDockVisible.current) 104.dp else 32.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         item(key = "activity-header") {
             Row(
@@ -195,13 +195,13 @@ internal fun ActivityHistoryTabScreen(
             item(key = "activity-skeleton") {
                 SkeletonShimmerContainer(reducedMotion = reducedMotion) {
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
                         modifier = Modifier
-                            .padding(top = 8.dp)
+                            .padding(top = 4.dp)
                             .testTag("activity-skeleton")
                     ) {
-                        repeat(3) {
-                            SkeletonActivitySummaryCard(reducedMotion = reducedMotion)
+                        repeat(4) {
+                            SkeletonActivityRow(reducedMotion = reducedMotion)
                         }
                     }
                 }
@@ -249,7 +249,7 @@ internal fun ActivityHistoryTabScreen(
             }
         } else {
             items(filtered, key = { it.key }) { item ->
-                ActivitySummaryCard(
+                ActivityHistoryRow(
                     item = item,
                     details = details,
                     onClick = {
@@ -361,7 +361,7 @@ private fun ActivityModernFilterPill(
 }
 
 @Composable
-private fun ActivitySummaryCard(
+private fun ActivityHistoryRow(
     item: WorkoutEvidence,
     details: Map<String, ActivityDetail>,
     onClick: () -> Unit
@@ -414,18 +414,18 @@ private fun ActivitySummaryCard(
         )
     }
 
-    StrideLabInteractiveCard(
-        onClick = onClick,
-        accentColor = accent,
-        containerColor = StrideLabSurfaceTokens.surfaceElevated,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("activity-evidence-${item.key}")
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .strideLabPressFeedback(
+                    shape = RoundedCornerShape(12.dp),
+                    highlightBorderColor = accent,
+                    onClick = onClick
+                )
+                .padding(horizontal = 2.dp, vertical = 14.dp)
+                .testTag("activity-evidence-${item.key}"),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -451,21 +451,14 @@ private fun ActivitySummaryCard(
                         maxLines = 1
                     )
                 }
-                Surface(
-                    color = StrideLabSurfaceTokens.surfaceMuted,
-                    shape = RoundedCornerShape(100.dp),
-                    border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
-                ) {
-                    Text(
-                        text = providerLabel,
-                        color = accent,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 0.8.sp,
-                        maxLines = 1,
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                    )
-                }
+                Text(
+                    text = providerLabel,
+                    color = accent,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.8.sp,
+                    maxLines = 1
+                )
             }
 
             Row(
@@ -499,7 +492,7 @@ private fun ActivitySummaryCard(
                     TodayCachedGpsThumbnail(
                         activityId = importedId,
                         detail = cachedDetail,
-                        modifier = Modifier.size(width = 68.dp, height = 42.dp)
+                        modifier = Modifier.size(width = 64.dp, height = 40.dp)
                     )
                 } else {
                     Text(
@@ -509,8 +502,6 @@ private fun ActivitySummaryCard(
                     )
                 }
             }
-
-            StrideLabHairline()
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -542,6 +533,7 @@ private fun ActivitySummaryCard(
                 }
             }
         }
+        StrideLabHairline()
     }
 }
 

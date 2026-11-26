@@ -45,18 +45,13 @@ internal fun TracksideOtherDisciplineSlots(
     val manual = discipline in request.weeklySlots
     val current = selectedSlot.coerceIn(0, (n - 1).coerceAtLeast(0))
 
-    Surface(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(vertical = 8.dp)
             .testTag("builder-other-discipline-editor"),
-        color = PlanBuilderPalette.surface,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, PlanBuilderPalette.border)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
             Text(
                 "CROSS-TRAINING DAYS",
                 fontSize = 10.sp,
@@ -269,6 +264,6 @@ internal fun TracksideOtherDisciplineSlots(
                     }
                 }
             }
-        }
+            StrideLabHairline()
     }
 }

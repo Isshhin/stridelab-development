@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.sp
 
 /**
  * #121212 Quick-Log ModalBottomSheet opened from the center + button in the docked navigation bar.
- * Surfaces active in-progress drafts (conditional), the 2x3 discipline empty-workout grid,
+ * Surfaces active in-progress drafts (conditional), a direct universal "Start empty workout" CTA,
  * and direct jumps to Workout templates & Custom scheduler.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,7 +31,7 @@ import androidx.compose.ui.unit.sp
 internal fun QuickLogBottomSheet(
     owner: String?,
     board: FreeformBoard?,
-    onStartEmpty: (ManualDiscipline) -> Unit,
+    onStartEmpty: () -> Unit,
     onResumeDraft: (String) -> Unit,
     onDiscardDraft: ((String) -> Unit)? = null,
     onOpenTemplates: () -> Unit,
@@ -130,9 +130,10 @@ internal fun QuickLogBottomSheet(
                                     overflow = TextOverflow.Ellipsis
                                 )
                                 Text(
-                                    text = "Resume · ${draft.discipline.label}",
+                                    text = "Resume · ${draft.performedOn}",
                                     color = StrideLabSurfaceTokens.lime,
                                     fontSize = 12.sp,
+                                    style = TabularTextStyle,
                                     maxLines = 1
                                 )
                             }
@@ -156,58 +157,26 @@ internal fun QuickLogBottomSheet(
                 StrideLabHairline()
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    onDismiss()
+                    onStartEmpty()
+                },
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = StrideLabSurfaceTokens.lime,
+                    contentColor = StrideLabSurfaceTokens.onLime
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp)
+                    .testTag("quick-log-start-empty")
+            ) {
                 Text(
-                    text = "START EMPTY WORKOUT",
-                    color = StrideLabSurfaceTokens.inkMuted,
-                    fontSize = 10.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.8.sp
+                    text = "Start empty workout",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold
                 )
-                ManualDiscipline.entries.chunked(2).forEach { pair ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        pair.forEach { discipline ->
-                            Surface(
-                                onClick = {
-                                    onDismiss()
-                                    onStartEmpty(discipline)
-                                },
-                                shape = RoundedCornerShape(12.dp),
-                                color = StrideLabSurfaceTokens.surfaceSubtle,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 52.dp)
-                                    .testTag("quick-log-discipline-${discipline.name}")
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .width(4.dp)
-                                            .height(22.dp)
-                                            .clip(RoundedCornerShape(2.dp))
-                                            .background(discipline.markColor)
-                                    )
-                                    Text(
-                                        text = discipline.label,
-                                        color = StrideLabSurfaceTokens.ink,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-                        if (pair.size == 1) Spacer(Modifier.weight(1f))
-                    }
-                }
             }
 
             StrideLabHairline()

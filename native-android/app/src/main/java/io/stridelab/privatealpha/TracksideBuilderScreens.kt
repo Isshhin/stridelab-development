@@ -5,6 +5,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -260,57 +261,74 @@ internal fun TracksideDisciplineScreen(
 @Composable
 private fun TracksideOption(
     label: String, description: String, selected: Boolean,
-    icon: Int, onClick: () -> Unit, height: Int = 82,
+    icon: Int, onClick: () -> Unit, height: Int = 78,
     tag: String = label, runningGoal: Boolean = false
 ) {
     val bg by animateColorAsState(
-        if (selected) limeAccent.copy(alpha = 0.16f) else surfaceCard,
+        if (selected) limeAccent.copy(alpha = 0.09f) else Color.Transparent,
         animationSpec = tween(180),
         label = "opt-$tag"
     )
-    Surface(
-        modifier = Modifier.fillMaxWidth().heightIn(min = height.dp)
-            .testTag("builder-option-$tag"),
-        onClick = onClick,
-        color = bg,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) limeAccent else outline)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = height.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(bg)
+                .clickable(onClick = onClick)
+                .height(IntrinsicSize.Min)
+                .testTag("builder-option-$tag"),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                Modifier.size(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (selected) limeAccent else PlanBuilderPalette.surfaceRaised),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painterResource(icon), contentDescription = null,
-                    tint = if (selected) PlanBuilderPalette.accentOn else PlanBuilderPalette.secondary,
-                    modifier = Modifier.size(23.dp).testTag("builder-goal-icon-$tag")
+            if (selected) {
+                Box(
+                    Modifier
+                        .width(3.dp)
+                        .fillMaxHeight()
+                        .background(limeAccent)
                 )
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    label,
-                    fontSize = 15.5.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = if (selected) limeAccent else white,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    description,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    color = if (selected) white.copy(alpha = 0.85f) else muted,
-                    maxLines = 2
-                )
+            Row(
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Box(
+                    Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(11.dp))
+                        .background(if (selected) limeAccent else PlanBuilderPalette.surfaceRaised),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painterResource(icon), contentDescription = null,
+                        tint = if (selected) PlanBuilderPalette.accentOn else PlanBuilderPalette.secondary,
+                        modifier = Modifier.size(22.dp).testTag("builder-goal-icon-$tag")
+                    )
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        label,
+                        fontSize = 15.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (selected) limeAccent else white,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        description,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        color = if (selected) white.copy(alpha = 0.85f) else muted,
+                        maxLines = 2
+                    )
+                }
             }
         }
+        StrideLabHairline()
     }
 }
 
@@ -336,7 +354,8 @@ internal fun TracksideRunningGoalScreen(
         onContinue = onContinue,
         progressStep = 2
     ) {
-        entries.forEachIndexed { i, (route, label, desc) ->
+        StrideLabHairline()
+        entries.forEach { (route, label, desc) ->
             TracksideOption(
                 label, desc, selected == route,
                 icon = when (route) {
@@ -348,7 +367,6 @@ internal fun TracksideRunningGoalScreen(
                 },
                 onClick = { onSelect(route) }, tag = route, runningGoal = true
             )
-            if (i < entries.lastIndex) Spacer(Modifier.height(10.dp))
         }
     }
 }
@@ -359,45 +377,62 @@ private fun TracksideRaceOption(
     tag: String, onClick: () -> Unit
 ) {
     val bg by animateColorAsState(
-        if (selected) selectedTint else surfaceCard,
+        if (selected) limeAccent.copy(alpha = 0.09f) else Color.Transparent,
         animationSpec = tween(180),
         label = "race-$tag"
     )
-    Surface(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 66.dp).testTag("builder-option-$tag"),
-        onClick = onClick,
-        color = bg,
-        shape = RoundedCornerShape(15.dp),
-        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) limeAccent else outline)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(13.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 66.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(bg)
+                .clickable(onClick = onClick)
+                .height(IntrinsicSize.Min)
+                .testTag("builder-option-$tag"),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                Modifier.size(40.dp).clip(RoundedCornerShape(11.dp))
-                    .background(if (selected) limeAccent.copy(alpha = 0.18f) else PlanBuilderPalette.surfaceRaised),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painterResource(icon), contentDescription = null,
-                    tint = if (selected) limeAccent else PlanBuilderPalette.secondary,
-                    modifier = Modifier.size(22.dp).testTag("builder-race-icon-$tag")
-                )
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, fontSize = 14.5.sp, color = white, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(description, fontSize = 11.5.sp, lineHeight = 15.sp, color = muted, maxLines = 2)
-            }
             if (selected) {
-                Icon(
-                    painterResource(R.drawable.trackside_race_goal_check),
-                    contentDescription = null, tint = limeAccent,
-                    modifier = Modifier.size(18.dp).testTag("builder-race-selected-check")
+                Box(
+                    Modifier
+                        .width(3.dp)
+                        .fillMaxHeight()
+                        .background(limeAccent)
                 )
+            }
+            Row(
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(13.dp)
+            ) {
+                Box(
+                    Modifier.size(38.dp).clip(RoundedCornerShape(10.dp))
+                        .background(if (selected) limeAccent.copy(alpha = 0.18f) else PlanBuilderPalette.surfaceRaised),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painterResource(icon), contentDescription = null,
+                        tint = if (selected) limeAccent else PlanBuilderPalette.secondary,
+                        modifier = Modifier.size(21.dp).testTag("builder-race-icon-$tag")
+                    )
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(title, fontSize = 14.5.sp, color = if (selected) limeAccent else white, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(description, fontSize = 11.5.sp, lineHeight = 15.sp, color = muted, maxLines = 2)
+                }
+                if (selected) {
+                    Icon(
+                        painterResource(R.drawable.trackside_race_goal_check),
+                        contentDescription = null, tint = limeAccent,
+                        modifier = Modifier.size(18.dp).testTag("builder-race-selected-check")
+                    )
+                }
             }
         }
+        StrideLabHairline()
     }
 }
 
@@ -455,7 +490,8 @@ internal fun TracksideRaceGoalScreen(
             }
         }
         Spacer(Modifier.height(16.dp))
-        intents.forEachIndexed { i, (id, title, desc) ->
+        StrideLabHairline()
+        intents.forEach { (id, title, desc) ->
             TracksideRaceOption(
                 title, desc, intent == id,
                 icon = when (id) {
@@ -466,7 +502,6 @@ internal fun TracksideRaceGoalScreen(
                 },
                 onClick = { onIntent(id) }, tag = id
             )
-            if (i < intents.lastIndex) Spacer(Modifier.height(8.dp))
         }
         if (intent == "pr" || intent == "time") {
             Spacer(Modifier.height(14.dp))
@@ -486,53 +521,55 @@ internal fun TracksideRaceGoalScreen(
         Spacer(Modifier.height(14.dp))
         Text("TARGET RACE DAY", fontSize = 10.sp, letterSpacing = 1.4.sp, color = muted, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-        Surface(
-            onClick = {
-                val init = targetRaceDate ?: LocalDate.now().plusWeeks(12)
-                DatePickerDialog(context, { _, y, m, d ->
-                    onTargetRaceDate?.invoke(LocalDate.of(y, m + 1, d))
-                }, init.year, init.monthValue - 1, init.dayOfMonth).show()
-            },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("builder-race-target-day"),
-            color = surfaceCard,
-            shape = RoundedCornerShape(15.dp),
-            border = BorderStroke(1.dp, if (targetRaceDate != null) limeAccent else outline)
+        StrideLabHairline()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 58.dp)
+                .clickable {
+                    val init = targetRaceDate ?: LocalDate.now().plusWeeks(12)
+                    DatePickerDialog(context, { _, y, m, d ->
+                        onTargetRaceDate?.invoke(LocalDate.of(y, m + 1, d))
+                    }, init.year, init.monthValue - 1, init.dayOfMonth).show()
+                }
+                .padding(vertical = 12.dp)
+                .testTag("builder-race-target-day"),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
-                        .background(if (targetRaceDate != null) limeAccent.copy(alpha = 0.16f) else PlanBuilderPalette.surfaceRaised),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painterResource(R.drawable.trackside_race_goal_calendar),
-                        contentDescription = null, tint = Color.Unspecified,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        targetRaceDate?.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy", Locale.US))
-                            ?: "Choose race date (optional)",
-                        fontSize = 13.5.sp,
-                        fontWeight = if (targetRaceDate != null) FontWeight.Bold else FontWeight.Medium,
-                        color = if (targetRaceDate != null) white else muted
-                    )
-                    if (targetRaceDate != null) {
-                        val wks = ChronoUnit.WEEKS.between(LocalDate.now(), targetRaceDate).coerceIn(4, 16)
-                        Text("$wks-week plan · automatic taper synced", fontSize = 11.sp, color = limeAccent)
-                    }
-                }
-                if (targetRaceDate != null && onTargetRaceDate != null) {
-                    TextButton(onClick = { onTargetRaceDate(null) }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                        Text("Clear", fontSize = 11.sp, color = muted)
-                    }
-                } else {
-                    Text("›", color = muted, fontSize = 20.sp)
+            Box(
+                Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                    .background(if (targetRaceDate != null) limeAccent.copy(alpha = 0.16f) else PlanBuilderPalette.surfaceRaised),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painterResource(R.drawable.trackside_race_goal_calendar),
+                    contentDescription = null, tint = Color.Unspecified,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    targetRaceDate?.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy", Locale.US))
+                        ?: "Choose race date (optional)",
+                    fontSize = 13.5.sp,
+                    fontWeight = if (targetRaceDate != null) FontWeight.Bold else FontWeight.Medium,
+                    color = if (targetRaceDate != null) white else muted
+                )
+                if (targetRaceDate != null) {
+                    val wks = ChronoUnit.WEEKS.between(LocalDate.now(), targetRaceDate).coerceIn(4, 16)
+                    Text("$wks-week plan · automatic taper synced", fontSize = 11.sp, color = limeAccent)
                 }
             }
+            if (targetRaceDate != null && onTargetRaceDate != null) {
+                TextButton(onClick = { onTargetRaceDate(null) }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                    Text("Clear", fontSize = 11.sp, color = muted)
+                }
+            } else {
+                Text("›", color = muted, fontSize = 20.sp)
+            }
         }
+        StrideLabHairline()
     }
     if (benchmarkDialogOpen) {
         BenchmarkTimeDialog(
@@ -557,14 +594,9 @@ private fun BenchmarkEntryCard(
         val h = sec / 3600; val m = (sec % 3600) / 60; val s = sec % 60
         return if (h > 0) "%d:%02d:%02d".format(Locale.US, h, m, s) else "%d:%02d".format(Locale.US, m, s)
     }
-    Surface(
-        modifier = Modifier.fillMaxWidth().testTag(cardTag),
-        color = surfaceCard,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, if (benchmarkSeconds != null) limeAccent.copy(alpha = 0.65f) else outline)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth().testTag(cardTag)) {
         Row(
-            Modifier.padding(14.dp),
+            Modifier.fillMaxWidth().padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -594,6 +626,7 @@ private fun BenchmarkEntryCard(
                 }
             }
         }
+        StrideLabHairline()
     }
 }
 
@@ -668,86 +701,78 @@ private fun TracksideAbilityRange(
     onValue: (Double) -> Unit
 ) {
     val sliderValue = (value ?: 0.0).toFloat().coerceIn(0f, maxValue)
-    Surface(
-        Modifier.fillMaxWidth().testTag("builder-ability-$tag-card"),
-        color = surfaceCard,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, outline)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .testTag("builder-ability-$tag-card")
+            .padding(vertical = 12.dp)
     ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(limeAccent.copy(alpha = 0.04f), Color.Transparent)
-                    )
-                )
-                .padding(horizontal = 16.dp, vertical = 14.dp)
-        ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(header, Modifier.weight(1f), fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
-                Text(note, color = muted, fontSize = 10.5.sp)
-            }
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    if (value == null) "—" else String.format(Locale.getDefault(), if (value % 1.0 == 0.0) "%.0f" else "%.1f", value),
-                    fontSize = 38.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = white,
-                    letterSpacing = (-1).sp
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    unit,
-                    color = limeAccent,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 7.dp)
-                )
-            }
-            Spacer(Modifier.height(4.dp))
-            Slider(
-                value = sliderValue,
-                onValueChange = { onValue(it.toDouble()) },
-                valueRange = 0f..maxValue,
-                modifier = Modifier.fillMaxWidth().height(30.dp).testTag("builder-ability-$tag-slider"),
-                thumb = { _ ->
-                    Box(
-                        Modifier.size(20.dp)
-                            .clip(CircleShape)
-                            .background(limeAccent)
-                            .padding(5.dp)
-                            .clip(CircleShape)
-                            .background(PlanBuilderPalette.accentOn)
-                    )
-                },
-                track = { _ ->
-                    Box(
-                        Modifier.fillMaxWidth().height(6.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(PlanBuilderPalette.surfaceRaised)
-                    ) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth(sliderValue / maxValue)
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(
-                                    Brush.horizontalGradient(
-                                        listOf(StrideLabVisualPalette.easyTeal, limeAccent)
-                                    )
-                                )
-                        )
-                    }
-                }
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("0 km", fontSize = 10.sp, color = PlanBuilderPalette.muted)
-                Text(String.format(Locale.getDefault(), "%.0f km", maxValue / 2), fontSize = 10.sp, color = PlanBuilderPalette.muted)
-                Text(String.format(Locale.getDefault(), "%.0f km", maxValue), fontSize = 10.sp, color = PlanBuilderPalette.muted)
-            }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(header, Modifier.weight(1f), fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
+            Text(note, color = muted, fontSize = 10.5.sp)
         }
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                if (value == null) "-" else String.format(Locale.getDefault(), if (value % 1.0 == 0.0) "%.0f" else "%.1f", value),
+                fontSize = 36.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = white,
+                letterSpacing = (-1).sp,
+                style = TabularTextStyle
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                unit,
+                color = limeAccent,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 7.dp)
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Slider(
+            value = sliderValue,
+            onValueChange = { onValue(it.toDouble()) },
+            valueRange = 0f..maxValue,
+            modifier = Modifier.fillMaxWidth().height(30.dp).testTag("builder-ability-$tag-slider"),
+            thumb = { _ ->
+                Box(
+                    Modifier.size(20.dp)
+                        .clip(CircleShape)
+                        .background(limeAccent)
+                        .padding(5.dp)
+                        .clip(CircleShape)
+                        .background(PlanBuilderPalette.accentOn)
+                )
+            },
+            track = { _ ->
+                Box(
+                    Modifier.fillMaxWidth().height(6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(PlanBuilderPalette.surfaceRaised)
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(sliderValue / maxValue)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(StrideLabVisualPalette.easyTeal, limeAccent)
+                                )
+                            )
+                    )
+                }
+            }
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("0 km", fontSize = 10.sp, color = PlanBuilderPalette.muted)
+            Text(String.format(Locale.getDefault(), "%.0f km", maxValue / 2), fontSize = 10.sp, color = PlanBuilderPalette.muted)
+            Text(String.format(Locale.getDefault(), "%.0f km", maxValue), fontSize = 10.sp, color = PlanBuilderPalette.muted)
+        }
+        Spacer(Modifier.height(10.dp))
+        StrideLabHairline()
     }
 }
 

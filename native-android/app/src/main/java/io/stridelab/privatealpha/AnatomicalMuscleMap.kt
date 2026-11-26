@@ -396,6 +396,7 @@ private val FRONT_REGIONS: List<AnatomicalMuscleRegion> = listOf(
     AnatomicalMuscleRegion.NECK_FRONT,
     AnatomicalMuscleRegion.UPPER_TRAPS_FRONT,
     AnatomicalMuscleRegion.FRONT_DELTS,
+    AnatomicalMuscleRegion.LATERAL_DELTS_FRONT,
     AnatomicalMuscleRegion.CHEST,
     AnatomicalMuscleRegion.SERRATUS,
     AnatomicalMuscleRegion.ABS,
@@ -413,6 +414,7 @@ private val BACK_REGIONS: List<AnatomicalMuscleRegion> = listOf(
     AnatomicalMuscleRegion.NECK_BACK,
     AnatomicalMuscleRegion.UPPER_TRAPS_BACK,
     AnatomicalMuscleRegion.REAR_DELTS,
+    AnatomicalMuscleRegion.LATERAL_DELTS_BACK,
     AnatomicalMuscleRegion.MID_UPPER_BACK,
     AnatomicalMuscleRegion.LATS,
     AnatomicalMuscleRegion.LOWER_BACK,
@@ -435,7 +437,11 @@ private fun regionPolygons(region: AnatomicalMuscleRegion): List<List<Pair<Float
         listOf(left, mirrorX(left))
     }
     AnatomicalMuscleRegion.FRONT_DELTS -> {
-        val left = listOf(30f to 37f, 34f to 43f, 29f to 54f, 22f to 51f, 23f to 41f)
+        val left = listOf(26f to 38f, 32f to 37f, 34f to 44f, 30f to 54f, 25f to 52f)
+        listOf(left, mirrorX(left))
+    }
+    AnatomicalMuscleRegion.LATERAL_DELTS_FRONT -> {
+        val left = listOf(21f to 40f, 26f to 38f, 25f to 52f, 19f to 50f)
         listOf(left, mirrorX(left))
     }
     AnatomicalMuscleRegion.CHEST -> {
@@ -490,7 +496,11 @@ private fun regionPolygons(region: AnatomicalMuscleRegion): List<List<Pair<Float
         listOf(44f to 28f, 56f to 28f, 68f to 37f, 50f to 43f, 32f to 37f)
     )
     AnatomicalMuscleRegion.REAR_DELTS -> {
-        val left = listOf(31f to 37f, 35f to 44f, 29f to 55f, 21f to 51f, 23f to 40f)
+        val left = listOf(25f to 38f, 32f to 37f, 35f to 44f, 30f to 54f, 24f to 52f)
+        listOf(left, mirrorX(left))
+    }
+    AnatomicalMuscleRegion.LATERAL_DELTS_BACK -> {
+        val left = listOf(20f to 40f, 25f to 38f, 24f to 52f, 19f to 50f)
         listOf(left, mirrorX(left))
     }
     AnatomicalMuscleRegion.MID_UPPER_BACK -> listOf(

@@ -65,14 +65,26 @@ internal object Engine15DebriefEngine {
         DebriefDiscipline.CONDITIONING to ConditioningDebriefAnalyzer::analyze
     )
 
-    fun runningReport(activity: ActivityRecord, detail: ActivityDetail?, execution: WorkoutExecutionAnalysis?,
-                      zones: ExecutionHrZoneProfile?, intent: ActivityWorkoutKind?) =
-        Engine15RunningDebriefAnalyzer.report(activity, detail, execution, zones, intent)
+    fun runningReport(
+        activity: ActivityRecord,
+        detail: ActivityDetail?,
+        execution: WorkoutExecutionAnalysis?,
+        zones: ExecutionHrZoneProfile?,
+        intent: ActivityWorkoutKind?,
+        history: List<ActivityRecord> = emptyList(),
+        zone: ZoneId = ZoneId.systemDefault()
+    ) = Engine15RunningDebriefAnalyzer.report(activity, detail, execution, zones, intent, history, zone)
 
     fun running(
-        activity: ActivityRecord, detail: ActivityDetail?, execution: WorkoutExecutionAnalysis?,
-        zones: ExecutionHrZoneProfile?, intent: ActivityWorkoutKind?, weather: WeatherContext? = null
-    ): SessionDebrief? = Engine15RunningDebriefAnalyzer.analyze(activity, detail, execution, zones, intent, weather)
+        activity: ActivityRecord,
+        detail: ActivityDetail?,
+        execution: WorkoutExecutionAnalysis?,
+        zones: ExecutionHrZoneProfile?,
+        intent: ActivityWorkoutKind?,
+        weather: WeatherContext? = null,
+        history: List<ActivityRecord> = emptyList(),
+        zone: ZoneId = ZoneId.systemDefault()
+    ): SessionDebrief? = Engine15RunningDebriefAnalyzer.analyze(activity, detail, execution, zones, intent, weather, history, zone)
 
     fun workout(
         plan: PlanSnapshot, sessionId: String, plans: List<PlanSnapshot>,

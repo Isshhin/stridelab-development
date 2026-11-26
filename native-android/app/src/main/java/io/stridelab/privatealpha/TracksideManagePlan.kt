@@ -117,20 +117,19 @@ internal fun TracksideManagePlanScreen(
         }
         item {
             val week = tracksideTrainingWeek(plan, inRange)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(
-                    Triple(plan.request.weeks.toString(), "Weeks", StrideLabVisualPalette.lime),
-                    Triple(week.sumOf { it.sessions.size }.toString(), "Sessions", StrideLabVisualPalette.ink),
-                    Triple(week.count { it.sessions.isNotEmpty() }.toString(), "Active days", StrideLabVisualPalette.easyTeal)
-                ).forEach { (value, label, accent) ->
-                    Surface(
-                        modifier = Modifier.weight(1f).heightIn(min = 70.dp),
-                        shape = RoundedCornerShape(15.dp),
-                        color = StrideLabVisualPalette.surface,
-                        border = BorderStroke(1.dp, StrideLabVisualPalette.border)
-                    ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                StrideLabHairline()
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        Triple(plan.request.weeks.toString(), "Weeks", StrideLabVisualPalette.lime),
+                        Triple(week.sumOf { it.sessions.size }.toString(), "Sessions", StrideLabVisualPalette.ink),
+                        Triple(week.count { it.sessions.isNotEmpty() }.toString(), "Active days", StrideLabVisualPalette.easyTeal)
+                    ).forEach { (value, label, accent) ->
                         Column(
-                            modifier = Modifier.padding(11.dp),
+                            modifier = Modifier.weight(1f),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
@@ -138,12 +137,14 @@ internal fun TracksideManagePlanScreen(
                                 value,
                                 fontSize = 22.sp,
                                 color = accent,
-                                fontWeight = FontWeight.ExtraBold
+                                fontWeight = FontWeight.ExtraBold,
+                                style = TabularTextStyle
                             )
                             Text(label, fontSize = 11.sp, color = StrideLabVisualPalette.muted)
                         }
                     }
                 }
+                StrideLabHairline()
             }
         }
         item { TracksidePlanWeekOverview(plan, inRange) }
@@ -183,53 +184,55 @@ internal fun TracksideManagePlanScreen(
             if (future.isEmpty()) item { Text("No future sessions to edit", color = StrideLabVisualPalette.secondary) }
             future.forEach { session ->
                 item(key = "manage-future-${session.id}") {
-                    Surface(
-                        onClick = { onWorkout(session.id) },
-                        modifier = Modifier.fillMaxWidth().testTag("manage-workout-${session.id}"),
-                        color = StrideLabVisualPalette.surface,
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.dp, StrideLabVisualPalette.border)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Surface(
+                            onClick = { onWorkout(session.id) },
+                            modifier = Modifier.fillMaxWidth().testTag("manage-workout-${session.id}"),
+                            color = Color.Transparent
                         ) {
-                            Box(
-                                Modifier
-                                    .size(9.dp)
-                                    .clip(RoundedCornerShape(5.dp))
-                                    .background(StrideLabVisualPalette.disciplineColor(session.discipline))
-                            )
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    session.effectiveTitle,
-                                    style = MaterialTheme.typography.titleSmall,
-                                    color = StrideLabVisualPalette.ink,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    Modifier
+                                        .size(8.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(StrideLabVisualPalette.disciplineColor(session.discipline))
                                 )
-                                Text(
-                                    "${session.date} · ${session.effectiveMinutes} min",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = StrideLabVisualPalette.secondary
-                                )
-                            }
-                            if (plan.engineVersion == ENGINE15_VERSION && session.status == "planned" && session.log == null && session.linkedActivityId == null) {
-                                val locked = session.id in plan.request.lockedSessionDays
-                                TextButton(onClick = { actions.lockWorkout(plan.id, plan.revision, session.id, !locked) }, enabled = canManage) {
-                                    Text(if (locked) "Unlock" else "Lock", color = StrideLabVisualPalette.secondary)
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        session.effectiveTitle,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = StrideLabVisualPalette.ink,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        "${session.date} · ${session.effectiveMinutes} min",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = StrideLabVisualPalette.secondary,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                if (plan.engineVersion == ENGINE15_VERSION && session.status == "planned" && session.log == null && session.linkedActivityId == null) {
+                                    val locked = session.id in plan.request.lockedSessionDays
+                                    TextButton(onClick = { actions.lockWorkout(plan.id, plan.revision, session.id, !locked) }, enabled = canManage) {
+                                        Text(if (locked) "Unlock" else "Lock", color = StrideLabVisualPalette.secondary)
+                                    }
+                                }
+                                TextButton(
+                                    onClick = { movingWorkout = session },
+                                    enabled = session.id !in plan.request.lockedSessionDays,
+                                    modifier = Modifier.testTag("manage-move-${session.id}")
+                                ) {
+                                    Text("Move ›", color = StrideLabVisualPalette.lime, fontWeight = FontWeight.Bold)
                                 }
                             }
-                            TextButton(
-                                onClick = { movingWorkout = session },
-                                enabled = session.id !in plan.request.lockedSessionDays,
-                                modifier = Modifier.testTag("manage-move-${session.id}")
-                            ) {
-                                Text("Move ›", color = StrideLabVisualPalette.lime, fontWeight = FontWeight.Bold)
-                            }
                         }
+                        StrideLabHairline()
                     }
                 }
             }
@@ -326,95 +329,94 @@ private fun TracksidePlanWeekOverview(plan: PlanSnapshot, selected: LocalDate) {
     val last = plan.request.start.plusWeeks(plan.request.weeks.toLong()).minusDays(1)
     val totalWeeks = ChronoUnit.WEEKS.between(firstMonday, tracksideCalendarMonday(last)).toInt() + 1
 
-    Surface(
-        modifier = Modifier.fillMaxWidth().testTag("manage-week-overview"),
-        shape = RoundedCornerShape(18.dp),
-        color = StrideLabVisualPalette.surface,
-        border = BorderStroke(1.dp, StrideLabVisualPalette.border)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .testTag("manage-week-overview"),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "WEEKLY LOAD",
-                        fontSize = 10.sp,
-                        letterSpacing = 1.3.sp,
-                        color = StrideLabVisualPalette.muted,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "Planned ${total / 60}h ${total % 60}m",
-                        fontSize = 15.sp,
-                        color = StrideLabVisualPalette.ink,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
                 Text(
-                    "Week $weekIndex / $totalWeeks",
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = StrideLabVisualPalette.lime
+                    "WEEKLY LOAD",
+                    fontSize = 10.sp,
+                    letterSpacing = 1.3.sp,
+                    color = StrideLabVisualPalette.muted,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Planned ${total / 60}h ${total % 60}m",
+                    fontSize = 15.sp,
+                    color = StrideLabVisualPalette.ink,
+                    fontWeight = FontWeight.ExtraBold,
+                    style = TabularTextStyle
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().height(104.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                days.forEach { day ->
-                    val hasLong = day.sessions.any { it.kind == "long" }
-                    val hasQuality = day.sessions.any { it.kind == "quality" }
-                    val barColor = when {
-                        hasLong -> StrideLabVisualPalette.lime
-                        hasQuality -> StrideLabVisualPalette.moderateAmber
-                        else -> StrideLabVisualPalette.easyTeal
-                    }
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Bottom
+            Text(
+                "Week $weekIndex / $totalWeeks",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Bold,
+                color = StrideLabVisualPalette.lime,
+                style = TabularTextStyle
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().height(104.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            days.forEach { day ->
+                val hasLong = day.sessions.any { it.kind == "long" }
+                val hasQuality = day.sessions.any { it.kind == "quality" }
+                val barColor = when {
+                    hasLong -> StrideLabVisualPalette.lime
+                    hasQuality -> StrideLabVisualPalette.moderateAmber
+                    else -> StrideLabVisualPalette.easyTeal
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Bottom
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.76f)
+                            .height(82.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(StrideLabVisualPalette.surfaceRaised),
+                        contentAlignment = Alignment.BottomCenter
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.76f)
-                                .height(82.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(StrideLabVisualPalette.surfaceRaised),
-                            contentAlignment = Alignment.BottomCenter
-                        ) {
-                            if (day.plannedMinutes > 0) {
-                                val height = (day.plannedMinutes.toFloat() / high * 82f).coerceAtLeast(8f)
+                        if (day.plannedMinutes > 0) {
+                            val height = (day.plannedMinutes.toFloat() / high * 82f).coerceAtLeast(8f)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(height.dp)
+                                    .clip(RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
+                                    .background(StrideLabVisualPalette.barGradient(barColor))
+                            ) {
                                 Box(
-                                    modifier = Modifier
+                                    Modifier
                                         .fillMaxWidth()
-                                        .height(height.dp)
-                                        .clip(RoundedCornerShape(topStart = 7.dp, topEnd = 7.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
-                                        .background(StrideLabVisualPalette.barGradient(barColor))
-                                ) {
-                                    Box(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .height(2.5.dp)
-                                            .align(Alignment.TopCenter)
-                                            .background(barColor)
-                                    )
-                                }
+                                        .height(2.5.dp)
+                                        .align(Alignment.TopCenter)
+                                        .background(barColor)
+                                )
                             }
                         }
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            day.date.dayOfWeek.name.take(3),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (day.plannedMinutes > 0) StrideLabVisualPalette.secondary else StrideLabVisualPalette.muted,
-                            maxLines = 1
-                        )
                     }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        day.date.dayOfWeek.name.take(3),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (day.plannedMinutes > 0) StrideLabVisualPalette.secondary else StrideLabVisualPalette.muted,
+                        maxLines = 1
+                    )
                 }
             }
         }
+        StrideLabHairline()
     }
 }
 
@@ -428,53 +430,54 @@ private fun TracksideManageAction(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Surface(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = StrideLabVisualPalette.surface,
-        border = BorderStroke(1.dp, StrideLabVisualPalette.border)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 66.dp)
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(13.dp)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = modifier.fillMaxWidth(),
+            color = Color.Transparent
         ) {
-            Box(
+            Row(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(accent.copy(alpha = 0.14f)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .heightIn(min = 62.dp)
+                    .padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(13.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier.size(22.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(11.dp))
+                        .background(accent.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = iconRes),
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        title,
+                        fontSize = 14.sp,
+                        color = StrideLabVisualPalette.ink,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        subtitle,
+                        fontSize = 11.5.sp,
+                        color = StrideLabVisualPalette.secondary,
+                        maxLines = 3
+                    )
+                }
+                Text("›", color = StrideLabVisualPalette.muted, fontSize = 20.sp)
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    title,
-                    fontSize = 14.sp,
-                    color = StrideLabVisualPalette.ink,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    subtitle,
-                    fontSize = 11.5.sp,
-                    color = StrideLabVisualPalette.secondary,
-                    maxLines = 3
-                )
-            }
-            Text("›", color = StrideLabVisualPalette.muted, fontSize = 20.sp)
         }
+        StrideLabHairline()
     }
 }

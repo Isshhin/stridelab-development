@@ -78,4 +78,27 @@ class FreeformWorkoutTest {
         val v2 = ManualDisciplineArchive.export(owner, listOf(legacy), emptyList())
         assertTrue(ManualDisciplineArchive.import(v2, owner).freeform.isEmpty())
     }
+
+    @Test fun universalWorkoutMixesRepsAndTimedHoldsAndSharesPreviousHistory() {
+        val squat = FreeformExercise(
+            name = "Back squat",
+            sets = listOf(FreeformSet(actual = FreeformMeasure(quantity = "5", kg = "100"), completed = true))
+        )
+        val wallSit = FreeformExercise(
+            name = "Wall sit",
+            sets = listOf(FreeformSet(actual = FreeformMeasure(seconds = "45"), completed = true))
+        )
+        val completed = FreeformWorkout.start(owner, ManualDiscipline.STRENGTH, date, 100)
+            .copy(exercises = listOf(squat, wallSit))
+            .finish(200)
+        assertTrue(completed.isComplete)
+        assertEquals("2 sets · 5 reps · 45 s · 500 kg volume", completed.summary())
+
+        val board = FreeformBoard(workouts = listOf(completed))
+        assertEquals(
+            "45",
+            board.previous(ManualDiscipline.ISOMETRICS, FreeformExercise(name = "Wall sit"))?.seconds
+        )
+        assertFalse(ManualDiscipline.RUNNING in loggableManualDisciplines)
+    }
 }

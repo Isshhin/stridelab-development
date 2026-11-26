@@ -6,6 +6,14 @@ import java.time.LocalDate
 import java.util.Locale
 import java.util.UUID
 
+internal val loggableManualDisciplines: List<ManualDiscipline> = listOf(
+    ManualDiscipline.STRENGTH,
+    ManualDiscipline.CALISTHENICS,
+    ManualDiscipline.PLYOMETRICS,
+    ManualDiscipline.ISOMETRICS,
+    ManualDiscipline.CONDITIONING
+)
+
 internal enum class ConditioningFormat(val label: String) {
     INTERVALS("Intervals"), EMOM("EMOM"), AMRAP("AMRAP")
 }
@@ -20,10 +28,12 @@ internal data class FreeformMeasure(
 
     fun hasWork(discipline: ManualDiscipline): Boolean = when (discipline) {
         ManualDiscipline.RUNNING -> false
-        ManualDiscipline.STRENGTH, ManualDiscipline.CALISTHENICS ->
+        ManualDiscipline.STRENGTH,
+        ManualDiscipline.CALISTHENICS,
+        ManualDiscipline.PLYOMETRICS,
+        ManualDiscipline.ISOMETRICS,
+        ManualDiscipline.CONDITIONING ->
             quantity.trim().toIntOrNull() != null || seconds.trim().toIntOrNull() != null
-        ManualDiscipline.PLYOMETRICS -> quantity.trim().toIntOrNull() != null
-        ManualDiscipline.ISOMETRICS, ManualDiscipline.CONDITIONING -> seconds.trim().toIntOrNull() != null
     }
 
     fun label(discipline: ManualDiscipline): String = listOfNotNull(
@@ -146,7 +156,7 @@ internal data class FreeformWorkout(
             if (quantity > 0) add("$quantity ${if (discipline == ManualDiscipline.PLYOMETRICS) "contacts" else "reps"}")
             if (seconds > 0) add(if (discipline == ManualDiscipline.CONDITIONING)
                 "${freeformNumber(seconds / 60.0)} min work" else "$seconds s")
-            if (volume > 0 && discipline in setOf(ManualDiscipline.STRENGTH, ManualDiscipline.CALISTHENICS)) {
+            if (volume > 0) {
                 add("${freeformNumber(volume)} kg volume")
             }
         }.joinToString(" · ")

@@ -47,15 +47,26 @@ class UiModernizationUnitTest {
         assertEquals(null to null, AccountProfilePresentation.extractJwtProfile("not-a-jwt"))
     }
 
-    @Test fun disciplineAwareExerciseCatalogShowsPlyometricsAndIsometricsFirst() {
-        val strengthOnly = listOf(
+    @Test fun universalExerciseCatalogDefaultsToAllExcludesRunningAndFiltersByDiscipline() {
+        val mixedCatalog = listOf(
             exercise("back_squat", "Back squat", listOf("strength_gym")),
-            exercise("assisted_pull_up", "Assisted pull-up", listOf("strength_gym", "calisthenics"))
+            exercise("assisted_pull_up", "Assisted pull-up", listOf("strength_gym", "calisthenics")),
+            exercise("easy_run", "Easy run", listOf("running"))
         )
+        val all = FreeformExerciseCatalog.filter(
+            catalog = mixedCatalog,
+            scope = PickerScope.ALL,
+            query = "",
+            recentNames = emptyList()
+        )
+        assertTrue(all.any { it.name == "Back squat" })
+        assertTrue(all.any { it.name == "Pogo hops" })
+        assertTrue(all.any { it.name == "Wall sit" })
+        assertFalse(all.any { it.name == "Easy run" })
+
         val plyo = FreeformExerciseCatalog.filter(
-            catalog = strengthOnly,
-            discipline = ManualDiscipline.PLYOMETRICS,
-            scope = PickerScope.DISCIPLINE,
+            catalog = mixedCatalog,
+            scope = PickerScope.PLYOMETRICS,
             query = "",
             recentNames = emptyList()
         )
@@ -65,9 +76,8 @@ class UiModernizationUnitTest {
         assertFalse(plyo.any { it.name == "Back squat" || it.name == "Assisted pull-up" })
 
         val iso = FreeformExerciseCatalog.filter(
-            catalog = strengthOnly,
-            discipline = ManualDiscipline.ISOMETRICS,
-            scope = PickerScope.DISCIPLINE,
+            catalog = mixedCatalog,
+            scope = PickerScope.ISOMETRICS,
             query = "",
             recentNames = emptyList()
         )
@@ -75,8 +85,7 @@ class UiModernizationUnitTest {
         assertFalse(iso.any { it.name == "Back squat" })
 
         val recent = FreeformExerciseCatalog.filter(
-            catalog = strengthOnly,
-            discipline = ManualDiscipline.PLYOMETRICS,
+            catalog = mixedCatalog,
             scope = PickerScope.RECENT,
             query = "",
             recentNames = listOf("Box jump", "Custom ankle hop")

@@ -17,7 +17,8 @@ data class DebriefInsight(
     val title: String,
     val body: String,
     val tone: DebriefTone,
-    val priorityScore: Int
+    val priorityScore: Int,
+    val nextFocus: String? = null
 ) {
     init {
         require(priorityScore in 0..100)
@@ -30,7 +31,8 @@ data class SessionDebrief(
     val summary: String,
     val tone: DebriefTone,
     val insights: List<DebriefInsight>,
-    val paragraphs: List<String> = emptyList()
+    val paragraphs: List<String> = emptyList(),
+    val nextFocus: String? = null
 ) {
     init {
         require(headline.isNotBlank() && summary.isNotBlank())
@@ -40,10 +42,12 @@ data class SessionDebrief(
 
     companion object {
         /** Stable ties preserve the producer's order. Sparse sessions may produce no debrief. */
-        fun fromInsights(candidates: Iterable<DebriefInsight>): SessionDebrief? {
+        fun fromInsights(candidates: Iterable<DebriefInsight>, nextFocus: String? = null): SessionDebrief? {
             val ranked = candidates.sortedByDescending { it.priorityScore }.take(3)
             val lead = ranked.firstOrNull() ?: return null
-            return SessionDebrief(lead.title, lead.body, lead.tone, ranked)
+            val resolvedFocus = nextFocus?.takeIf { it.isNotBlank() }
+                ?: ranked.firstNotNullOfOrNull { it.nextFocus?.takeIf(String::isNotBlank) }
+            return SessionDebrief(lead.title, lead.body, lead.tone, ranked, nextFocus = resolvedFocus)
         }
     }
 }

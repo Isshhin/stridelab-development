@@ -167,7 +167,8 @@ class StrengthCalisthenicsProgressionTest {
 
     @Test fun freeformCatalogBuiltinsHaveStandardizedNonEmptyDisjointMusclesAndMetricTypes() {
         val augmented = FreeformExerciseCatalog.augment(emptyList())
-        assertTrue(augmented.size == 19)
+        assertTrue(augmented.size >= 140)
+        val byId = augmented.associateBy { it.id }
         for (record in augmented) {
             assertTrue("${record.id} missing primaryMuscles", record.primaryMuscles.isNotEmpty())
             assertTrue(
@@ -182,11 +183,14 @@ class StrengthCalisthenicsProgressionTest {
                 "${record.id} has non-standard secondary muscle",
                 record.secondaryMuscles.all { it in ExerciseMuscleCatalog.STANDARD_MUSCLES }
             )
-            if (record.id.startsWith("iso-")) {
-                assertEquals(ExerciseMetricType.HOLD_SECONDS, record.metricType())
-            } else {
-                assertEquals(ExerciseMetricType.REPS, record.metricType())
-            }
         }
+        assertEquals(ExerciseMetricType.HOLD_SECONDS, byId.getValue("iso-wall-sit").metricType())
+        assertEquals(ExerciseMetricType.HOLD_SECONDS, byId.getValue("iso-dead-hang").metricType())
+        assertEquals(ExerciseMetricType.WEIGHT_AND_HOLD, byId.getValue("iso-farmer-hold").metricType())
+        assertEquals(ExerciseMetricType.WEIGHT_AND_HOLD, byId.getValue("str-weighted-plank").metricType())
+        assertEquals(ExerciseMetricType.REPS, byId.getValue("plyo-box-jump").metricType())
+        assertEquals(ExerciseMetricType.REPS, byId.getValue("cal-chinup").metricType())
+        assertEquals(ExerciseMetricType.REPS, byId.getValue("mob-90-90-switches").metricType())
+        assertEquals(ExerciseMetricType.WEIGHT_AND_REPS, byId.getValue("str-bb-bench-press").metricType())
     }
 }

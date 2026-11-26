@@ -245,9 +245,10 @@ internal fun PlanBuilder(
             0 -> 10
             1 -> 11
             5 -> 12
-            3 -> if (runningRoute == "custom") 14 else 13
-            2 -> if (runningRoute == "custom") 13 else 14
-            else -> 15
+            2 -> 13
+            4 -> if (runningRoute == "custom") 14 else 15
+            3 -> if (runningRoute == "custom") 15 else 14
+            else -> 16
         }
         step == 1 && (input.runDays == 0 || crossTrainingGoals) -> when {
             input.strengthDays > 0 && !strengthGoalSaved && strengthTrack(input) == "str" -> 20
@@ -534,11 +535,7 @@ internal fun PlanBuilder(
                         }
                     },
                     onContinue = {
-                        runningSubPage = when {
-                            runningRoute == "custom" -> 3
-                            editingAbilityFromGuided -> 5
-                            else -> 4
-                        }
+                        runningSubPage = if (editingAbilityFromGuided) 5 else 4
                         editingAbilityFromGuided = false
                     },
                     onAdvanced = {
@@ -584,7 +581,15 @@ internal fun PlanBuilder(
                     desiredQualityCount = n
                     val allowed = (input.runDays - 2).coerceIn(0, 2)
                     val q = n.coerceAtMost(allowed)
-                    edit(sanitizeRunningScheduleDays(input.copy(qualityCount = q)))
+                    val updated = sanitizeRunningScheduleDays(input.copy(qualityCount = q))
+                    edit(
+                        if ("run" in updated.weeklySlots) {
+                            val slots = WeeklyPlacement.days(updated, "run")
+                            updated.copy(
+                                qualityDays = slots.drop(1).take(q).filter { it in 1..7 }.toSet()
+                            )
+                        } else updated
+                    )
                 },
                 onToggleQuality = { quality ->
                     val updated =
@@ -599,12 +604,20 @@ internal fun PlanBuilder(
                 onRemoveQualityWorkout = { key ->
                     edit(input.copy(userDefinedQualityWorkouts=input.userDefinedQualityWorkouts-key))
                 },
-                onBack = { runningSubPage = if (runningRoute == "custom") 2 else advancedBackPage },
+                onBack = { runningSubPage = if (runningRoute == "custom") 4 else advancedBackPage },
                 onContinue = {
-                    runningSubPage = when {
-                        runningRoute == "custom" -> 4
-                        advancedBackPage == 5 -> 5
-                        else -> 2
+                    when {
+                        runningRoute == "custom" -> {
+                            if (input.strengthDays + input.calDays + input.conditioningDays > 0) {
+                                crossTrainingGoals = true
+                                strengthGoalSaved = false
+                            } else {
+                                step = 2
+                                scheduleSubPage = 0
+                            }
+                        }
+                        advancedBackPage == 5 -> runningSubPage = 5
+                        else -> runningSubPage = 2
                     }
                 }
             )
@@ -722,7 +735,8 @@ internal fun PlanBuilder(
                     edit(WeeklyPlacement.clear(input,"run",
                         runningSelectedSlot.coerceIn(0,input.runDays-1)))
                 },
-                onBack = { runningSubPage = if (runningRoute == "custom") 3 else 2 },
+                onBack = { runningSubPage = 2 },
+                progressStep = if (runningRoute == "custom") 3 else 4,
                 onContinue = {
                     // Save even an unchanged default once the user chose
                     // manual placement, so the engine must honor those days.
@@ -732,7 +746,9 @@ internal fun PlanBuilder(
                                 ("run" to WeeklyPlacement.days(input,"run"))
                         ))
                     }
-                    if(input.strengthDays+input.calDays+input.conditioningDays>0) {
+                    if (runningRoute == "custom") {
+                        runningSubPage = 3
+                    } else if (input.strengthDays+input.calDays+input.conditioningDays>0) {
                         crossTrainingGoals=true
                         strengthGoalSaved=false
                     } else {
@@ -749,7 +765,7 @@ internal fun PlanBuilder(
                 onBack={
                     if(input.runDays>0) {
                         crossTrainingGoals=false
-                        runningSubPage=4
+                        runningSubPage = if (runningRoute == "custom") 3 else 4
                     } else step=0
                 },
                 onContinue={
@@ -840,7 +856,7 @@ internal fun PlanBuilder(
                     if(input.strengthDays>0) strengthSetupSaved=false
                     else if(input.runDays>0) {
                         crossTrainingGoals=false
-                        runningSubPage=4
+                        runningSubPage = if (runningRoute == "custom") 3 else 4
                     } else step=0
                 },
                 onContinue={
@@ -987,7 +1003,7 @@ internal fun PlanBuilder(
                         crossTrainingGoals=true
                         strengthGoalSaved=true
                         strengthSetupSaved=true
-                    } else runningSubPage=4
+                    } else runningSubPage = if (runningRoute == "custom") 3 else 4
                 }
                 crossGoalsSaved=input.calDays>0
             },

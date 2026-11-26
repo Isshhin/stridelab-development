@@ -95,10 +95,11 @@ class NavigationShellUiTest {
         compose.waitUntil(5_000) {
             compose.onAllNodesWithTag("quick-log-sheet").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithTag("quick-log-discipline-STRENGTH").assertIsDisplayed()
+        compose.onNodeWithTag("quick-log-start-empty").assertIsDisplayed()
+        compose.onNodeWithTag("quick-log-discipline-RUNNING").assertDoesNotExist()
         compose.onNodeWithTag("quick-log-templates").assertIsDisplayed()
 
-        compose.onNodeWithTag("quick-log-discipline-STRENGTH").performClick()
+        compose.onNodeWithTag("quick-log-start-empty").performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithTag("freeform-editor").fetchSemanticsNodes().isNotEmpty()
         }

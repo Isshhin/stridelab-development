@@ -52,7 +52,8 @@ internal fun TracksideRunningSetup(
     onClearDay: (Int) -> Unit,
     onClearSlot: () -> Unit,
     onBack: () -> Unit,
-    onContinue: () -> Unit
+    onContinue: () -> Unit,
+    progressStep: Int = 4
 ) {
     val count = request.runDays.coerceIn(1, 6)
     val slots = WeeklyPlacement.days(request, "run")
@@ -63,7 +64,8 @@ internal fun TracksideRunningSetup(
     var editingDay by remember { mutableStateOf<Int?>(null) }
 
     TracksideBuilderFrame(
-        progressStep = 4,
+        progressStep = progressStep,
+        progressLabel = "Week",
         toolbarTitle = "Running Setup",
         eyebrow = "RUNNING / WEEKLY RHYTHM",
         headline = "Your running week",
@@ -74,214 +76,203 @@ internal fun TracksideRunningSetup(
         onContinue = onContinue,
         continueEnabled = !custom || complete
     ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth().testTag("builder-running-week-card"),
-            color = PlanBuilderPalette.surface,
-            shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(1.dp, PlanBuilderPalette.border)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("builder-running-week-card"),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(StrideLabVisualPalette.lime.copy(alpha = 0.05f), Color.Transparent)
-                        )
-                    )
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "WEEKLY RUNS",
+                        color = PlanBuilderPalette.muted,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.4.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "$count runs / week",
+                        color = PlanBuilderPalette.text,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
                 Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            "WEEKLY RUNS",
-                            color = PlanBuilderPalette.muted,
-                            fontSize = 10.sp,
-                            letterSpacing = 1.4.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            "$count runs / week",
-                            color = PlanBuilderPalette.text,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    Surface(
+                        onClick = { onRunningCount((count - 1).coerceAtLeast(1)) },
+                        enabled = count > 1,
+                        modifier = Modifier.size(42.dp).testTag("builder-run-minus"),
+                        color = PlanBuilderPalette.surfaceRaised,
+                        shape = CircleShape,
+                        border = BorderStroke(1.dp, PlanBuilderPalette.border)
                     ) {
-                        Surface(
-                            onClick = { onRunningCount((count - 1).coerceAtLeast(1)) },
-                            enabled = count > 1,
-                            modifier = Modifier.size(42.dp).testTag("builder-run-minus"),
-                            color = PlanBuilderPalette.surfaceRaised,
-                            shape = CircleShape,
-                            border = BorderStroke(1.dp, PlanBuilderPalette.border)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    "−",
-                                    color = if (count > 1) PlanBuilderPalette.text else PlanBuilderPalette.disabled,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                "−",
+                                color = if (count > 1) PlanBuilderPalette.text else PlanBuilderPalette.disabled,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                        Text(
-                            count.toString(),
-                            color = PlanBuilderPalette.accent,
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.widthIn(min = 24.dp)
-                        )
-                        Surface(
-                            onClick = { onRunningCount((count + 1).coerceAtMost(6)) },
-                            enabled = count < 6,
-                            modifier = Modifier.size(42.dp).testTag("builder-run-plus"),
-                            color = PlanBuilderPalette.surfaceRaised,
-                            shape = CircleShape,
-                            border = BorderStroke(1.dp, PlanBuilderPalette.border)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    "+",
-                                    color = if (count < 6) PlanBuilderPalette.text else PlanBuilderPalette.disabled,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                    }
+                    Text(
+                        count.toString(),
+                        color = PlanBuilderPalette.accent,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.widthIn(min = 24.dp),
+                        style = TabularTextStyle
+                    )
+                    Surface(
+                        onClick = { onRunningCount((count + 1).coerceAtMost(6)) },
+                        enabled = count < 6,
+                        modifier = Modifier.size(42.dp).testTag("builder-run-plus"),
+                        color = PlanBuilderPalette.surfaceRaised,
+                        shape = CircleShape,
+                        border = BorderStroke(1.dp, PlanBuilderPalette.border)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                "+",
+                                color = if (count < 6) PlanBuilderPalette.text else PlanBuilderPalette.disabled,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
+            }
 
-                // Semantic color-coded 7-day strip (responsive without horizontal clipping)
-                Row(
-                    Modifier.fillMaxWidth().testTag("builder-running-day-row"),
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    (1..7).forEach { day ->
-                        val slot = slots.indexOf(day)
-                        val isPinned = pinned?.contains(day) == true
-                        val available = day in request.days
-                        val code = when {
-                            slot == 0 -> "L"
-                            slot > 0 && slot <= request.qualityCount -> "Q"
-                            slot > 0 -> "E"
-                            !available -> "−"
-                            else -> ""
-                        }
-                        val accentColor = when (code) {
-                            "L" -> StrideLabVisualPalette.lime
-                            "Q" -> StrideLabVisualPalette.moderateAmber
-                            "E" -> StrideLabVisualPalette.easyTeal
-                            else -> PlanBuilderPalette.muted
-                        }
-                        val tileBg = when (code) {
-                            "L" -> StrideLabVisualPalette.lime.copy(alpha = 0.14f)
-                            "Q" -> StrideLabVisualPalette.moderateAmber.copy(alpha = 0.14f)
-                            "E" -> StrideLabVisualPalette.easyTeal.copy(alpha = 0.11f)
-                            else -> PlanBuilderPalette.input
-                        }
-                        val tileBorder = when (code) {
-                            "L", "Q", "E" -> accentColor.copy(alpha = 0.60f)
-                            else -> PlanBuilderPalette.border
-                        }
-                        val dayLabel = DayOfWeek.of(day).name.lowercase().replaceFirstChar { it.uppercase() }
-                        val sessionLabel = when (code) {
-                            "L" -> "Long run"
-                            "Q" -> "Quality run"
-                            "E" -> "Easy run"
-                            "−" -> "Unavailable"
-                            else -> "Rest day"
-                        }
-                        Column(
-                            Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
+            // Semantic color-coded 7-day strip (responsive without horizontal clipping)
+            Row(
+                Modifier.fillMaxWidth().testTag("builder-running-day-row"),
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                (1..7).forEach { day ->
+                    val slot = slots.indexOf(day)
+                    val isPinned = pinned?.contains(day) == true
+                    val available = day in request.days
+                    val code = when {
+                        slot == 0 -> "L"
+                        slot > 0 && slot <= request.qualityCount -> "Q"
+                        slot > 0 -> "E"
+                        !available -> "−"
+                        else -> ""
+                    }
+                    val accentColor = when (code) {
+                        "L" -> StrideLabVisualPalette.lime
+                        "Q" -> StrideLabVisualPalette.moderateAmber
+                        "E" -> StrideLabVisualPalette.easyTeal
+                        else -> PlanBuilderPalette.muted
+                    }
+                    val tileBg = when (code) {
+                        "L" -> StrideLabVisualPalette.lime.copy(alpha = 0.14f)
+                        "Q" -> StrideLabVisualPalette.moderateAmber.copy(alpha = 0.14f)
+                        "E" -> StrideLabVisualPalette.easyTeal.copy(alpha = 0.11f)
+                        else -> PlanBuilderPalette.surfaceRaised.copy(alpha = 0.45f)
+                    }
+                    val tileBorder = when (code) {
+                        "L", "Q", "E" -> accentColor.copy(alpha = 0.60f)
+                        else -> Color.Transparent
+                    }
+                    val dayLabel = DayOfWeek.of(day).name.lowercase().replaceFirstChar { it.uppercase() }
+                    val sessionLabel = when (code) {
+                        "L" -> "Long run"
+                        "Q" -> "Quality run"
+                        "E" -> "Easy run"
+                        "−" -> "Unavailable"
+                        else -> "Rest day"
+                    }
+                    Column(
+                        Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            DayOfWeek.of(day).name.take(3),
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (code in setOf("L", "Q", "E")) PlanBuilderPalette.text else PlanBuilderPalette.muted
+                        )
+                        Surface(
+                            onClick = { editingDay = day },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(54.dp)
+                                .testTag("builder-running-day-$day")
+                                .semantics {
+                                    contentDescription = "$dayLabel: $sessionLabel. Tap to edit"
+                                },
+                            color = tileBg,
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, tileBorder)
                         ) {
-                            Text(
-                                DayOfWeek.of(day).name.take(3),
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (code in setOf("L", "Q", "E")) PlanBuilderPalette.text else PlanBuilderPalette.muted
-                            )
-                            Surface(
-                                onClick = { editingDay = day },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(54.dp)
-                                    .testTag("builder-running-day-$day")
-                                    .semantics {
-                                        contentDescription = "$dayLabel: $sessionLabel. Tap to edit"
-                                    },
-                                color = tileBg,
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, tileBorder)
-                            ) {
-                                Box(Modifier.fillMaxSize()) {
-                                    if (code in setOf("L", "Q", "E")) {
-                                        Box(
-                                            Modifier.fillMaxWidth().height(3.dp)
-                                                .align(Alignment.TopCenter)
-                                                .background(accentColor)
-                                        )
-                                    }
-                                    Text(
-                                        text = code.ifBlank { "·" },
-                                        color = if (code in setOf("L", "Q", "E")) accentColor else PlanBuilderPalette.muted,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        modifier = Modifier.align(Alignment.Center)
+                            Box(Modifier.fillMaxSize()) {
+                                if (code in setOf("L", "Q", "E")) {
+                                    Box(
+                                        Modifier.fillMaxWidth().height(3.dp)
+                                            .align(Alignment.TopCenter)
+                                            .background(accentColor)
                                     )
-                                    if (isPinned) {
-                                        Box(
-                                            Modifier.size(5.dp)
-                                                .align(Alignment.BottomCenter)
-                                                .padding(bottom = 5.dp)
-                                                .clip(CircleShape)
-                                                .background(accentColor)
-                                        )
-                                    }
+                                }
+                                Text(
+                                    text = code.ifBlank { "·" },
+                                    color = if (code in setOf("L", "Q", "E")) accentColor else PlanBuilderPalette.muted,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    modifier = Modifier.align(Alignment.Center)
+                                )
+                                if (isPinned) {
+                                    Box(
+                                        Modifier.size(5.dp)
+                                            .align(Alignment.BottomCenter)
+                                            .padding(bottom = 5.dp)
+                                            .clip(CircleShape)
+                                            .background(accentColor)
+                                    )
                                 }
                             }
                         }
                     }
                 }
-
-                // Clean visual legend + summary footer
-                Row(
-                    Modifier.fillMaxWidth().testTag("builder-running-legend"),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        WeekLegendPill("Easy", StrideLabVisualPalette.easyTeal)
-                        WeekLegendPill("Quality", StrideLabVisualPalette.moderateAmber)
-                        WeekLegendPill("Long", StrideLabVisualPalette.lime)
-                    }
-                    Text(
-                        "$assigned/$count placed",
-                        color = PlanBuilderPalette.secondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.testTag("builder-running-assignment-progress")
-                    )
-                }
             }
+
+            // Clean visual legend + summary footer
+            Row(
+                Modifier.fillMaxWidth().testTag("builder-running-legend"),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    WeekLegendPill("Easy", StrideLabVisualPalette.easyTeal)
+                    WeekLegendPill("Quality", StrideLabVisualPalette.moderateAmber)
+                    WeekLegendPill("Long", StrideLabVisualPalette.lime)
+                }
+                Text(
+                    "$assigned/$count placed",
+                    color = PlanBuilderPalette.secondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.testTag("builder-running-assignment-progress")
+                )
+            }
+            StrideLabHairline()
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(14.dp))
 
         // Clean "Choose my days" | "Coach decides" segmented toggle right in place
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = PlanBuilderPalette.surface,
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, PlanBuilderPalette.border)
+            shape = RoundedCornerShape(14.dp)
         ) {
             Row(
                 Modifier.fillMaxWidth().padding(4.dp),

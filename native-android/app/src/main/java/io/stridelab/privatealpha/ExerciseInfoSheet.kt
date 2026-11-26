@@ -162,7 +162,7 @@ internal fun ExerciseInfoSheet(
             // Muscles Section
             if (focus.isEmpty) {
                 Text(
-                    text = "Custom exercise — no mapped muscle regions.",
+                    text = "Custom exercise. No mapped muscle regions.",
                     color = StrideLabSurfaceTokens.inkMuted,
                     fontSize = 13.sp
                 )

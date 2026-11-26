@@ -72,12 +72,15 @@ class ActivityIntelligenceUiTest {
             compose.activity.setContent {
                 StrideTheme {
                     CoachDebriefCard(requireNotNull(SessionDebrief.fromInsights(insights))
-                        .copy(paragraphs = listOf("Your stride stayed steady through the finish.")))
+                        .copy(paragraphs = listOf("Your stride stayed steady through the finish."),
+                            nextFocus = "Keep opening the first 2 km gently."))
                 }
             }
         }
         compose.onNodeWithText("COACH'S DEBRIEF").assertIsDisplayed()
         compose.onNodeWithText("Your stride stayed steady through the finish.").assertExists()
+        compose.onNodeWithTag("coach-debrief-next-focus").assertExists()
+        compose.onNodeWithText("Keep opening the first 2 km gently.").assertExists()
         compose.onNodeWithTag("coach-debrief-headline").assertTextEquals(insights.first().title)
         compose.onNodeWithTag("coach-debrief-summary").assertTextEquals(insights.first().body)
         compose.onAllNodesWithText(insights.first().title).assertCountEquals(1)

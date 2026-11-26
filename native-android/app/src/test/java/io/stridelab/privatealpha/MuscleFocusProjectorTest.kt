@@ -22,13 +22,45 @@ class MuscleFocusProjectorTest {
         val v2Records = ExerciseLibraryV2.load { File(assets, it).inputStream() }.records
         val builtins = FreeformExerciseCatalog.builtinRecords()
         assertEquals(66, v2Records.size)
-        assertEquals(19, builtins.size)
+        assertTrue("Expanded catalog should contain >= 140 records", builtins.size >= 140)
+        assertEquals(29, ExerciseMuscleCatalog.STANDARD_MUSCLES.size)
         val allRecords = v2Records + builtins
 
         for (key in ExerciseMuscleCatalog.STANDARD_MUSCLES) {
             val mapped = MuscleFocusProjector.regionsForKey(key)
             assertTrue("Canonical key $key must map to >= 1 region", mapped.isNotEmpty())
         }
+
+        // Expanded catalog quality checks: unique IDs, unique names, valid muscles, cues, zero em-dashes
+        assertEquals("Expanded IDs must be unique", builtins.size, builtins.map { it.id }.distinct().size)
+        assertEquals(
+            "Expanded names must be unique",
+            builtins.size,
+            builtins.map { it.name.trim().lowercase() }.distinct().size
+        )
+        for (record in builtins) {
+            assertFalse("${record.id} must not be running", FreeformExerciseCatalog.isRunningRecord(record))
+            assertTrue("${record.id} must have >= 2 technique cues", record.technique.size >= 2)
+            assertTrue("${record.id} must have easier regression", record.easier.isNotBlank())
+            assertTrue("${record.id} must have harder progression", record.harder.isNotBlank())
+            assertTrue(
+                "${record.id} primary and secondary muscles must be disjoint",
+                record.primaryMuscles.intersect(record.secondaryMuscles.toSet()).isEmpty()
+            )
+            assertFalse("${record.id} must not contain em-dashes", record.technique.any { it.contains("—") })
+            for (key in record.primaryMuscles + record.secondaryMuscles) {
+                assertTrue(
+                    "${record.id} key $key must be in STANDARD_MUSCLES",
+                    key in ExerciseMuscleCatalog.STANDARD_MUSCLES
+                )
+            }
+        }
+
+        // Augmented universal picker checks: zero running entries and zero name collisions
+        val augmented = FreeformExerciseCatalog.augment(v2Records)
+        assertFalse(augmented.any { FreeformExerciseCatalog.isRunningRecord(it) })
+        assertEquals(augmented.size, augmented.map { it.id.lowercase() }.distinct().size)
+        assertEquals(augmented.size, augmented.map { it.name.trim().lowercase() }.distinct().size)
 
         for (record in allRecords) {
             assertTrue("${record.id} missing primaryMuscles", record.primaryMuscles.isNotEmpty())
@@ -41,6 +73,32 @@ class MuscleFocusProjectorTest {
             val focus = MuscleFocusProjector.forExercise(record.id, record.name, allRecords)
             assertFalse("${record.id} must produce non-empty MuscleFocusMap", focus.isEmpty)
         }
+    }
+
+    @Test
+    fun lateralDeltoidMappingAndMobilityPickerFilteringWorkAccurately() {
+        val catalog = augmentedCatalog()
+        val latRaise = MuscleFocusProjector.forExercise("str-db-lateral-raise", null, catalog)
+        assertFalse(latRaise.isEmpty)
+        assertEquals(1.0f, latRaise.regionIntensities[AnatomicalMuscleRegion.LATERAL_DELTS_FRONT]!!, 1e-6f)
+        assertEquals(1.0f, latRaise.regionIntensities[AnatomicalMuscleRegion.LATERAL_DELTS_BACK]!!, 1e-6f)
+
+        val mobilityMatches = FreeformExerciseCatalog.filter(
+            catalog = catalog,
+            scope = PickerScope.MOBILITY,
+            query = "",
+            recentNames = emptyList()
+        )
+        assertTrue("Mobility filter should surface >= 15 mobility drills", mobilityMatches.size >= 15)
+        assertTrue(mobilityMatches.any { it.id == "mob-90-90-switches" })
+
+        val lateralQueryMatches = FreeformExerciseCatalog.filter(
+            catalog = catalog,
+            scope = PickerScope.ALL,
+            query = "lateral deltoid",
+            recentNames = emptyList()
+        )
+        assertTrue(lateralQueryMatches.any { it.id == "str-db-lateral-raise" })
     }
 
     @Test

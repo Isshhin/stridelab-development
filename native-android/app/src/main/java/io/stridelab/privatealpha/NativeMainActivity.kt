@@ -452,8 +452,8 @@ private fun NavHostController.openActivity(id: String) {
                                 removeDraft = { id -> freeformBoard = freeformBoard?.without(id) },
                                 restored = { freeformBoard = it },
                                 openTemplates = { nav.navigate("freeform/templates") },
-                                startEmpty = { discipline ->
-                                    nav.navigate("freeform/new/${discipline.name}") { launchSingleTop = true }
+                                startEmpty = {
+                                    nav.navigate("freeform/new/${ManualDiscipline.STRENGTH.name}") { launchSingleTop = true }
                                 },
                                 openDraft = { id ->
                                     nav.navigate("freeform/edit/${android.net.Uri.encode(id)}") { launchSingleTop = true }
@@ -470,7 +470,7 @@ private fun NavHostController.openActivity(id: String) {
                             WorkoutTemplateLibrary(
                                 freeformOwner, freeformBoard?.templates.orEmpty(), freeformAccess,
                                 back = { nav.popBackStack() },
-                                create = { nav.navigate("freeform/template/new/${it.name}") },
+                                create = { nav.navigate("freeform/template/new/${ManualDiscipline.STRENGTH.name}") },
                                 edit = { nav.navigate("freeform/template/edit/${android.net.Uri.encode(it)}") },
                                 schedule = { nav.navigate("freeform/schedule/template/${android.net.Uri.encode(it)}") },
                                 added = { template ->
@@ -1022,8 +1022,8 @@ private fun NavHostController.openActivity(id: String) {
         QuickLogBottomSheet(
             owner = freeformOwner,
             board = freeformBoard,
-            onStartEmpty = { discipline ->
-                nav.navigate("freeform/new/${discipline.name}") { launchSingleTop = true }
+            onStartEmpty = {
+                nav.navigate("freeform/new/${ManualDiscipline.STRENGTH.name}") { launchSingleTop = true }
             },
             onResumeDraft = { id ->
                 nav.navigate("freeform/edit/${android.net.Uri.encode(id)}") { launchSingleTop = true }

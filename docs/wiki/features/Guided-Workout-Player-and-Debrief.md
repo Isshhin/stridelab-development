@@ -2,7 +2,7 @@
 title: "Guided Workout Player & Coach's Debrief"
 area: feature
 status: verified
-last_verified_commit: "36a5eeb8"
+last_verified_commit: "bef05a7c"
 key_files:
   - "native-android/app/src/main/java/io/stridelab/privatealpha/WorkoutScreen.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/WorkoutPlayer.kt"
@@ -25,8 +25,8 @@ Guided plan execution pairs a durable AMOLED **Workout Player** for non-running 
 - **Independent Receipts (`Partial · X of Y sets`):** Finalization freezes a compatibility log before updating the plan and writes a local outcome receipt separating session lifecycle (`Finish Early` vs full finish) from set coverage (`confirmed` vs `skipped`). Skipped sets stay out of performed logs; process death mid-save recovers from the frozen log match.
 
 ## Coach's Debrief & Training Effect (`Engine15DebriefEngine.kt`, `DebriefCopyTemplates.kt`, `TrainingEffectCalculator.kt`)
-- **6 Read-Only Analyzers:** Dispatches discipline-specific analyzers (`Running`, `Strength`, `Plyometrics`, `Isometrics`, `Calisthenics`, `Conditioning`). Cross-training debriefs inspect confirmed workout sets/reps/holds/contacts and explicit `RIR: n` notes; stationary Activity Detail renders a debrief only via an exact workout-log link.
-- **Running Narrative & Highlights:** Evaluates pause-excluded moving-time streams (`> 30 s` gaps excluded) to produce one concise lead plus up to two ranked highlights (`CoachDebriefCard.kt`). Half-run pace comparisons require `>= 20 min`; pulse/dynamics drift comparisons require `>= 45 min` at comparable pace. Sparse runs omit the card cleanly with zero filler placeholders.
+- **6 Read-Only Analyzers:** Dispatches discipline-specific analyzers (`Running`, `Strength`, `Plyometrics`, `Isometrics`, `Calisthenics`, `Conditioning`) sharing unified plain-English coaching copy (`DebriefCopyTemplates`) with zero em-dashes and a single tailored `NEXT FOCUS` directive per debrief (`SessionDebrief.nextFocus`). Cross-training debriefs inspect confirmed workout sets/reps/holds/contacts and explicit `RIR: n` notes; stationary Activity Detail renders a debrief only via an exact workout-log link.
+- **Multi-Signal Running Synthesis (`Engine15RunningDebriefAnalyzer.kt`):** Evaluates pause-excluded moving-time streams (`> 30 s` gaps excluded) to produce one verdict headline + lead synthesis and up to two distinct supporting insights (`CoachDebriefCard.kt`) without repeating raw header metrics, `TrainingEffectCard`, or `RunningDynamicsCard` tables. Connects intent vs. verified 5-zone effort (including easy-day grey-zone creep), pacing × heart rate × elevation delta (`>= 20 min`), full-set interval consistency/fade, late-run mechanics/cadence durability, and 30-day single-run distance jumps (`> 15%`) / same-day double runs. Sparse runs omit the card cleanly with zero filler placeholders.
 - **Verified-Zone Training Effect (`TrainingEffectCalculator.kt`):** Produces bounded `0.0..5.0` Aerobic (5-zone weights `1/2/3/5/7`, `>= 75%` moving coverage, verified Garmin/FIT zones only) and Anaerobic (Z4–Z5 or pace surges bracketed by lower intensity) transient scores.
 
 ## Related Nodes

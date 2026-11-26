@@ -47,7 +47,7 @@ internal fun TracksideAdvancedRunning(
 ) {
     val lime = PlanBuilderPalette.accent
     TracksideBuilderFrame(
-        progressStep = if (guided) 2 else 3,
+        progressStep = if (guided) 2 else 4,
         progressLabel = if (guided) null else "Targets",
         toolbarTitle = if (guided) "Customize" else "Training targets",
         eyebrow = if (guided) "RUNNING / PREFERENCES" else "RUNNING / TRAIN YOUR WAY",
@@ -61,112 +61,102 @@ internal fun TracksideAdvancedRunning(
         contentTopPadding = 12,
         headlineLineHeight = 34
     ) {
-        // Target Weekly Mileage Card
-        Surface(
+        // Flat Target Weekly Volume section
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag("builder-advanced-mileage"),
-            color = PlanBuilderPalette.surface,
-            shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(1.dp, PlanBuilderPalette.border)
+                .testTag("builder-advanced-mileage")
+                .padding(vertical = 8.dp)
         ) {
-            Column(
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "TARGET WEEKLY VOLUME",
+                    fontSize = 10.sp,
+                    letterSpacing = 1.4.sp,
+                    color = PlanBuilderPalette.muted,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "Progressive build",
+                    fontSize = 10.5.sp,
+                    color = PlanBuilderPalette.secondary
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    String.format(Locale.getDefault(), "%.0f", weeklyKm),
+                    fontSize = 38.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = PlanBuilderPalette.text,
+                    letterSpacing = (-1).sp,
+                    style = TabularTextStyle
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "km / wk",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = lime,
+                    modifier = Modifier.padding(bottom = 7.dp)
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Slider(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(lime.copy(alpha = 0.05f), Color.Transparent)
-                        )
+                    .height(30.dp)
+                    .testTag("builder-target-mileage-slider"),
+                value = weeklyKm.toFloat().coerceIn(0f, 120f),
+                onValueChange = { onWeeklyKm(it.toInt().toDouble()) },
+                valueRange = 0f..120f,
+                thumb = { _ ->
+                    Box(
+                        Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(lime)
+                            .padding(5.dp)
+                            .clip(CircleShape)
+                            .background(PlanBuilderPalette.accentOn)
                     )
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        "TARGET WEEKLY VOLUME",
-                        fontSize = 10.sp,
-                        letterSpacing = 1.4.sp,
-                        color = PlanBuilderPalette.muted,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "Progressive build",
-                        fontSize = 10.5.sp,
-                        color = PlanBuilderPalette.secondary
-                    )
-                }
-                Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        String.format(Locale.getDefault(), "%.0f", weeklyKm),
-                        fontSize = 38.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = PlanBuilderPalette.text,
-                        letterSpacing = (-1).sp
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "km / wk",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = lime,
-                        modifier = Modifier.padding(bottom = 7.dp)
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
-                Slider(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(30.dp)
-                        .testTag("builder-target-mileage-slider"),
-                    value = weeklyKm.toFloat().coerceIn(0f, 120f),
-                    onValueChange = { onWeeklyKm(it.toInt().toDouble()) },
-                    valueRange = 0f..120f,
-                    thumb = { _ ->
+                },
+                track = { _ ->
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(PlanBuilderPalette.surfaceRaised)
+                    ) {
                         Box(
                             Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(lime)
-                                .padding(5.dp)
-                                .clip(CircleShape)
-                                .background(PlanBuilderPalette.accentOn)
-                        )
-                    },
-                    track = { _ ->
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
+                                .fillMaxWidth((weeklyKm.toFloat() / 120f).coerceIn(0f, 1f))
                                 .height(6.dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(PlanBuilderPalette.surfaceRaised)
-                        ) {
-                            Box(
-                                Modifier
-                                    .fillMaxWidth((weeklyKm.toFloat() / 120f).coerceIn(0f, 1f))
-                                    .height(6.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(
-                                        Brush.horizontalGradient(
-                                            listOf(StrideLabVisualPalette.easyTeal, lime)
-                                        )
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(StrideLabVisualPalette.easyTeal, lime)
                                     )
-                            )
-                        }
-                    }
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    listOf("0", "30", "60", "90", "120").forEach {
-                        Text("$it km", fontSize = 10.sp, color = PlanBuilderPalette.muted)
+                                )
+                        )
                     }
                 }
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                listOf("0", "30", "60", "90", "120").forEach {
+                    Text("$it km", fontSize = 10.sp, color = PlanBuilderPalette.muted)
+                }
             }
+            Spacer(Modifier.height(12.dp))
+            StrideLabHairline()
         }
 
         Spacer(Modifier.height(18.dp))
@@ -243,8 +233,7 @@ internal fun TracksideAdvancedRunning(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = PlanBuilderPalette.surface,
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, PlanBuilderPalette.border)
+            shape = RoundedCornerShape(14.dp)
         ) {
             Row(
                 modifier = Modifier

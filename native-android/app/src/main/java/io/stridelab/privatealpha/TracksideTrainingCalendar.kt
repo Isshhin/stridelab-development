@@ -407,18 +407,18 @@ internal fun TracksideTrainingWeekChart(
                     Surface(
                         onClick = { onSelect(day.date) },
                         enabled = enabled,
-                        shape = RoundedCornerShape(13.dp),
+                        shape = RoundedCornerShape(12.dp),
                         color = when {
                             active -> StrideLabVisualPalette.limeTint
-                            weekScopeSelected && (hasLogged || hasPlanned) -> StrideLabVisualPalette.surfaceRaised
+                            weekScopeSelected && (hasLogged || hasPlanned) -> StrideLabVisualPalette.surfaceRaised.copy(alpha = 0.45f)
                             else -> Color.Transparent
                         },
                         border = BorderStroke(
                             1.dp,
                             when {
-                                active -> StrideLabVisualPalette.lime
-                                weekScopeSelected && (hasLogged || hasPlanned) -> barAccent.copy(alpha = 0.45f)
-                                else -> StrideLabVisualPalette.border
+                                active -> StrideLabVisualPalette.lime.copy(alpha = 0.85f)
+                                weekScopeSelected && (hasLogged || hasPlanned) -> barAccent.copy(alpha = 0.3f)
+                                else -> Color.Transparent
                             }
                         ),
                         modifier = Modifier.weight(1f)

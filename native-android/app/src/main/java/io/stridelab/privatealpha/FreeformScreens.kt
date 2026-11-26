@@ -165,10 +165,9 @@ internal fun FreeformHub(
     removeDraft: (String) -> Unit,
     restored: (FreeformBoard) -> Unit,
     openTemplates: () -> Unit,
-    startEmpty: (ManualDiscipline) -> Unit,
+    startEmpty: () -> Unit,
     openDraft: (String) -> Unit
 ) {
-    var choosing by rememberSaveable { mutableStateOf(false) }
     var working by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -336,7 +335,7 @@ internal fun FreeformHub(
                 Spacer(Modifier.height(4.dp))
                 FreeformPrimary(
                     label = "Start empty workout",
-                    onClick = { choosing = true },
+                    onClick = startEmpty,
                     modifier = Modifier.fillMaxWidth().testTag("freeform-log"),
                     enabled = board != null && !working
                 )
@@ -428,77 +427,6 @@ internal fun FreeformHub(
             }
         }
     }
-
-    if (choosing && board != null) {
-        ModalBottomSheet(
-            onDismissRequest = { choosing = false },
-            containerColor = StrideLabSurfaceTokens.surfaceElevated,
-            contentColor = StrideLabSurfaceTokens.ink,
-            modifier = Modifier.testTag("freeform-discipline-sheet")
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    "Choose a discipline",
-                    color = StrideLabSurfaceTokens.ink,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                ManualDiscipline.entries.chunked(2).forEach { pair ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        pair.forEach { discipline ->
-                            Surface(
-                                onClick = {
-                                    choosing = false
-                                    startEmpty(discipline)
-                                },
-                                shape = RoundedCornerShape(12.dp),
-                                color = StrideLabSurfaceTokens.surfaceSubtle,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 56.dp)
-                                    .testTag("freeform-discipline-${discipline.name}")
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .width(4.dp)
-                                            .height(22.dp)
-                                            .clip(RoundedCornerShape(2.dp))
-                                            .background(discipline.markColor)
-                                    )
-                                    Text(
-                                        text = discipline.label,
-                                        color = StrideLabSurfaceTokens.ink,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-                        if (pair.size == 1) {
-                            Spacer(Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 @Composable
@@ -534,6 +462,7 @@ internal fun FreeformHistoryDetail(
     val subtitle = workout?.let { "${it.discipline.label} · ${it.sourceLabel} · ${it.performedOn}" }
         ?: legacy?.let { "${it.discipline.label} · Manual · ${it.performedOn}" }
     val showSkeleton = rememberDelayedSkeletonVisible(loading && workout == null && legacy == null)
+    val catalog = rememberAugmentedExerciseCatalog()
     FreeformPage(title, subtitle, back) {
         LazyColumn(
             Modifier.fillMaxSize(),
@@ -575,7 +504,6 @@ internal fun FreeformHistoryDetail(
                     }
                 }
                 item(key = "freeform-history-muscle-focus") {
-                    val catalog = rememberAugmentedExerciseCatalog()
                     val workoutFocus = remember(workout, catalog) {
                         MuscleFocusProjector.forConfirmedFreeformWorkout(workout, catalog)
                     }
@@ -619,7 +547,12 @@ internal fun FreeformHistoryDetail(
                         }
                     }
                 }
+                val historyCatalog = catalog
                 items(workout.exercises.filter { exercise -> exercise.sets.any { it.completed } }, key = { it.id }) { exercise ->
+                    val exerciseDiscipline = remember(exercise, workout.discipline, historyCatalog) {
+                        if (workout.discipline == ManualDiscipline.RUNNING) workout.discipline
+                        else FreeformExerciseCatalog.resolveExerciseDiscipline(exercise, historyCatalog, workout.discipline)
+                    }
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -630,7 +563,7 @@ internal fun FreeformHistoryDetail(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        if (workout.discipline == ManualDiscipline.CONDITIONING) {
+                        if (exerciseDiscipline == ManualDiscipline.CONDITIONING) {
                             Text(
                                 listOfNotNull(
                                     exercise.format.label,
@@ -645,8 +578,8 @@ internal fun FreeformHistoryDetail(
                         }
                         exercise.sets.forEachIndexed { index, set ->
                             if (set.completed) {
-                                val label = if (workout.discipline == ManualDiscipline.CONDITIONING) "Round" else "Set"
-                                val actual = set.actual.label(workout.discipline).ifBlank { "Completed" }
+                                val label = if (exerciseDiscipline == ManualDiscipline.CONDITIONING) "Round" else "Set"
+                                val actual = set.actual.label(exerciseDiscipline).ifBlank { "Completed" }
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
@@ -664,7 +597,7 @@ internal fun FreeformHistoryDetail(
                                     )
                                 }
                                 val context = listOfNotNull(
-                                    set.target.label(workout.discipline).takeIf { it.isNotBlank() }?.let { "Target $it" },
+                                    set.target.label(exerciseDiscipline).takeIf { it.isNotBlank() }?.let { "Target $it" },
                                     set.restSeconds.takeIf { it.isNotBlank() }?.let { "Rest $it s" },
                                     set.rpe.takeIf { it.isNotBlank() }?.let { "RPE $it" },
                                     set.rir.takeIf { it.isNotBlank() }?.let { "RIR $it" }

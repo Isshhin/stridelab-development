@@ -35,7 +35,7 @@ internal fun WorkoutTemplateLibrary(
     templates: List<ManualWorkoutTemplate>,
     access: FreeformAccess,
     back: () -> Unit,
-    create: (ManualDiscipline) -> Unit,
+    create: () -> Unit,
     edit: (String) -> Unit,
     schedule: (String) -> Unit,
     added: (ManualWorkoutTemplate) -> Unit,
@@ -44,11 +44,14 @@ internal fun WorkoutTemplateLibrary(
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf<ManualDiscipline?>(null) }
-    var choosing by rememberSaveable { mutableStateOf(false) }
     var confirming by remember { mutableStateOf<ManualWorkoutTemplate?>(null) }
     var busy by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val hasLegacyRunning = remember(templates) { templates.any { it.discipline == ManualDiscipline.RUNNING } }
+    val filterDisciplines = remember(hasLegacyRunning) {
+        if (hasLegacyRunning) loggableManualDisciplines + ManualDiscipline.RUNNING else loggableManualDisciplines
+    }
     val visible = templates.filter {
         (filter == null || it.discipline == filter) && it.name.contains(query.trim(), ignoreCase = true)
     }
@@ -72,7 +75,7 @@ internal fun WorkoutTemplateLibrary(
             item {
                 FreeformPrimary(
                     "Create template",
-                    { choosing = true },
+                    create,
                     Modifier.fillMaxWidth().testTag("workout-template-new"),
                     enabled = !busy
                 )
@@ -101,7 +104,7 @@ internal fun WorkoutTemplateLibrary(
                             label = { Text("All") },
                             modifier = Modifier.heightIn(min = 48.dp)
                         )
-                        ManualDiscipline.entries.forEach { discipline ->
+                        filterDisciplines.forEach { discipline ->
                             FilterChip(
                                 selected = filter == discipline,
                                 onClick = { filter = if (filter == discipline) null else discipline },
@@ -153,74 +156,6 @@ internal fun WorkoutTemplateLibrary(
                 )
             }
             item { FreeformError(failure) }
-        }
-    }
-
-    if (choosing) {
-        ModalBottomSheet(
-            onDismissRequest = { choosing = false },
-            containerColor = StrideLabSurfaceTokens.surfaceElevated,
-            contentColor = StrideLabSurfaceTokens.ink
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    "Choose a discipline",
-                    color = StrideLabSurfaceTokens.ink,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                ManualDiscipline.entries.chunked(2).forEach { pair ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        pair.forEach { discipline ->
-                            Surface(
-                                onClick = {
-                                    choosing = false
-                                    create(discipline)
-                                },
-                                shape = RoundedCornerShape(12.dp),
-                                color = StrideLabSurfaceTokens.surfaceSubtle,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 56.dp)
-                                    .testTag("workout-template-discipline-${discipline.name}")
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .width(4.dp)
-                                            .height(22.dp)
-                                            .clip(RoundedCornerShape(2.dp))
-                                            .background(discipline.markColor)
-                                    )
-                                    Text(
-                                        discipline.label,
-                                        color = StrideLabSurfaceTokens.ink,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-                        if (pair.size == 1) Spacer(Modifier.weight(1f))
-                    }
-                }
-            }
         }
     }
 
@@ -394,7 +329,11 @@ internal fun WorkoutTemplateEditor(
     }
     BackHandler { goBack() }
 
-    FreeformPage(if (previous == null) "New template" else "Edit template", seed.discipline.label, ::goBack) {
+    FreeformPage(
+        if (previous == null) "New template" else "Edit template",
+        if (seed.discipline == ManualDiscipline.RUNNING) seed.discipline.label else "Universal workout",
+        ::goBack
+    ) {
         LazyColumn(
             Modifier.weight(1f).fillMaxWidth().testTag("workout-template-editor"),
             contentPadding = PaddingValues(16.dp),
@@ -440,9 +379,13 @@ internal fun WorkoutTemplateEditor(
                 }
             }
             itemsIndexed(editor.exercises, key = { _, exercise -> exercise.id }) { index, exercise ->
+                val exerciseDiscipline = remember(exercise, seed.discipline, exerciseCatalog) {
+                    if (seed.discipline == ManualDiscipline.RUNNING) seed.discipline
+                    else FreeformExerciseCatalog.resolveExerciseDiscipline(exercise, exerciseCatalog, seed.discipline)
+                }
                 FreeformExercisePanel(
                     exercise,
-                    seed.discipline,
+                    exerciseDiscipline,
                     null,
                     index > 0,
                     index < editor.exercises.lastIndex,
@@ -512,17 +455,18 @@ internal fun WorkoutTemplateEditor(
         }
     }
     if (picker) {
-        FreeformExercisePicker(seed.discipline, close = { picker = false }) {
+        FreeformExercisePicker(close = { picker = false }) {
             editor = editor.copy(exercises = editor.exercises + it)
             picker = false
         }
     }
     inspectExercise?.let { target ->
+        val inspectDiscipline = FreeformExerciseCatalog.resolveExerciseDiscipline(target, exerciseCatalog, seed.discipline)
         ExerciseInfoSheet(
             exerciseId = target.catalogId,
             exerciseName = target.name,
-            disciplineLabel = seed.discipline.label,
-            disciplineTint = seed.discipline.markColor,
+            disciplineLabel = inspectDiscipline.label,
+            disciplineTint = inspectDiscipline.markColor,
             catalog = exerciseCatalog,
             onDismiss = { inspectExercise = null }
         )

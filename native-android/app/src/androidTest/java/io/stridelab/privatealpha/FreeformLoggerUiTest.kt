@@ -46,51 +46,44 @@ class FreeformLoggerUiTest {
         context.deleteSharedPreferences(fixture)
     }
 
-    @Test fun allSixDisciplinesSaveActualsAndAppearInGuestTrainingHistory() = reportUiFailure {
+    @Test fun universalLoggerSavesMixedExercisesAndAppearsInGuestTrainingHistory() = reportUiFailure {
         compose.onNodeWithTag("nav-training").performClick()
-        ManualDiscipline.entries.forEach { discipline ->
-            openNew(discipline)
-            when (discipline) {
-                ManualDiscipline.RUNNING -> {
-                    field("freeform-run-distance").performScrollTo().performTextInput("4.25")
-                    field("freeform-run-duration").performScrollTo().performTextInput("25")
-                }
-                ManualDiscipline.STRENGTH, ManualDiscipline.PLYOMETRICS, ManualDiscipline.CALISTHENICS -> {
-                    addCustom("Fixture ${discipline.label}")
-                    field("freeform-actual-0-quantity").performScrollTo().performTextInput("8")
-                    node("freeform-confirm-0").performScrollTo().performClick()
-                }
-                ManualDiscipline.ISOMETRICS, ManualDiscipline.CONDITIONING -> {
-                    addCustom("Fixture ${discipline.label}")
-                    field("freeform-actual-0-seconds").performScrollTo().performTextInput("30")
-                    node("freeform-confirm-0").performScrollTo().performClick()
-                }
-            }
-            closeKeyboard()
-            node("freeform-finish").performClick()
-            node("freeform-review-totals").assertIsDisplayed()
-            node("freeform-save-completed").performClick()
-            awaitNode("freeform-history-summary")
-            val saved = runBlocking { repo.freeformAccess().read(owner).workouts.single { it.discipline == discipline } }
-            assertTrue(saved.isComplete)
-            if (discipline == ManualDiscipline.RUNNING) {
-                assertEquals("4.25", saved.distanceKm)
-                assertEquals("25", saved.durationMinutes)
-            } else {
-                assertTrue(saved.exercises.single().sets.single().completed)
-            }
-            awaitBack().performClick()
-            val historyTag = "training-freeform-${saved.id}"
-            node("training-unified-timeline").performScrollToNode(hasTestTag(historyTag))
-            node(historyTag).assertIsDisplayed()
-        }
+        openNew()
+        addCustom("Fixture Strength")
+        field("freeform-actual-0-quantity").performScrollTo().performTextInput("8")
+        node("freeform-confirm-0").performScrollTo().performClick()
+
+        node("freeform-editor").performScrollToNode(hasTestTag("freeform-add-exercise"))
+        node("freeform-add-exercise").performClick()
+        awaitNode("freeform-exercise-picker-sheet")
+        compose.onNodeWithTag("freeform-picker-filter-running").assertDoesNotExist()
+        awaitNode("freeform-picker-filter-isometrics").performScrollTo().performClick()
+        awaitNode("freeform-picker-list").performScrollToNode(hasText("Wall sit"))
+        compose.onNodeWithText("Wall sit").performClick()
+        node("freeform-editor").performScrollToNode(hasText("Wall sit"))
+        compose.onAllNodesWithTag("freeform-actual-0-seconds", useUnmergedTree = true).onLast().performScrollTo().performTextInput("30")
+        compose.onAllNodesWithTag("freeform-confirm-0", useUnmergedTree = true).onLast().performScrollTo().performClick()
+
+        closeKeyboard()
+        node("freeform-finish").performClick()
+        node("freeform-review-totals").assertIsDisplayed()
+        node("freeform-save-completed").performClick()
+        awaitNode("freeform-history-summary")
+        val saved = runBlocking { repo.freeformAccess().read(owner).workouts.single() }
+        assertTrue(saved.isComplete)
+        assertEquals(2, saved.exercises.size)
+        assertTrue(saved.exercises.all { it.sets.single().completed })
+        awaitBack().performClick()
+        val historyTag = "training-freeform-${saved.id}"
+        node("training-unified-timeline").performScrollToNode(hasTestTag(historyTag))
+        node(historyTag).assertIsDisplayed()
         assertTrue(repo.state.value.plans.isEmpty())
         assertTrue(repo.state.value.activities.isEmpty())
     }
 
     @Test fun catalogSearchSetEditingDuplicateAndResume() = reportUiFailure {
         node("nav-training").performClick()
-        openNew(ManualDiscipline.STRENGTH)
+        openNew()
         node("freeform-editor").performScrollToNode(hasTestTag("freeform-add-exercise"))
         node("freeform-add-exercise").performClick()
         awaitNode("freeform-exercise-picker-sheet")
@@ -121,54 +114,49 @@ class FreeformLoggerUiTest {
         assertEquals(listOf(true, false), sets.map { it.completed })
     }
 
-    @Test fun runningRoutineCreateStartFinishAndSaveFromHistory() = reportUiFailure {
+    @Test fun universalRoutineCreateStartFinishAndSaveFromHistory() = reportUiFailure {
         node("nav-training").performClick()
         node("nav-quick-log").performClick()
         awaitNode("quick-log-hub").performScrollTo().performClick()
         awaitNode("freeform-open-templates").performClick()
         awaitNode("workout-template-new").performClick()
-        awaitNode("workout-template-discipline-RUNNING").performScrollTo().performClick()
         awaitNode("workout-template-editor")
-        field("workout-template-title").performScrollTo().performTextReplacement("Track warm-up")
-        field("workout-template-distance").performScrollTo().performTextInput("5")
+        field("workout-template-title").performScrollTo().performTextReplacement("Upper circuit")
+        node("workout-template-exercise").performScrollTo().performClick()
+        awaitNode("freeform-exercise-picker-sheet")
+        field("freeform-exercise-query").performTextInput("Push-up")
         closeKeyboard()
-        field("workout-template-duration").performScrollTo().performTextInput("30")
-        closeKeyboard()
+        awaitNode("freeform-add-custom").performClick()
         node("workout-template-save").performClick()
         awaitNode("workout-template-start").performScrollTo().performClick()
-        awaitNode("freeform-run-targets").assertIsDisplayed()
+        awaitNode("freeform-editor")
         val original = runBlocking { repo.freeformAccess().read(owner) }
         val draft = original.workouts.single()
-        assertTrue(draft.distanceKm.isEmpty() && draft.durationMinutes.isEmpty())
         assertEquals(original.templates.single().id, draft.templateId)
 
-        field("freeform-run-distance").performScrollTo().performTextInput("4.5")
-        field("freeform-run-duration").performScrollTo().performTextInput("28")
+        field("freeform-actual-0-quantity").performScrollTo().performTextInput("15")
         closeKeyboard()
+        node("freeform-confirm-0").performScrollTo().performClick()
         node("freeform-finish").performClick()
         awaitNode("freeform-save-completed").performClick()
         awaitNode("freeform-save-as-template").performScrollTo().performClick()
         awaitNode("workout-template-editor")
-        field("workout-template-title").performScrollTo().performTextReplacement("Repeat warm-up")
+        field("workout-template-title").performScrollTo().performTextReplacement("Repeat circuit")
         closeKeyboard()
         node("workout-template-save").performClick()
         awaitNode("workout-template-list")
         val after = runBlocking { repo.freeformAccess().read(owner) }
-        assertEquals(listOf("Repeat warm-up", "Track warm-up"), after.templates.map { it.name })
-        assertTrue(after.templates.all { it.structure.distanceKm == "5" && it.structure.durationMinutes == "30" })
-        assertEquals("4.5", after.workouts.single().distanceKm)
+        assertEquals(listOf("Repeat circuit", "Upper circuit"), after.templates.map { it.name })
         assertTrue(after.workouts.single().isComplete)
     }
 
-    @Test fun tappingDisciplineAndLeavingWithoutEditsCreatesZeroGhostDrafts() = reportUiFailure {
+    @Test fun openingEmptyWorkoutAndLeavingWithoutEditsCreatesZeroGhostDrafts() = reportUiFailure {
         node("nav-training").performClick()
         node("nav-quick-log").performClick()
         awaitNode("quick-log-hub").performScrollTo().performClick()
         awaitNode("freeform-hub")
         awaitNode("freeform-open-templates").assertIsDisplayed()
         awaitNode("freeform-log").performClick()
-        awaitNode("freeform-discipline-sheet")
-        awaitNode("freeform-discipline-STRENGTH").performScrollTo().performClick()
         awaitNode("freeform-empty-state").assertIsDisplayed()
         awaitNode("freeform-add-exercise").assertIsDisplayed()
         compose.onNodeWithText("Back squat", substring = true, ignoreCase = true).assertDoesNotExist()
@@ -181,7 +169,7 @@ class FreeformLoggerUiTest {
 
     @Test fun oneTapDiscardRemovesInProgressDraftFromWorkoutsHub() = reportUiFailure {
         node("nav-training").performClick()
-        openNew(ManualDiscipline.STRENGTH)
+        openNew()
         addCustom("Goblet squat")
         field("freeform-actual-0-quantity").performScrollTo().performTextInput("10")
         closeKeyboard()
@@ -198,7 +186,7 @@ class FreeformLoggerUiTest {
 
     @Test fun quickAddRecentExerciseAndNonBlockingRestTimerWorkDuringSetLogging() = reportUiFailure {
         node("nav-training").performClick()
-        openNew(ManualDiscipline.STRENGTH)
+        openNew()
         addCustom("Overhead press")
         field("freeform-actual-0-quantity").performScrollTo().performTextInput("5")
         closeKeyboard()
@@ -208,7 +196,7 @@ class FreeformLoggerUiTest {
         awaitNode("freeform-history-summary")
         awaitBack().performClick()
 
-        openNew(ManualDiscipline.STRENGTH)
+        openNew()
         awaitNode("freeform-quick-add-Overhead press").performScrollTo().performClick()
         awaitNode("freeform-set-0")
         field("freeform-actual-0-quantity").performScrollTo().performTextInput("5")
@@ -227,16 +215,13 @@ class FreeformLoggerUiTest {
         })
     }
 
-    private fun openNew(discipline: ManualDiscipline) {
+    private fun openNew() {
         node("nav-quick-log").performClick()
         awaitNode("quick-log-hub").performScrollTo().performClick()
         compose.waitUntil(10_000) {
             compose.onAllNodes(hasTestTag("freeform-log") and isEnabled()).fetchSemanticsNodes().isNotEmpty()
         }
         node("freeform-log").performClick()
-        awaitNode("freeform-discipline-sheet")
-        val tag = "freeform-discipline-${discipline.name}"
-        awaitNode(tag).performScrollTo().performClick()
         awaitNode("freeform-editor")
     }
 

@@ -59,66 +59,60 @@ internal fun TracksideTrainingHubHeader(
     var selectorOpen by rememberSaveable(approvedPlans.first().owner) { mutableStateOf(false) }
     var manageOpen by rememberSaveable(approvedPlans.first().owner) { mutableStateOf(false) }
 
-    // Interactive 7-Day Calendar placed first directly below Training header
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = hubCard,
-        border = BorderStroke(1.dp, hubBorder),
-        modifier = Modifier.fillMaxWidth()
+    // Flat AMOLED Calendar placed first directly below Training header
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(Modifier.width(164.dp)) {
-                    StrideLabLiquidSegmentedControl(
-                        labels = listOf("day" to "Day", "agenda" to "Week"),
-                        selectedKey = if (agenda) "agenda" else "day",
-                        accent = hubLime,
-                        testTagPrefix = "training-view",
-                        onSelect = { key -> onAgenda(key == "agenda") }
-                    )
+            Box(Modifier.width(164.dp)) {
+                StrideLabLiquidSegmentedControl(
+                    labels = listOf("day" to "Day", "agenda" to "Week"),
+                    selectedKey = if (agenda) "agenda" else "day",
+                    accent = hubLime,
+                    testTagPrefix = "training-view",
+                    onSelect = { key -> onAgenda(key == "agenda") }
+                )
+            }
+            Box {
+                TextButton(
+                    onClick = {
+                        if (scoped.size == 1) onManage(scoped.single().id) else manageOpen = true
+                    },
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .testTag("training-manage-plan")
+                ) {
+                    Text("Manage ›", color = hubLime, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
-                Box {
-                    TextButton(
-                        onClick = {
-                            if (scoped.size == 1) onManage(scoped.single().id) else manageOpen = true
-                        },
-                        modifier = Modifier
-                            .heightIn(min = 48.dp)
-                            .testTag("training-manage-plan")
-                    ) {
-                        Text("Manage ›", color = hubLime, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
-                    DropdownMenu(expanded = manageOpen, onDismissRequest = { manageOpen = false }) {
-                        scoped.forEach { plan ->
-                            DropdownMenuItem(
-                                text = { Text(plan.name ?: plan.request.goal) },
-                                onClick = { manageOpen = false; onManage(plan.id) },
-                                modifier = Modifier.testTag("training-manage-${plan.id}")
-                            )
-                        }
+                DropdownMenu(expanded = manageOpen, onDismissRequest = { manageOpen = false }) {
+                    scoped.forEach { plan ->
+                        DropdownMenuItem(
+                            text = { Text(plan.name ?: plan.request.goal) },
+                            onClick = { manageOpen = false; onManage(plan.id) },
+                            modifier = Modifier.testTag("training-manage-${plan.id}")
+                        )
                     }
                 }
             }
-
-            TracksideTrainingWeekChart(
-                plans = scoped,
-                selected = selectedDate,
-                showNavigation = true,
-                recordedDates = recordedDates,
-                weekScopeSelected = agenda,
-                onToggleWeekScope = { onAgenda(!agenda) },
-                customPlanned = customPlanned,
-                customCalendar = customCalendar,
-                onSelect = onSelectedDate
-            )
         }
+
+        TracksideTrainingWeekChart(
+            plans = scoped,
+            selected = selectedDate,
+            showNavigation = true,
+            recordedDates = recordedDates,
+            weekScopeSelected = agenda,
+            onToggleWeekScope = { onAgenda(!agenda) },
+            customPlanned = customPlanned,
+            customCalendar = customCalendar,
+            onSelect = onSelectedDate
+        )
+        StrideLabHairline()
     }
 
     // Flat Active Plan Identity Strip (hairline-bounded, no heavy nested gradient box)
@@ -238,16 +232,22 @@ internal fun TracksideTrainingHubHeader(
 internal fun TracksideTrainingTargetWarning(plan: PlanSnapshot) {
     val review = Engine15MileageTargetIntegrity.review(plan) ?: return
     if (!review.requiresFoundationDecision || plan.request.foundationAcknowledged) return
-    Surface(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(IntrinsicSize.Min)
             .testTag("training-target-integrity-warning"),
-        color = StrideLabVisualPalette.surfaceRaised,
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, StrideLabVisualPalette.moderateAmber.copy(alpha = 0.45f))
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(2.dp))
+                .background(StrideLabVisualPalette.moderateAmber)
+        )
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.weight(1f).padding(vertical = 2.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(

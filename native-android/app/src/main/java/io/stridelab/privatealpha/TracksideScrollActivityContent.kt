@@ -696,10 +696,10 @@ private fun TracksideActivityAnalysisBody(
             )
             return@Column
         }
-        key(source, recorded, execution, zones, runIntent) {
+        key(source, recorded, execution, zones, runIntent, history) {
             val report by produceState<RunningAnalysisReport?>(null) {
                 value = withContext(Dispatchers.Default) {
-                    Engine15DebriefEngine.runningReport(source, recorded, execution, zones, runIntent)
+                    Engine15DebriefEngine.runningReport(source, recorded, execution, zones, runIntent, history)
                 }
             }
             report?.let { analysis ->

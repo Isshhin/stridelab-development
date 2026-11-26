@@ -456,114 +456,115 @@ internal fun PlanPeriodizationChart(
     val maxKm = (weekTotals.maxOfOrNull { it.first } ?: 1.0).coerceAtLeast(1.0)
     val activeWeek = weekTotals.getOrNull(selectedWeekIndex.coerceIn(0, weekTotals.lastIndex))
 
-    Surface(
-        modifier = modifier.fillMaxWidth().testTag("plan-periodization-chart"),
-        color = StrideLabVisualPalette.surface,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, StrideLabVisualPalette.border)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("plan-periodization-chart")
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "VOLUME PROGRESSION",
+                    color = StrideLabVisualPalette.muted,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.3.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.weight(1f)
+                )
                 Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        "VOLUME PROGRESSION",
-                        color = StrideLabVisualPalette.muted,
-                        fontSize = 10.sp,
-                        letterSpacing = 1.3.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        softWrap = false,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        LegendDot("Build", StrideLabVisualPalette.lime)
-                        LegendDot("Rec", StrideLabVisualPalette.recoveryCyan)
-                        LegendDot("Key", StrideLabVisualPalette.moderateAmber)
-                    }
-                }
-                activeWeek?.let { (km, _, rec) ->
-                    Text(
-                        "Week ${selectedWeekIndex + 1} · ${"%.1f".format(Locale.US, km)} km" + if (rec) " · Recovery" else " · Build",
-                        color = if (rec) StrideLabVisualPalette.recoveryCyan else StrideLabVisualPalette.lime,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    LegendDot("Build", StrideLabVisualPalette.lime)
+                    LegendDot("Rec", StrideLabVisualPalette.recoveryCyan)
+                    LegendDot("Key", StrideLabVisualPalette.moderateAmber)
                 }
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                weekTotals.forEachIndexed { index, (km, hasQuality, isRecovery) ->
-                    val selected = index == selectedWeekIndex
-                    val barHeight = (km / maxKm).toFloat().coerceIn(0.18f, 1f)
-                    val baseColor = if (isRecovery) StrideLabVisualPalette.recoveryCyan else StrideLabVisualPalette.lime
-                    Column(
+            activeWeek?.let { (km, _, rec) ->
+                Text(
+                    "Week ${selectedWeekIndex + 1} · ${"%.1f".format(Locale.US, km)} km" + if (rec) " · Recovery" else " · Build",
+                    color = if (rec) StrideLabVisualPalette.recoveryCyan else StrideLabVisualPalette.lime,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    style = TabularTextStyle
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            weekTotals.forEachIndexed { index, (km, hasQuality, isRecovery) ->
+                val selected = index == selectedWeekIndex
+                val barHeight = (km / maxKm).toFloat().coerceIn(0.18f, 1f)
+                val baseColor = if (isRecovery) StrideLabVisualPalette.recoveryCyan else StrideLabVisualPalette.lime
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { onSelectWeek(index) }
+                        .padding(vertical = 2.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier.height(10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (hasQuality) {
+                            Box(
+                                Modifier
+                                    .size(5.dp)
+                                    .clip(CircleShape)
+                                    .background(StrideLabVisualPalette.moderateAmber)
+                            )
+                        }
+                    }
+                    Box(
                         modifier = Modifier
-                            .weight(1f)
+                            .fillMaxWidth(0.76f)
+                            .height(80.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .clickable { onSelectWeek(index) }
-                            .padding(vertical = 2.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .background(StrideLabVisualPalette.surfaceRaised),
+                        contentAlignment = Alignment.BottomCenter
                     ) {
                         Box(
-                            modifier = Modifier.height(10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (hasQuality) {
-                                Box(
-                                    Modifier
-                                        .size(5.dp)
-                                        .clip(CircleShape)
-                                        .background(StrideLabVisualPalette.moderateAmber)
-                                )
-                            }
-                        }
-                        Box(
                             modifier = Modifier
-                                .fillMaxWidth(0.76f)
-                                .height(80.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(StrideLabVisualPalette.surfaceRaised),
-                            contentAlignment = Alignment.BottomCenter
+                                .fillMaxWidth()
+                                .height((barHeight * 80f).coerceAtLeast(10f).dp)
+                                .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
+                                .background(StrideLabVisualPalette.barGradient(baseColor, if (selected) 1f else 0.45f))
                         ) {
                             Box(
-                                modifier = Modifier
+                                Modifier
                                     .fillMaxWidth()
-                                    .height((barHeight * 80f).coerceAtLeast(10f).dp)
-                                    .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp, bottomStart = 2.dp, bottomEnd = 2.dp))
-                                    .background(StrideLabVisualPalette.barGradient(baseColor, if (selected) 1f else 0.45f))
-                            ) {
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(2.5.dp)
-                                        .align(Alignment.TopCenter)
-                                        .background(if (selected) baseColor else baseColor.copy(alpha = 0.55f))
-                                )
-                            }
+                                    .height(2.5.dp)
+                                    .align(Alignment.TopCenter)
+                                    .background(if (selected) baseColor else baseColor.copy(alpha = 0.55f))
+                            )
                         }
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "${index + 1}",
-                            fontSize = if (totalWeeks > 12) 8.5.sp else 9.5.sp,
-                            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
-                            color = if (selected) StrideLabVisualPalette.ink else StrideLabVisualPalette.muted,
-                            maxLines = 1,
-                            softWrap = false
-                        )
                     }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "${index + 1}",
+                        fontSize = if (totalWeeks > 12) 8.5.sp else 9.5.sp,
+                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                        color = if (selected) StrideLabVisualPalette.ink else StrideLabVisualPalette.muted,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
             }
         }
+        StrideLabHairline()
     }
 }
 
@@ -581,7 +582,7 @@ private fun LegendDot(label: String, color: Color) {
     }
 }
 
-/** Sleek 3-zone Training Intensity Distribution card powered by Engine15MarathonTidEvaluator. */
+/** Sleek 3-zone Training Intensity Distribution strip powered by Engine15MarathonTidEvaluator. */
 @Composable
 internal fun TidIntensityBar(
     evaluation: Engine15TidEvaluation,
@@ -597,39 +598,39 @@ internal fun TidIntensityBar(
         Engine15TidPattern.HIGH_INTENSITY_HEAVY -> "High Intensity"
         Engine15TidPattern.INCOMPLETE_PRESCRIPTION_DATA -> "Partial"
     }
-    Surface(
-        modifier = modifier.fillMaxWidth().testTag("tid-intensity-bar"),
-        color = StrideLabVisualPalette.surface,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, StrideLabVisualPalette.border)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("tid-intensity-bar")
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("INTENSITY DISTRIBUTION", color = StrideLabVisualPalette.muted, fontSize = 10.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
-                Surface(
-                    color = StrideLabVisualPalette.limeTint,
-                    shape = RoundedCornerShape(20.dp),
-                    border = BorderStroke(1.dp, StrideLabVisualPalette.lime.copy(alpha = 0.45f))
-                ) {
-                    Text(patternLabel, color = StrideLabVisualPalette.lime, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp))
-                }
-            }
-            Row(
-                Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(8.dp))
-                    .background(StrideLabVisualPalette.surfaceRaised),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("INTENSITY DISTRIBUTION", color = StrideLabVisualPalette.muted, fontSize = 10.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
+            Surface(
+                color = StrideLabVisualPalette.limeTint,
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, StrideLabVisualPalette.lime.copy(alpha = 0.45f))
             ) {
-                if (z1 > 0.005f) Box(Modifier.weight(z1).fillMaxHeight().background(StrideLabVisualPalette.easyTeal))
-                if (z2 > 0.005f) Box(Modifier.weight(z2).fillMaxHeight().background(StrideLabVisualPalette.moderateAmber))
-                if (z3 > 0.005f) Box(Modifier.weight(z3).fillMaxHeight().background(StrideLabVisualPalette.highCoral))
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                LegendValue("Easy", "${(z1 * 100).toInt()}%", StrideLabVisualPalette.easyTeal)
-                LegendValue("Tempo / Thr", "${(z2 * 100).toInt()}%", StrideLabVisualPalette.moderateAmber)
-                LegendValue("Intervals", "${(z3 * 100).toInt()}%", StrideLabVisualPalette.highCoral)
+                Text(patternLabel, color = StrideLabVisualPalette.lime, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp))
             }
         }
+        Row(
+            Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(8.dp))
+                .background(StrideLabVisualPalette.surfaceRaised),
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            if (z1 > 0.005f) Box(Modifier.weight(z1).fillMaxHeight().background(StrideLabVisualPalette.easyTeal))
+            if (z2 > 0.005f) Box(Modifier.weight(z2).fillMaxHeight().background(StrideLabVisualPalette.moderateAmber))
+            if (z3 > 0.005f) Box(Modifier.weight(z3).fillMaxHeight().background(StrideLabVisualPalette.highCoral))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            LegendValue("Easy", "${(z1 * 100).toInt()}%", StrideLabVisualPalette.easyTeal)
+            LegendValue("Tempo / Thr", "${(z2 * 100).toInt()}%", StrideLabVisualPalette.moderateAmber)
+            LegendValue("Intervals", "${(z3 * 100).toInt()}%", StrideLabVisualPalette.highCoral)
+        }
+        StrideLabHairline()
     }
 }
 
@@ -648,52 +649,50 @@ internal fun ProvisionalPaceZoneStrip(
     zones: Engine15ProvisionalPaceZones,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier.fillMaxWidth().testTag("provisional-pace-zone-strip"),
-        color = StrideLabVisualPalette.surface,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, StrideLabVisualPalette.border)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("provisional-pace-zone-strip")
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("TRAINING PACE ZONES", color = StrideLabVisualPalette.muted, fontSize = 10.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
-                Text("ESTIMATED", color = StrideLabVisualPalette.lime, fontSize = 9.5.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                val items = listOf(
-                    Triple("EASY", zones.easy, StrideLabVisualPalette.easyTeal),
-                    Triple("TEMPO", zones.tempo, StrideLabVisualPalette.moderateAmber),
-                    Triple("THR", zones.threshold, StrideLabVisualPalette.lime),
-                    Triple("INT", zones.intervals, StrideLabVisualPalette.highCoral)
-                )
-                items.forEach { (label, range, color) ->
-                    Surface(
-                        modifier = Modifier.weight(1f),
-                        color = StrideLabVisualPalette.canvas,
-                        shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, color.copy(alpha = 0.28f))
-                    ) {
-                        Column(
-                            Modifier.padding(vertical = 9.dp, horizontal = 4.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(Modifier.width(18.dp).height(2.5.dp).clip(RoundedCornerShape(2.dp)).background(color))
-                            Spacer(Modifier.height(5.dp))
-                            Text(label, color = color, fontSize = 9.sp, letterSpacing = 0.8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                Engine15PaceRange.formatPace(range.midpointSecondsPerKm),
-                                color = StrideLabVisualPalette.ink,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                maxLines = 1
-                            )
-                            Text("/km", color = StrideLabVisualPalette.muted, fontSize = 9.sp)
-                        }
-                    }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("TRAINING PACE ZONES", color = StrideLabVisualPalette.muted, fontSize = 10.sp, letterSpacing = 1.3.sp, fontWeight = FontWeight.Bold)
+            Text("ESTIMATED", color = StrideLabVisualPalette.lime, fontSize = 9.5.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            val items = listOf(
+                Triple("EASY", zones.easy, StrideLabVisualPalette.easyTeal),
+                Triple("TEMPO", zones.tempo, StrideLabVisualPalette.moderateAmber),
+                Triple("THR", zones.threshold, StrideLabVisualPalette.lime),
+                Triple("INT", zones.intervals, StrideLabVisualPalette.highCoral)
+            )
+            items.forEach { (label, range, color) ->
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(StrideLabVisualPalette.surface)
+                        .padding(vertical = 9.dp, horizontal = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(Modifier.width(18.dp).height(2.5.dp).clip(RoundedCornerShape(2.dp)).background(color))
+                    Spacer(Modifier.height(5.dp))
+                    Text(label, color = color, fontSize = 9.sp, letterSpacing = 0.8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        Engine15PaceRange.formatPace(range.midpointSecondsPerKm),
+                        color = StrideLabVisualPalette.ink,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        style = TabularTextStyle,
+                        maxLines = 1
+                    )
+                    Text("/km", color = StrideLabVisualPalette.muted, fontSize = 9.sp)
                 }
             }
         }
+        StrideLabHairline()
     }
 }
 
