@@ -2,7 +2,7 @@
 title: "Engine 1.5 — Deterministic Training Coach"
 area: architecture
 status: verified
-last_verified_commit: "016688d0"
+last_verified_commit: "b50884c2"
 key_files:
   - "native-android/app/src/main/java/io/stridelab/privatealpha/EngineContracts.kt"
   - "native-android/app/src/main/java/io/stridelab/privatealpha/Engine1Engines.kt"
@@ -45,7 +45,8 @@ Engine 1.5 (`ENGINE15_VERSION = "1.5.0"`) is StrideLab's pure-Kotlin determinist
 ## Isolated M2-B Intensity Calibration
 
 - `Engine15M2BIntensityCalibrator` evaluates running evidence against an explicit account, discipline, evaluation instant and zone. It reuses the M2-A R3 benchmark contract and keeps elapsed session averages, continuous duration observations, operational guidance and research-only HRR distinct.
-- A reported persistent restriction or unresolved clearance withholds guidance. Cold starts without reported restrictions retain conversational effort guidance. No production caller consumes the candidate.
+- The corrective candidate keeps exact raw and GAP evidence alongside separate non-dominated frontiers, and retains the M2-A operational threshold belief with its workload and evaluation identity.
+- Known persistent restrictions and claimed clearance withhold guidance. HR-only quarantine retains independently eligible pace. Source-window and HR evidence remain descriptive pending trusted adapters. A cold start retains conversational effort guidance. No production caller consumes the candidate.
 
 
 ## Protected Boundaries
