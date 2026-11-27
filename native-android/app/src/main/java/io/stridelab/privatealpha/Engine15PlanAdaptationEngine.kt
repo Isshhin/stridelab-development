@@ -59,9 +59,7 @@ internal object Engine15PlanAdaptationEngine {
         asOfDate: LocalDate,
         zoneId: ZoneId = ZoneId.systemDefault()
     ): PlanAdaptationProposal? {
-        if (!Engine1Engines.canManage(plan) || plan.engineVersion != ENGINE15_VERSION ||
-            (plan.policyId != ENGINE15_INDEPENDENT_RUNNING_POLICY && plan.policyId !in ENGINE15_COACHING_POLICIES)
-        ) {
+        if (!Engine1Engines.canManage(plan) || !Engine1Engines.supportsCoachingLoop(plan)) {
             return null
         }
         if (plan.status !in setOf("approved", "draft", "paused")) return null

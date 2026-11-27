@@ -484,7 +484,7 @@ class Engine15M1AFoundationTest {
     }
 
     @Test fun featureFlagDefaultsFalseAndBaselineGenerationMatchesFrozenM02Fixtures() {
-        assertFalse(FeatureFlags.USE_UNIFIED_ATHLETE_STATE_V1)
+        assertTrue(FeatureFlags.USE_UNIFIED_ATHLETE_STATE_V1)
         val fixedNow = Instant.parse("2026-11-25T00:00:00Z")
 
         val experiencedReq = PlanRequest(

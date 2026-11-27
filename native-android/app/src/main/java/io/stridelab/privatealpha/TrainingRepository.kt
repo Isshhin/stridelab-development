@@ -125,6 +125,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     private val store = TrainingStore(context, databaseName)
     private val manualStore = ManualDisciplineStore(context, manualDatabaseName)
     private val m1LocalStore = Engine15M1LocalStore(TrainingStoreM1Backend(store))
+    private val coachingStateStore = Engine19CoachingStateLocalStore(TrainingStoreM1Backend(store))
+    private val adaptiveProfileStore = Engine20AdaptiveProfileLocalStore(TrainingStoreM1Backend(store))
     private val appContext = context.applicationContext
     internal val thumbnailCache = SharedThumbnailCacheHolder.get(appContext)
     private val engine15ExerciseLibrary by lazy {
@@ -813,6 +815,144 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val nowMs = System.currentTimeMillis()
         m1LocalStore.clearRestriction(owner, restrictionId, java.time.Instant.ofEpochMilli(nowMs), reason, nowMs)
         m1LocalStore.invalidateDerivedAssessment(owner)
+    }
+
+    internal suspend fun loadCoachingDecisionState(): DecisionStateSnapshot = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            coachingStateStore.loadDecisionState(owner)
+        }
+    }
+
+    internal suspend fun evaluateCoachingDecision(
+        event: CoachingEvent,
+        persistDelta: Boolean = false
+    ): CoachingDecisionBundle = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val state = mutable.value
+            val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
+            val baseState = coachingStateStore.loadDecisionState(owner)
+            val enriched = if (baseState.athleteStateSnapshot == null) {
+                val assessment = buildUnifiedAthleteAssessmentLocked(state, owner, event.evaluatedAtUtc)
+                baseState.copy(athleteStateSnapshot = assessment.athleteSnapshot)
+            } else baseState
+            val (bundle, delta) = Engine19CoachingDecisionEngine.evaluate(enriched, event)
+            if (persistDelta) {
+                val nowMs = System.currentTimeMillis()
+                delta.recordedHold?.let { hold ->
+                    coachingStateStore.saveHealthHold(owner, hold, nowMs)
+                    hold.toM1SafetyRestriction()?.let { m1 ->
+                        m1LocalStore.saveRestriction(owner, m1, nowMs)
+                        m1LocalStore.invalidateDerivedAssessment(owner)
+                    }
+                }
+                coachingStateStore.saveDecisionState(owner, delta.nextState, nowMs)
+            }
+            bundle
+        }
+    }
+
+    internal suspend fun evaluateCoachingWeeklyReview(
+        input: WeeklyReviewInputSummary
+    ): WeeklyReviewDecision = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            val currentState = coachingStateStore.loadDecisionState(owner)
+            Engine19CoachingDecisionEngine.evaluateWeeklyReview(currentState, input)
+        }
+    }
+
+    internal suspend fun recordCoachingHealthHold(hold: HealthHoldRecord): Boolean =
+        operation("Recording safety hold…") {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            val nowMs = System.currentTimeMillis()
+            coachingStateStore.saveHealthHold(owner, hold, nowMs)
+            hold.toM1SafetyRestriction()?.let { m1 ->
+                m1LocalStore.saveRestriction(owner, m1, nowMs)
+                m1LocalStore.invalidateDerivedAssessment(owner)
+            }
+        }
+
+    internal suspend fun clearCoachingHealthHold(
+        restrictionId: String,
+        provenance: HealthClearanceProvenance,
+        reason: String? = null
+    ): Boolean = operation("Updating health clearance…") {
+        val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+        val nowMs = System.currentTimeMillis()
+        val nowUtc = java.time.Instant.ofEpochMilli(nowMs)
+        val existing = coachingStateStore.loadHealthHolds(owner)[restrictionId]
+            ?: throw PlanConstraint("HEALTH_HOLD_NOT_FOUND: No active hold matches $restrictionId.")
+        val (updated, cleared) = Engine19HealthEscalationAndState.attemptClearHold(existing, provenance, nowUtc, reason)
+        if (!cleared) {
+            throw PlanConstraint("HEALTH_CLEARANCE_REQUIRED: Cannot clear ${existing.tier.name} without required clearance provenance.")
+        }
+        coachingStateStore.saveHealthHold(owner, updated, nowMs)
+        m1LocalStore.clearRestriction(owner, restrictionId, nowUtc, reason, nowMs)
+        m1LocalStore.invalidateDerivedAssessment(owner)
+    }
+
+    internal suspend fun mergeBackupHealthHoldsMonotonically(
+        importedHolds: Map<String, HealthHoldRecord>
+    ): Int = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            val localHolds = coachingStateStore.loadHealthHolds(owner)
+            val merged = Engine19HealthEscalationAndState.mergeHealthHoldsMonotonically(localHolds, importedHolds, owner)
+            val nowMs = System.currentTimeMillis()
+            merged.values.forEach { hold ->
+                coachingStateStore.saveHealthHold(owner, hold, nowMs)
+                hold.toM1SafetyRestriction()?.let { m1 -> m1LocalStore.saveRestriction(owner, m1, nowMs) }
+            }
+            m1LocalStore.invalidateDerivedAssessment(owner)
+            merged.size
+        }
+    }
+
+    internal suspend fun loadAdaptiveResponseProfile(): AthleteAdaptiveResponseProfile = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            adaptiveProfileStore.loadProfile(owner)
+        }
+    }
+
+    internal suspend fun saveAdaptiveResponseProfile(profile: AthleteAdaptiveResponseProfile): Boolean =
+        operation("Updating individual response profile…") {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            adaptiveProfileStore.saveProfile(owner, profile, System.currentTimeMillis())
+        }
+
+    internal suspend fun setBoundedAutonomyOptIn(enabled: Boolean): Boolean =
+        operation("Updating adaptive coaching preferences…") {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            val nowMs = System.currentTimeMillis()
+            val current = adaptiveProfileStore.loadProfile(owner, java.time.Instant.ofEpochMilli(nowMs))
+            val updated = current.copy(
+                authorityMode = if (enabled) AdaptationAuthorityMode.OPT_IN_BOUNDED_AUTONOMY else AdaptationAuthorityMode.SUPERVISORY_APPROVAL,
+                updatedAtUtc = java.time.Instant.ofEpochMilli(nowMs)
+            )
+            adaptiveProfileStore.saveProfile(owner, updated, nowMs)
+        }
+
+    internal suspend fun evaluateAdaptivePlanAdjustments(
+        basePlanVersion: Int,
+        occFingerprint: OccInputFingerprint,
+        hasLockedConflictOrRaceWeek: Boolean = false,
+        asOfUtc: java.time.Instant = java.time.Instant.now()
+    ): AdaptivePlanEvaluationResult = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            val profile = adaptiveProfileStore.loadProfile(owner, asOfUtc)
+            val decisionState = coachingStateStore.loadDecisionState(owner)
+            Engine20AdaptivePlanEngine.synthesizeAdaptiveAdjustments(
+                profile = profile,
+                decisionState = decisionState,
+                basePlanVersion = basePlanVersion,
+                occFingerprint = occFingerprint,
+                nowUtc = asOfUtc,
+                hasLockedConflictOrRaceWeek = hasLockedConflictOrRaceWeek
+            )
+        }
     }
 
     internal suspend fun evaluateUnifiedAthleteState(

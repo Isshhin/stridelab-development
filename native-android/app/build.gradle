@@ -15,7 +15,12 @@ android {
         manifestPlaceholders['strideAppLabel'] = 'StrideLab'
         buildConfigField 'boolean', 'ENGINE15_ACTIVE', (project.findProperty('strideEngine15Active') ?: 'true').toString().toBoolean().toString()
         buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', (project.findProperty('strideEngine15IndependentRunningActive') ?: 'true').toString().toBoolean().toString()
-        buildConfigField 'boolean', 'USE_UNIFIED_ATHLETE_STATE_V1', (project.findProperty('strideUseUnifiedAthleteStateV1') ?: 'false').toString().toBoolean().toString()
+        buildConfigField 'boolean', 'USE_UNIFIED_ATHLETE_STATE_V1', (project.findProperty('strideUseUnifiedAthleteStateV1') ?: 'true').toString().toBoolean().toString()
+        buildConfigField 'boolean', 'USE_ENGINE16_STRENGTH_V1', (project.findProperty('strideUseEngine16StrengthV1') ?: 'true').toString().toBoolean().toString()
+        buildConfigField 'boolean', 'USE_ENGINE17_CALISTHENICS_V1', (project.findProperty('strideUseEngine17CalisthenicsV1') ?: 'true').toString().toBoolean().toString()
+        buildConfigField 'boolean', 'USE_ENGINE18_HYBRID_V1', (project.findProperty('strideUseEngine18HybridV1') ?: 'true').toString().toBoolean().toString()
+        buildConfigField 'boolean', 'USE_ENGINE19_COACHING_V1', (project.findProperty('strideUseEngine19CoachingV1') ?: 'true').toString().toBoolean().toString()
+        buildConfigField 'boolean', 'USE_ENGINE20_ADAPTIVE_V1', (project.findProperty('strideUseEngine20AdaptiveV1') ?: 'true').toString().toBoolean().toString()
         minSdk = 26
         targetSdk = 35
         versionCode = (project.findProperty('strideVersionCode') ?: '15').toInteger()
@@ -65,7 +70,12 @@ android {
             minifyEnabled false
             buildConfigField 'boolean', 'ENGINE15_ACTIVE', 'true'
             buildConfigField 'boolean', 'ENGINE15_INDEPENDENT_RUNNING_ACTIVE', 'true'
-            buildConfigField 'boolean', 'USE_UNIFIED_ATHLETE_STATE_V1', 'false'
+            buildConfigField 'boolean', 'USE_UNIFIED_ATHLETE_STATE_V1', 'true'
+            buildConfigField 'boolean', 'USE_ENGINE16_STRENGTH_V1', 'true'
+            buildConfigField 'boolean', 'USE_ENGINE17_CALISTHENICS_V1', 'true'
+            buildConfigField 'boolean', 'USE_ENGINE18_HYBRID_V1', 'true'
+            buildConfigField 'boolean', 'USE_ENGINE19_COACHING_V1', 'true'
+            buildConfigField 'boolean', 'USE_ENGINE20_ADAPTIVE_V1', 'true'
             if (System.getenv('STRIDELAB_KEYSTORE_FILE')) signingConfig signingConfigs.privateAlpha
         }
     }

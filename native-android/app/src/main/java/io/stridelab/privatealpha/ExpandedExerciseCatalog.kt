@@ -1489,6 +1489,890 @@ internal object ExpandedExerciseCatalog {
             ),
             easier = "Band-assisted glute-ham raise",
             harder = "Weighted plate glute-ham raise"
+        ),
+        strength(
+            "str-rev-grip-bb-curl", "Reverse grip barbell curl", "Pronated elbow flexion and forearm",
+            listOf("forearm_grip", "elbow_flexors"), listOf("shoulder_stabilizers"),
+            equipment = setOf("barbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Grip a straight barbell shoulder-width with palms facing down and wrists straight.",
+                "Keep elbows tucked softly beside your ribs as you curl to chest height.",
+                "Lower smoothly for 2 to 3 seconds without letting shoulders roll forward."
+            ),
+            easier = "Reverse grip cable curl",
+            harder = "Thick-grip reverse barbell curl"
+        ),
+        strength(
+            "str-rev-grip-ez-curl", "Reverse grip EZ-bar curl", "Pronated brachioradialis and forearm curl",
+            listOf("forearm_grip", "elbow_flexors"), listOf("shoulder_stabilizers"),
+            equipment = setOf("barbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Take an overhand pronated grip on the angled EZ-bar curves for comfortable wrist alignment.",
+                "Curl upward under control while keeping upper arms pinned still.",
+                "Control the eccentric all the way down until arms nearly lock out."
+            ),
+            easier = "Light reverse grip dumbbell curl",
+            harder = "Preacher reverse grip EZ-bar curl"
+        ),
+        strength(
+            "str-rev-grip-cable-curl", "Reverse grip cable curl", "Constant-tension pronated curl",
+            listOf("forearm_grip", "elbow_flexors"), listOf("shoulder_stabilizers"),
+            equipment = setOf("cable"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Attach a straight bar to a low pulley and grip with palms facing downward.",
+                "Stand tall with ribs stacked over hips and squeeze forearms through the top.",
+                "Resist the stack smoothly back to the bottom without swinging your torso."
+            ),
+            easier = "Single-arm reverse cable curl",
+            harder = "Pause-top reverse grip cable curl"
+        ),
+        strength(
+            "str-rev-grip-db-curl", "Reverse grip dumbbell curl", "Unilateral pronated arm and forearm",
+            listOf("forearm_grip", "elbow_flexors"), listOf("shoulder_stabilizers"),
+            equipment = setOf("dumbbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Hold dumbbells at your sides with palms facing behind you throughout the rep.",
+                "Lead the ascent with the back of the knuckles while keeping wrists flat.",
+                "Lower slowly to full arm length before starting the next repetition."
+            ),
+            easier = "Alternating reverse grip dumbbell curl",
+            harder = "Slow-eccentric reverse grip dumbbell curl"
+        ),
+        strength(
+            "str-bb-biceps-curl", "Barbell biceps curl", "Bilateral supinated elbow flexion",
+            listOf("elbow_flexors"), listOf("forearm_grip", "anterior_deltoid"),
+            equipment = setOf("barbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Grip the barbell just outside shoulder width with palms facing up.",
+                "Keep glutes squeezed and elbows steady beside your ribcage as you curl.",
+                "Lower under full control without leaning backward at the hips."
+            ),
+            easier = "EZ-bar biceps curl",
+            harder = "Strict wall-back barbell curl"
+        ),
+        strength(
+            "str-ez-biceps-curl", "EZ-bar biceps curl", "Ergonomic supinated elbow flexion",
+            listOf("elbow_flexors"), listOf("forearm_grip", "anterior_deltoid"),
+            equipment = setOf("barbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Hold the semi-supinated inner or outer cambered grips of the EZ-bar.",
+                "Lift smoothly through a full elbow arc without swinging the lower back.",
+                "Pause briefly at peak contraction and lower in a 2-second eccentric."
+            ),
+            easier = "Light cable biceps curl",
+            harder = "Heavy EZ-bar biceps curl with 3s eccentric"
+        ),
+        strength(
+            "str-alt-db-curl", "Alternating dumbbell biceps curl", "Unilateral supinating arm curl",
+            listOf("elbow_flexors"), listOf("forearm_grip", "anterior_deltoid"),
+            equipment = setOf("dumbbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Begin with dumbbells neutral beside thighs and supinate cleanly as you curl one arm.",
+                "Finish one controlled rep before initiating the opposite arm without torso sway.",
+                "Keep shoulder blades settled down and back throughout the set."
+            ),
+            easier = "Seated alternating dumbbell curl",
+            harder = "Incline alternating dumbbell curl"
+        ),
+        strength(
+            "str-db-concentration-curl", "Dumbbell concentration curl", "Strict isolated single-arm curl",
+            listOf("elbow_flexors"), listOf("forearm_grip"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Sit on a bench and brace the working triceps cleanly against the inner thigh.",
+                "Curl the dumbbell toward your shoulder with palm turned fully upward.",
+                "Lower all the way to full extension without shifting elbow position."
+            ),
+            easier = "Light dumbbell concentration curl",
+            harder = "Slow-tempo dumbbell concentration curl"
+        ),
+        strength(
+            "str-spider-curl", "Spider curl", "Chest-supported shortened-position curl",
+            listOf("elbow_flexors"), listOf("forearm_grip"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "developing",
+            technique = listOf(
+                "Lie chest-down over an incline bench so your arms hang straight beneath shoulders.",
+                "Curl both arms upward while keeping upper arms perpendicular to the floor.",
+                "Squeeze strongly at peak flexion before lowering smoothly to vertical."
+            ),
+            easier = "Chest-supported single-arm dumbbell curl",
+            harder = "EZ-bar spider curl"
+        ),
+        strength(
+            "str-cable-bayesian-curl", "Cable Bayesian curl", "Stretched-position behind-body cable curl",
+            listOf("elbow_flexors"), listOf("forearm_grip", "anterior_deltoid"),
+            equipment = setOf("cable"),
+            difficulty = "developing",
+            technique = listOf(
+                "Face away from a low cable pulley holding the D-handle slightly behind your hip.",
+                "Keep shoulder stationary behind the torso and curl forward through elbow flexion.",
+                "Return slowly behind the hip to reload the long-head bicep stretch."
+            ),
+            easier = "Seated inline cable biceps curl",
+            harder = "Slow-eccentric Bayesian cable curl"
+        ),
+        strength(
+            "str-zottman-curl", "Zottman curl", "Supinated concentric with pronated eccentric",
+            listOf("elbow_flexors", "forearm_grip"), listOf("shoulder_stabilizers"),
+            equipment = setOf("dumbbell"),
+            difficulty = "developing",
+            technique = listOf(
+                "Curl dumbbells upward with palms rotating up to full biceps squeeze.",
+                "Rotate wrists over into a palms-down pronated position at the top.",
+                "Lower slowly over 3 seconds under control to load biceps and forearms."
+            ),
+            easier = "Standing dumbbell hammer curl",
+            harder = "Heavy 4-second negative Zottman curl"
+        ),
+        strength(
+            "str-db-hammer-preacher-curl", "Dumbbell hammer preacher curl", "Supported neutral-grip brachialis curl",
+            listOf("elbow_flexors", "forearm_grip"), listOf("shoulder_stabilizers"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Rest the back of your upper arm squarely against the preacher pad with thumb facing up.",
+                "Curl smoothly to just short of vertical so tension remains on the elbow flexors.",
+                "Lower almost to straight elbow without bouncing off the bottom stretch."
+            ),
+            easier = "Alternating standing dumbbell hammer curl",
+            harder = "Thick-handle dumbbell hammer preacher curl"
+        ),
+        strength(
+            "str-rev-wrist-curl", "Reverse forearm wrist curl", "Forearm extensor hypertrophy and grip balance",
+            listOf("forearm_grip"), listOf("elbow_flexors"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Rest forearms on a bench or thighs with palms facing downward and wrists just over the edge.",
+                "Extend knuckles upward toward the ceiling cleanly without lifting forearms.",
+                "Lower under full control through a complete wrist flexion stretch."
+            ),
+            easier = "Seated light dumbbell reverse wrist curl",
+            harder = "Barbell reverse forearm wrist curl"
+        ),
+        strength(
+            "str-behind-back-wrist-curl", "Behind-the-back barbell wrist curl", "Standing forearm flexor strength",
+            listOf("forearm_grip"), listOf("trapezius"),
+            equipment = setOf("barbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Hold a barbell behind your glutes with palms facing backward and arms relaxed straight.",
+                "Open fingers slightly as bar rolls safely to fingertips, then curl grip and wrists tight.",
+                "Avoid shrugging shoulders so workload stays isolated on the forearm flexors."
+            ),
+            easier = "Seated forearm wrist curl",
+            harder = "Heavy paused behind-the-back wrist curl"
+        ),
+        strength(
+            "str-cable-bar-pushdown", "Cable straight-bar triceps pushdown", "Bilateral cable triceps extension",
+            listOf("triceps"), listOf("shoulder_stabilizers", "trunk_stabilizers"),
+            equipment = setOf("cable"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Grip a straight cable attachment shoulder-width with elbows pinned cleanly at your sides.",
+                "Press bar downward smoothly to full elbow lockout without leaning forward.",
+                "Allow forearms to rise past horizontal under control while upper arms stay fixed."
+            ),
+            easier = "Cable triceps rope pushdown",
+            harder = "Heavy paused straight-bar triceps pushdown"
+        ),
+        strength(
+            "str-vbar-pushdown", "V-bar triceps pushdown", "Heavy neutral-angled cable triceps pushdown",
+            listOf("triceps"), listOf("forearm_grip", "shoulder_stabilizers"),
+            equipment = setOf("cable"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Place palms comfortably on the angled V-bar with wrists neutral and chest proud.",
+                "Lock elbows straight toward the floor and pause briefly at bottom squeeze.",
+                "Control the upward travel without letting elbows drift forward."
+            ),
+            easier = "Light V-bar triceps pushdown",
+            harder = "Slow-eccentric V-bar triceps pushdown"
+        ),
+        strength(
+            "str-single-arm-pushdown", "Single-arm cable triceps pushdown", "Unilateral cable triceps isolation",
+            listOf("triceps"), listOf("shoulder_stabilizers"),
+            equipment = setOf("cable"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Hold a single D-handle or cable ball attachment with elbow fixed beside ribcage.",
+                "Extend cleanly downward to full arm lockout without twisting shoulder.",
+                "Control the return high enough to get full elbow flexion."
+            ),
+            easier = "Single-arm banded triceps pressdown",
+            harder = "Underhand single-arm cable pushdown"
+        ),
+        strength(
+            "str-db-oh-triceps-ext", "Dumbbell overhead triceps extension", "Long-head triceps stretch extension",
+            listOf("triceps"), listOf("shoulder_stabilizers", "trunk_stabilizers"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Press a single or pair of dumbbells overhead with upper arms pointed near vertical.",
+                "Bend elbows cleanly backward behind head until forearms pass parallel.",
+                "Drive elbows back to lockout without flaring upper arms wide."
+            ),
+            easier = "Single-arm supported overhead dumbbell extension",
+            harder = "Seated two-dumbbell overhead triceps extension"
+        ),
+        strength(
+            "str-db-skull-crusher", "Dumbbell skull crusher", "Neutral-grip triceps lying extension",
+            listOf("triceps"), listOf("anterior_deltoid", "shoulder_stabilizers"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "developing",
+            technique = listOf(
+                "Lie flat with dumbbells held over face on neutral palms and arms angled slightly back.",
+                "Hinge strictly at elbows to lower heads of dumbbells smoothly past ears.",
+                "Extend back upward cleanly while keeping shoulder angle fixed."
+            ),
+            easier = "Flat bench light dumbbell skull crusher",
+            harder = "Incline dumbbell skull crusher"
+        ),
+        strength(
+            "str-db-triceps-kickback", "Dumbbell triceps kickback", "Shortened-range triceps extension",
+            listOf("triceps"), listOf("posterior_deltoid", "trunk_stabilizers"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Brace torso forward over a bench with upper arm parallel to floor.",
+                "Extend forearm straight backward until elbow reaches crisp lockout.",
+                "Hold 1 second at top contraction before lowering gently to 90 degrees."
+            ),
+            easier = "Cable single-arm triceps kickback",
+            harder = "Dual-arm bent-over triceps kickback"
+        ),
+        strength(
+            "str-machine-triceps-dip", "Machine triceps dip", "Guided heavy triceps and chest press",
+            listOf("triceps", "pectoralis_major"), listOf("anterior_deltoid"),
+            equipment = setOf("machine"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Sit upright with ribs tall and grip handles closely beside your torso.",
+                "Press handles smoothly downward keeping elbows angled backward rather than flared.",
+                "Control return until upper arm aligns roughly parallel to floor."
+            ),
+            easier = "Light machine triceps dip",
+            harder = "Weighted chest dip"
+        ),
+        strength(
+            "str-bench-dip", "Bench triceps dip", "Accessible triceps bodyweight pressing",
+            listOf("triceps"), listOf("anterior_deltoid", "pectoralis_major"),
+            equipment = setOf("bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Place palms on the edge of a bench behind you with shoulders rolled down and open.",
+                "Lower hips vertically keeping back close to the bench without shrugging shoulders.",
+                "Press smoothly back to full elbow lockout."
+            ),
+            easier = "Bent-knee bench triceps dip",
+            harder = "Feet-elevated weighted bench dip"
+        ),
+        strength(
+            "str-jm-press", "Barbell JM press", "Hybrid close-grip press and skull crusher",
+            listOf("triceps", "pectoralis_major"), listOf("anterior_deltoid"),
+            equipment = setOf("barbell", "bench"),
+            difficulty = "advanced",
+            technique = listOf(
+                "Unrack with a close grip, elbows tucked slightly forward and wrists stacked over forearms.",
+                "Lower bar along an arc toward upper chest / chin while letting elbows fold cleanly.",
+                "Press back upward strongly through triceps and chest to lockout."
+            ),
+            easier = "Close-grip barbell bench press",
+            harder = "Paused barbell JM press"
+        ),
+        strength(
+            "str-decline-bb-press", "Decline barbell bench press", "Lower sternal chest barbell press",
+            listOf("pectoralis_major"), listOf("triceps", "anterior_deltoid"),
+            equipment = setOf("barbell", "bench"),
+            difficulty = "developing",
+            technique = listOf(
+                "Secure ankles under decline pads and retract shoulder blades firmly onto the bench.",
+                "Lower barbell cleanly to lower chest line with elbows tucked near 45 degrees.",
+                "Press smoothly back to full lockout over the lower chest."
+            ),
+            easier = "Decline dumbbell press",
+            harder = "Paused decline barbell bench press"
+        ),
+        strength(
+            "str-decline-db-press", "Decline dumbbell press", "Joint-friendly lower chest pressing",
+            listOf("pectoralis_major"), listOf("triceps", "anterior_deltoid"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Lock legs firmly and bring dumbbells down smoothly along sides of lower ribs.",
+                "Keep wrists stacked directly over elbows throughout the pressing path.",
+                "Drive dumbbells up cleanly without clanking them together at top."
+            ),
+            easier = "Flat dumbbell floor press",
+            harder = "Slow-eccentric decline dumbbell press"
+        ),
+        strength(
+            "str-smith-bench-press", "Smith machine bench press", "Guided barbell chest press",
+            listOf("pectoralis_major"), listOf("triceps", "anterior_deltoid"),
+            equipment = setOf("machine", "bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Align bench so the Smith bar touches cleanly across mid-to-lower sternum.",
+                "Pin shoulder blades back and down while maintaining stable foot drive.",
+                "Control the descent to light chest touch and press smoothly to lockout."
+            ),
+            easier = "Seated machine chest press",
+            harder = "Paused Smith machine bench press"
+        ),
+        strength(
+            "str-smith-incline-press", "Smith machine incline press", "Guided clavicular upper-chest press",
+            listOf("pectoralis_major", "anterior_deltoid"), listOf("triceps"),
+            equipment = setOf("machine", "bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Set bench to 30 to 45 degrees so the bar tracks directly to upper chest.",
+                "Keep elbows angled around 45 degrees rather than flaring straight sideways.",
+                "Drive smoothly upward while keeping glutes and upper back planted."
+            ),
+            easier = "Incline dumbbell press",
+            harder = "Paused Smith machine incline press"
+        ),
+        strength(
+            "str-db-chest-fly", "Dumbbell chest fly", "Horizontal adduction chest stretch",
+            listOf("pectoralis_major"), listOf("anterior_deltoid", "shoulder_stabilizers"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Hold dumbbells above chest with a slight soft bend locked into both elbows.",
+                "Open arms cleanly wide until chest feels a deep controlled stretch around chest height.",
+                "Sweep arms back inward by driving biceps toward each other."
+            ),
+            easier = "Floor-limited dumbbell chest fly",
+            harder = "Incline dumbbell chest fly"
+        ),
+        strength(
+            "str-low-to-high-cable-fly", "Low-to-high cable chest fly", "Upward cable adduction for upper chest",
+            listOf("pectoralis_major", "anterior_deltoid"), listOf("serratus_anterior"),
+            equipment = setOf("cable"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Step slightly forward from low cable pulleys in a stable staggered stance.",
+                "Sweep arms upward and inward toward upper-chest level with elbows softly bent.",
+                "Control the return wide and down to stretch the chest fibers cleanly."
+            ),
+            easier = "Light standing cable chest fly",
+            harder = "Pause-squeeze low-to-high cable fly"
+        ),
+        strength(
+            "str-high-to-low-cable-fly", "High-to-low cable chest fly", "Downward cable adduction for lower chest",
+            listOf("pectoralis_major"), listOf("anterior_deltoid", "trunk_stabilizers"),
+            equipment = setOf("cable"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Set pulleys above head height and lean forward slightly with braced abs.",
+                "Press and sweep handles down and together cleanly in front of lower ribs.",
+                "Open arms back smoothly along the upper diagonal plane."
+            ),
+            easier = "Standing cable chest fly",
+            harder = "Seated high-to-low cable fly"
+        ),
+        strength(
+            "str-db-squeeze-press", "Dumbbell squeeze press", "Continuous-adduction chest press",
+            listOf("pectoralis_major", "triceps"), listOf("anterior_deltoid"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Press two dumbbells inward against each other on a neutral grip above sternum.",
+                "Maintain active inward squeeze while lowering dumbbells smoothly to chest.",
+                "Drive upward without breaking contact between the dumbbells."
+            ),
+            easier = "Floor dumbbell squeeze press",
+            harder = "Incline dumbbell squeeze press"
+        ),
+        strength(
+            "str-wide-lat-pulldown", "Wide-grip cable lat pulldown", "Vertical pull targeting outer lat width",
+            listOf("latissimus_dorsi"), listOf("rhomboids", "elbow_flexors", "posterior_deltoid"),
+            equipment = setOf("cable"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Take a comfortable wide overhand grip with chest lifted subtly toward the bar.",
+                "Drive elbows downward toward hips until bar passes chin to upper chest.",
+                "Allow lats to reach overhead cleanly into a full scapular stretch each rep."
+            ),
+            easier = "Seated lat pulldown",
+            harder = "Wide-grip chest-to-bar pull-up"
+        ),
+        strength(
+            "str-neutral-lat-pulldown", "Close-grip neutral lat pulldown", "Sagittal-plane lat pulldown",
+            listOf("latissimus_dorsi"), listOf("elbow_flexors", "rhomboids", "forearm_grip"),
+            equipment = setOf("cable"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Attach a close neutral V-handle and anchor thighs snugly under the pad.",
+                "Pull elbows cleanly down in front of ribcage while keeping torso tall.",
+                "Reach straight upward at top for full lat lengthening."
+            ),
+            easier = "Single-arm cable lat pulldown",
+            harder = "Commando neutral pull-up"
+        ),
+        strength(
+            "str-underhand-lat-pulldown", "Underhand reverse-grip lat pulldown", "Supinated vertical pull for lats and biceps",
+            listOf("latissimus_dorsi", "elbow_flexors"), listOf("rhomboids", "lower_trapezius"),
+            equipment = setOf("cable"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Grip the bar shoulder-width with palms facing toward you.",
+                "Lead pull with elbows tucked tightly alongside your torso to upper sternum.",
+                "Extend arms cleanly overhead between every repetition."
+            ),
+            easier = "Assisted chin-up",
+            harder = "Weighted chin-up"
+        ),
+        strength(
+            "str-single-arm-db-row", "Single-arm dumbbell row", "Supported unilateral upper back and lat row",
+            listOf("latissimus_dorsi", "rhomboids"), listOf("elbow_flexors", "posterior_deltoid", "forearm_grip"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Support free hand solidly on a bench with spine long and hips level.",
+                "Row dumbbell in a smooth arc toward your hip pocket rather than straight up to shoulder.",
+                "Allow shoulder blade to protract slightly at bottom without twisting your low back."
+            ),
+            easier = "Chest-supported dumbbell row",
+            harder = "Heavy Kroc single-arm dumbbell row"
+        ),
+        strength(
+            "str-pendlay-row", "Pendlay barbell row", "Explosive dead-stop horizontal pull",
+            listOf("latissimus_dorsi", "rhomboids", "trapezius"), listOf("spinal_extensors", "elbow_flexors", "forearm_grip"),
+            equipment = setOf("barbell"),
+            difficulty = "developing",
+            technique = listOf(
+                "Hinge torso nearly parallel to the floor over a stationary barbell on plates.",
+                "Drive the bar crisply from floor contact to lower sternum without jerking torso upright.",
+                "Set bar back down to a brief dead stop between every single rep."
+            ),
+            easier = "Barbell bent-over row",
+            harder = "Deficit Pendlay barbell row"
+        ),
+        strength(
+            "str-meadows-row", "Meadows landmine row", "Unilateral angled upper-back and lat row",
+            listOf("latissimus_dorsi", "posterior_deltoid", "rhomboids"), listOf("forearm_grip", "obliques"),
+            equipment = setOf("barbell"),
+            difficulty = "developing",
+            technique = listOf(
+                "Stand perpendicular to the loaded barbell sleeve and brace forearm on lead thigh.",
+                "Grip the bar sleeve overhand and pull elbow cleanly behind your torso.",
+                "Lower into a long controlled lat stretch while keeping spine stable."
+            ),
+            easier = "Single-arm dumbbell row",
+            harder = "Heavy strap-assisted Meadows row"
+        ),
+        strength(
+            "str-machine-seated-row", "Machine seated row", "Chest-supported guided horizontal pull",
+            listOf("rhomboids", "latissimus_dorsi"), listOf("posterior_deltoid", "elbow_flexors"),
+            equipment = setOf("machine"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Set chest pad so arms extend forward freely without forcing torso roundness.",
+                "Pull handles smoothly back while squeezing shoulder blades cleanly together.",
+                "Hold briefly at full contraction before letting blades glide forward."
+            ),
+            easier = "Light seated cable row",
+            harder = "Single-arm machine seated row"
+        ),
+        strength(
+            "str-db-seal-row", "Dumbbell seal row", "Zero-momentum horizontal bench row",
+            listOf("rhomboids", "latissimus_dorsi"), listOf("posterior_deltoid", "elbow_flexors"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "developing",
+            technique = listOf(
+                "Lie face-down flat on an elevated bench so arms hang freely above floor.",
+                "Row both dumbbells cleanly up toward lower ribs without lifting chest off bench.",
+                "Lower smoothly to full arm extension before next pull."
+            ),
+            easier = "Chest-supported dumbbell row",
+            harder = "Barbell seal row"
+        ),
+        strength(
+            "str-bb-shrug", "Barbell shrug", "Heavy upper trapezius elevation",
+            listOf("trapezius"), listOf("forearm_grip", "trunk_stabilizers"),
+            equipment = setOf("barbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Stand tall holding barbell cleanly against front thighs with arms straight.",
+                "Elevate shoulders straight upward toward ears without rolling shoulder joints.",
+                "Pause 1 second at top before lowering smoothly into a full stretch."
+            ),
+            easier = "Dumbbell shrug",
+            harder = "Heavy paused barbell shrug"
+        ),
+        strength(
+            "str-cable-shrug", "Cable shrug", "Smooth-tension upper trapezius elevation",
+            listOf("trapezius"), listOf("forearm_grip", "trunk_stabilizers"),
+            equipment = setOf("cable"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Attach straight bar or handles to low pulley and stand upright with braced abs.",
+                "Pull shoulders straight up and slightly back toward upper traps.",
+                "Lower completely under cable tension before initiating next rep."
+            ),
+            easier = "Single-arm cable shrug",
+            harder = "Behind-the-back cable shrug"
+        ),
+        strength(
+            "str-rack-pull", "Barbell rack pull", "Top-range hinge and upper-back overload",
+            listOf("spinal_extensors", "gluteus_maximus", "trapezius"), listOf("hamstrings", "forearm_grip"),
+            equipment = setOf("barbell", "rack"),
+            difficulty = "developing",
+            technique = listOf(
+                "Set safety pins just below or at knee height and wedge hips tight into barbell.",
+                "Brace core firmly, pull slack out of bar, and drive hips forward to tall lockout.",
+                "Hinge cleanly back to pins with quiet controlled touch each rep."
+            ),
+            easier = "Light Romanian deadlift from rack",
+            harder = "Conventional barbell deadlift"
+        ),
+        strength(
+            "str-standing-db-ohp", "Standing dumbbell overhead press", "Free-weight vertical press and trunk brace",
+            listOf("anterior_deltoid", "triceps"), listOf("lateral_deltoid", "trunk_stabilizers"),
+            equipment = setOf("dumbbell"),
+            difficulty = "developing",
+            technique = listOf(
+                "Brace glutes and ribs stacked tightly without leaning backward at the waist.",
+                "Press dumbbells overhead with elbows angled subtly forward in scapular plane.",
+                "Lower under control back to shoulder height each repetition."
+            ),
+            easier = "Seated dumbbell shoulder press",
+            harder = "Single-arm standing dumbbell overhead press"
+        ),
+        strength(
+            "str-machine-shoulder-press", "Machine shoulder press", "Guided overhead deltoid and triceps press",
+            listOf("anterior_deltoid", "triceps"), listOf("lateral_deltoid"),
+            equipment = setOf("machine"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Adjust seat so handles begin smoothly around ear or chin level.",
+                "Keep upper back planted against pad while driving hands smoothly overhead.",
+                "Stop just shy of harsh elbow snap and lower smoothly under stack control."
+            ),
+            easier = "Seated Arnold dumbbell press",
+            harder = "Unilateral machine shoulder press"
+        ),
+        strength(
+            "str-smith-ohp", "Smith machine overhead press", "Stable barbell-path shoulder press",
+            listOf("anterior_deltoid", "triceps"), listOf("lateral_deltoid", "trunk_stabilizers"),
+            equipment = setOf("machine", "bench"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Sit upright on high-incline bench aligned so bar passes smoothly in front of nose.",
+                "Grip slightly outside shoulders and press straight upward to full overhead control.",
+                "Lower steadily down to upper collarbone level."
+            ),
+            easier = "Machine shoulder press",
+            harder = "Barbell overhead press"
+        ),
+        strength(
+            "str-db-front-raise", "Dumbbell front raise", "Targeted anterior deltoid flexion",
+            listOf("anterior_deltoid"), listOf("lateral_deltoid", "trunk_stabilizers"),
+            equipment = setOf("dumbbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Stand tall with dumbbells resting lightly in front of thighs and elbows softly bent.",
+                "Raise dumbbells smoothly forward to eye level without swinging hips.",
+                "Lower slowly for 2 seconds back toward thighs."
+            ),
+            easier = "Alternating dumbbell front raise",
+            harder = "Plate front raise"
+        ),
+        strength(
+            "str-cable-front-raise", "Cable front raise", "Constant-tension anterior deltoid raise",
+            listOf("anterior_deltoid"), listOf("lateral_deltoid", "trunk_stabilizers"),
+            equipment = setOf("cable"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Stand facing away from low pulley with handle routed cleanly beside thigh.",
+                "Lift arm forward smoothly to shoulder height while keeping ribs down.",
+                "Control the descent slowly back down toward the stack."
+            ),
+            easier = "Light dumbbell front raise",
+            harder = "Slow-eccentric rope cable front raise"
+        ),
+        strength(
+            "str-reverse-pec-deck", "Reverse pec deck fly", "Isolated rear delt horizontal abduction",
+            listOf("posterior_deltoid"), listOf("rhomboids", "lower_trapezius"),
+            equipment = setOf("machine"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Set seat height so arms align horizontally with shoulder joints against chest pad.",
+                "Sweep arms outward in a wide arc rather than pinching shoulder blades hard together.",
+                "Pause briefly at alignment and return cleanly under control."
+            ),
+            easier = "Light reverse cable fly",
+            harder = "Paused single-arm reverse pec deck"
+        ),
+        strength(
+            "str-bent-over-rear-delt-fly", "Bent-over dumbbell rear delt fly", "Free-weight posterior deltoid raise",
+            listOf("posterior_deltoid"), listOf("rhomboids", "spinal_extensors"),
+            equipment = setOf("dumbbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Hinge hips back cleanly until torso is near 30 to 45 degrees over floor.",
+                "Sweep dumbbells out and slightly back with palms facing down or neutral.",
+                "Keep neck neutral and avoid shrugging toward ears."
+            ),
+            easier = "Chest-supported incline rear delt fly",
+            harder = "Seated bent-over rear delt fly"
+        ),
+        strength(
+            "str-leaning-lat-raise", "Leaning single-arm lateral raise", "Extended-range medial deltoid abduction",
+            listOf("lateral_deltoid"), listOf("shoulder_stabilizers", "trunk_stabilizers"),
+            equipment = setOf("dumbbell", "rack"),
+            difficulty = "developing",
+            technique = listOf(
+                "Hold a sturdy post and lean torso smoothly away at a slight angle.",
+                "Lift working dumbbell out into the scapular plane to just past shoulder height.",
+                "Control the descent across your front thigh without bouncing."
+            ),
+            easier = "Dumbbell lateral raise",
+            harder = "Leaning cable lateral raise"
+        ),
+        strength(
+            "str-machine-lat-raise", "Machine lateral raise", "Guided medial deltoid isolation",
+            listOf("lateral_deltoid"), listOf("trapezius", "shoulder_stabilizers"),
+            equipment = setOf("machine"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Align elbow pads cleanly beside mid-forearms with chest upright.",
+                "Drive elbows smoothly outward toward side walls until arms approach horizontal.",
+                "Lower steadily without dropping the stack at bottom."
+            ),
+            easier = "Light machine lateral raise",
+            harder = "Myo-rep machine lateral raise"
+        ),
+        strength(
+            "str-bb-upright-row", "Barbell upright row", "Lateral deltoid and upper trap pull",
+            listOf("lateral_deltoid", "trapezius"), listOf("elbow_flexors", "anterior_deltoid"),
+            equipment = setOf("barbell"),
+            difficulty = "developing",
+            technique = listOf(
+                "Hold barbell slightly wider than shoulder width for comfortable shoulder clearance.",
+                "Lead the pull upward with elbows climbing out and up to upper-chest height.",
+                "Lower under control back to thigh contact."
+            ),
+            easier = "Cable upright row",
+            harder = "Pause-top wide-grip upright row"
+        ),
+        strength(
+            "str-45-leg-press", "45-degree leg press", "Heavy bilateral plate-loaded knee extension",
+            listOf("quadriceps", "gluteus_maximus"), listOf("adductors", "hamstrings"),
+            equipment = setOf("machine"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Place feet shoulder-width around middle-low of sled with hips planted firmly in seat.",
+                "Lower sled deeply until knees bend maximally without tailbone curling off pad.",
+                "Press smoothly through whole feet without snapping knees into hyperextension."
+            ),
+            easier = "Seated machine leg press",
+            harder = "Single-leg press"
+        ),
+        strength(
+            "str-single-leg-press", "Single-leg press", "Unilateral sled press for leg symmetry",
+            listOf("quadriceps", "gluteus_maximus"), listOf("gluteus_medius", "adductors"),
+            equipment = setOf("machine"),
+            difficulty = "developing",
+            technique = listOf(
+                "Center working foot squarely on the sled with opposite leg safely braced clear.",
+                "Lower under steady control while tracking knee cleanly over second toe.",
+                "Drive smoothly through midfoot and heel to strong soft-knee finish."
+            ),
+            easier = "High-foot position single-leg press",
+            harder = "Paused 3-second eccentric single-leg press"
+        ),
+        strength(
+            "str-stiff-leg-deadlift", "Stiff-legged barbell deadlift", "Maximal hamstring stretch posterior hinge",
+            listOf("hamstrings", "gluteus_maximus"), listOf("spinal_extensors", "forearm_grip"),
+            equipment = setOf("barbell"),
+            difficulty = "developing",
+            technique = listOf(
+                "Maintain minimal unlocked knee bend and push hips steadily backward.",
+                "Keep barbell tracking close over mid-shins while spine stays rigidly flat.",
+                "Stop at hamstring stretch limit and drive hips forward cleanly."
+            ),
+            easier = "Dumbbell Romanian deadlift",
+            harder = "Deficit stiff-legged barbell deadlift"
+        ),
+        strength(
+            "str-smith-squat", "Smith machine squat", "Guided quad-biased barbell squat",
+            listOf("quadriceps", "gluteus_maximus"), listOf("adductors", "trunk_stabilizers"),
+            equipment = setOf("machine"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Position feet comfortably forward of bar path so torso stays balanced upright.",
+                "Sink hips cleanly down toward parallel or deeper with knees tracking over toes.",
+                "Drive strongly upward through midfoot keeping back tight against bar."
+            ),
+            easier = "Box-target Smith machine squat",
+            harder = "Heel-elevated Smith machine squat"
+        ),
+        strength(
+            "str-db-bulgarian-split-squat", "Dumbbell Bulgarian split squat", "Heavy rear-foot-elevated leg builder",
+            listOf("quadriceps", "gluteus_maximus"), listOf("gluteus_medius", "adductors", "forearm_grip"),
+            equipment = setOf("dumbbell", "bench"),
+            difficulty = "developing",
+            technique = listOf(
+                "Rest rear laces comfortably on a bench with lead foot far enough forward to stay rooted.",
+                "Lower back knee smoothly toward floor keeping majority of load in front heel and midfoot.",
+                "Drive cleanly upward without letting front knee buckle inward."
+            ),
+            easier = "Bodyweight Bulgarian split squat",
+            harder = "Deficit front-foot Dumbbell Bulgarian split squat"
+        ),
+        strength(
+            "str-bb-bulgarian-split-squat", "Barbell Bulgarian split squat", "Loaded rear-foot-elevated barbell leg strength",
+            listOf("quadriceps", "gluteus_maximus"), listOf("gluteus_medius", "trunk_stabilizers"),
+            equipment = setOf("barbell", "bench", "rack"),
+            difficulty = "advanced",
+            technique = listOf(
+                "Set barbell securely across upper traps inside rack safety bars.",
+                "Drop hips vertically down until front thigh breaks parallel cleanly.",
+                "Drive evenly through whole front foot to tall upright stance."
+            ),
+            easier = "Dumbbell Bulgarian split squat",
+            harder = "Paused barbell Bulgarian split squat"
+        ),
+        strength(
+            "str-db-reverse-lunge", "Dumbbell reverse lunge", "Loaded knee-friendly unilateral lunge",
+            listOf("quadriceps", "gluteus_maximus"), listOf("gluteus_medius", "forearm_grip"),
+            equipment = setOf("dumbbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Hold dumbbells cleanly at sides and step one foot backward onto ball of foot.",
+                "Lower back knee softly close to floor with proud torso angled slightly forward.",
+                "Push powerfully through lead midfoot back to tall standing position."
+            ),
+            easier = "Bodyweight reverse lunge",
+            harder = "Front-foot-elevated dumbbell reverse lunge"
+        ),
+        strength(
+            "str-curtsy-lunge", "Dumbbell curtsy lunge", "Frontal-plane glute medius and hip lunge",
+            listOf("gluteus_maximus", "gluteus_medius"), listOf("quadriceps", "adductors"),
+            equipment = setOf("dumbbell"),
+            difficulty = "developing",
+            technique = listOf(
+                "Step one foot diagonally back behind stance leg while keeping pelvis facing forward.",
+                "Lower steadily while keeping stance knee tracking cleanly forward over toes.",
+                "Press smoothly out of front hip back to parallel stance."
+            ),
+            easier = "Bodyweight curtsy lunge",
+            harder = "Deficit dumbbell curtsy lunge"
+        ),
+        strength(
+            "str-donkey-calf-raise", "Donkey calf raise", "Hinged gastrocnemius stretch calf raise",
+            listOf("calves"), listOf("foot_stabilizers", "trunk_stabilizers"),
+            equipment = setOf("machine"),
+            difficulty = "developing",
+            technique = listOf(
+                "Hinge hips near 90 degrees over support pad with knees kept almost straight.",
+                "Sink heels deeply for a 2-second bottom stretch at base of each repetition.",
+                "Drive crisply high onto big-toe ball and pause 1 second at peak height."
+            ),
+            easier = "Standing machine calf raise",
+            harder = "Single-leg donkey calf raise"
+        ),
+        strength(
+            "str-single-leg-db-calf-raise", "Single-leg dumbbell calf raise", "Unilateral full-ROM calf builder",
+            listOf("calves"), listOf("foot_stabilizers", "forearm_grip"),
+            equipment = setOf("dumbbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Stand with forefoot on a low step holding a dumbbell on same side and steady support in opposite hand.",
+                "Drop heel slowly into deep Achilles stretch and pause briefly at bottom.",
+                "Press powerfully straight up over big toe without rolling ankles outward."
+            ),
+            easier = "Supported calf raise",
+            harder = "Weighted single-leg calf raise with 2s pause"
+        ),
+        strength(
+            "str-smith-calf-raise", "Smith machine calf raise", "Guided heavy standing calf raise",
+            listOf("calves"), listOf("foot_stabilizers", "trunk_stabilizers"),
+            equipment = setOf("machine"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Step onto a stable low block under Smith bar with shoulders braced snugly.",
+                "Lower heels cleanly downward under control into full ankle dorsiflexion.",
+                "Drive straight vertically onto balls of feet without bending knees."
+            ),
+            easier = "Standing machine calf raise",
+            harder = "Slow-eccentric Smith calf raise"
+        ),
+        strength(
+            "str-hanging-straight-leg-raise", "Hanging straight-leg raise", "High-leverage anterior core flexion",
+            listOf("abdominals", "hip_flexors"), listOf("forearm_grip", "latissimus_dorsi"),
+            equipment = setOf("pullup_bar"),
+            difficulty = "advanced",
+            technique = listOf(
+                "Hang calmly with active shoulders and straight knees locked together.",
+                "Lift straight legs and curl pelvis upward toward bar height without swinging torso.",
+                "Lower steadily with abs engaged to silent hang."
+            ),
+            easier = "Hanging bent-knee raise",
+            harder = "Strict toes-to-bar"
+        ),
+        strength(
+            "str-captains-chair-knee-raise", "Captain's chair knee raise", "Back-supported pelvic curl and hip flexion",
+            listOf("abdominals", "hip_flexors"), listOf("trunk_stabilizers"),
+            equipment = setOf("machine"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Press forearms solidly into arm pads and flatten lower back softly against pad.",
+                "Tuck knees upward while curling tailbone forward at top to engage lower abs.",
+                "Lower smoothly without letting low back arch away from support."
+            ),
+            easier = "Floor bent-knee leg raise",
+            harder = "Captain's chair straight-leg raise"
+        ),
+        strength(
+            "str-decline-weighted-situp", "Decline weighted sit-up", "Loaded spinal flexion core strength",
+            listOf("abdominals"), listOf("hip_flexors", "obliques"),
+            equipment = setOf("bench", "plate"),
+            difficulty = "developing",
+            technique = listOf(
+                "Hook ankles comfortably on decline bench hugging a plate cleanly against upper chest.",
+                "Lower torso under steady vertebral control just short of losing rib-pelvis tension.",
+                "Curl cleanly back up driving sternum smoothly toward knees."
+            ),
+            easier = "Bodyweight decline sit-up",
+            harder = "Plate-behind-head decline sit-up"
+        ),
+        strength(
+            "str-cable-side-bend", "Cable side bend", "Lateral trunk resistance flexion",
+            listOf("obliques", "lateral_trunk_muscles"), listOf("forearm_grip", "trunk_stabilizers"),
+            equipment = setOf("cable"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Stand sideways to low pulley holding D-handle with free hand steady at hip.",
+                "Side-bend smoothly toward the pulley side without twisting hips or chest.",
+                "Draw ribs strongly back up and slightly past upright on lateral crunch."
+            ),
+            easier = "Standing side bend",
+            harder = "Heavy single-arm cable side bend"
+        ),
+        strength(
+            "str-db-farmer-walk", "Dumbbell farmer walk", "Heavy grip, traps, and gait stability carry",
+            listOf("forearm_grip", "trapezius", "trunk_stabilizers"), listOf("gluteus_medius", "calves"),
+            equipment = setOf("dumbbell"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Deadlift dumbbells cleanly to your sides with chest tall and shoulders packed down.",
+                "Walk brisk smooth steps with minimal side-to-side hip sway.",
+                "Brace abdomen tight throughout entire carry distance or time."
+            ),
+            easier = "Suitcase carry",
+            harder = "Heavy barbell or trap-bar farmer carry"
         )
     )
 
@@ -1861,6 +2745,106 @@ internal object ExpandedExerciseCatalog {
             ),
             easier = "Floor glute bridge",
             harder = "Feet-elevated single-leg hip thrust"
+        ),
+        calisthenics(
+            "cal-standard-pushup", "Standard push-up", "Foundational horizontal bodyweight press",
+            listOf("pectoralis_major", "triceps"), listOf("anterior_deltoid", "trunk_stabilizers"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Place hands just outside shoulder width with fingers spread and glutes braced.",
+                "Lower chest cleanly near floor with elbows angled near 45 degrees back.",
+                "Press smoothly up to full scapular protraction at top."
+            ),
+            easier = "Incline push-up",
+            harder = "Feet-elevated decline push-up"
+        ),
+        calisthenics(
+            "cal-neutral-pullup", "Neutral-grip pull-up", "Shoulder-friendly vertical pull",
+            listOf("latissimus_dorsi", "elbow_flexors"), listOf("rhomboids", "forearm_grip"),
+            equipment = setOf("pullup_bar"),
+            difficulty = "developing",
+            technique = listOf(
+                "Grip parallel bars with palms facing inward and pull shoulder blades slightly down.",
+                "Pull chest cleanly up toward hands without swinging hips forward.",
+                "Lower smoothly to full straight-arm dead hang between reps."
+            ),
+            easier = "Assisted pull-up",
+            harder = "Weighted neutral-grip pull-up"
+        ),
+        calisthenics(
+            "cal-scapular-pushup", "Scapular push-up", "Serratus anterior protraction control",
+            listOf("serratus_anterior", "shoulder_stabilizers"), listOf("trunk_stabilizers", "pectoralis_major"),
+            difficulty = "foundation",
+            technique = listOf(
+                "Hold a crisp straight-arm high plank position with glutes and abs engaged.",
+                "Allow chest to sink gently between shoulder blades without bending elbows.",
+                "Push hands strongly into floor to wrap shoulder blades wide around ribs."
+            ),
+            easier = "Quadruped scapular push-up",
+            harder = "Single-arm scapular push-up progression"
+        ),
+        calisthenics(
+            "cal-floor-lsit", "Floor L-sit hold", "Compression core and straight-arm push",
+            listOf("abdominals", "hip_flexors"), listOf("triceps", "shoulder_stabilizers"),
+            difficulty = "advanced",
+            technique = listOf(
+                "Press palms firmly into floor beside hips and depress shoulders aggressively.",
+                "Lift hips and straight legs clear of ground while maintaining active quad tension.",
+                "Breathe steadily under compression brace for target hold time."
+            ),
+            easier = "Supported tuck L-sit",
+            harder = "Floor V-sit progression"
+        ),
+        calisthenics(
+            "cal-bar-muscle-up", "Bar muscle-up progression", "Explosive pull-to-dip transition",
+            listOf("latissimus_dorsi", "pectoralis_major", "triceps"), listOf("elbow_flexors", "abdominals"),
+            equipment = setOf("pullup_bar"),
+            difficulty = "advanced",
+            technique = listOf(
+                "Pull high toward lower chest/waist around the bar rather than vertically straight.",
+                "Shoot chest rapidly forward over the bar into strong dip support.",
+                "Control the eccentric lowering smoothly back through transition."
+            ),
+            easier = "Explosive chest-to-bar pull-up",
+            harder = "Strict false-grip bar muscle-up"
+        ),
+        calisthenics(
+            "cal-planche-lean", "Planche lean", "Straight-arm protraction shoulder strength",
+            listOf("anterior_deltoid", "serratus_anterior"), listOf("trunk_stabilizers", "forearm_grip"),
+            difficulty = "developing",
+            technique = listOf(
+                "Turn fingers out roughly 45 degrees with elbows completely locked straight.",
+                "Protract shoulder blades fully and shift shoulders forward past hands.",
+                "Hold tight hollow body tension cleanly without sagging lumbar hips."
+            ),
+            easier = "Gentle wrist-friendly planche lean",
+            harder = "Tuck planche hold"
+        ),
+        calisthenics(
+            "cal-korean-dip", "Korean dip", "Rear-bar shoulder extension dip",
+            listOf("triceps", "pectoralis_major", "anterior_deltoid"), listOf("trunk_stabilizers", "posterior_deltoid"),
+            equipment = setOf("pullup_bar"),
+            difficulty = "advanced",
+            technique = listOf(
+                "Support hips in front of a single bar holding behind back with thumbs inward or outward.",
+                "Lower steadily under full control keeping legs gently forward in hollow shape.",
+                "Press strongly back to straight-arm lockout."
+            ),
+            easier = "Parallel-bar dip",
+            harder = "Deep slow-eccentric Korean dip"
+        ),
+        calisthenics(
+            "cal-ring-pelican-curl", "Ring pelican curl", "Extreme long-range biceps and shoulder stability",
+            listOf("elbow_flexors", "anterior_deltoid"), listOf("forearm_grip", "trunk_stabilizers"),
+            equipment = setOf("rings"),
+            difficulty = "advanced",
+            technique = listOf(
+                "Set gymnastic rings high enough to walk feet forward into an inclined plank lean.",
+                "Keep palms facing forward and extend arms behind hips into deep biceps stretch.",
+                "Curl body smoothly back forward to ring-support alignment."
+            ),
+            easier = "Steep-angle ring biceps curl",
+            harder = "Horizontal ring pelican curl"
         )
     )
 

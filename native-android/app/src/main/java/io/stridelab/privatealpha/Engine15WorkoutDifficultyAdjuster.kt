@@ -636,7 +636,12 @@ internal object Engine15WorkoutDifficultyAdjuster {
             val tut = ex.seconds ?: ((ex.reps ?: 0) * 3)
             (ex.sets * tut + (ex.sets - 1) * ex.rest) / 60.0 + 1.0
         }
-        val newMinutes = ceil(8.0 + workMinutes).toInt().coerceIn(10, 180)
+        val rawMinutes = ceil(8.0 + workMinutes).toInt().coerceIn(10, 180)
+        val newMinutes = when {
+            targetStep > 0 -> maxOf(rawMinutes, base.minutes + targetStep * 3).coerceAtMost(180)
+            targetStep < 0 -> minOf(rawMinutes, (base.minutes + targetStep * 3).coerceAtLeast(10))
+            else -> base.minutes
+        }
         return base.copy(
             minutes = newMinutes,
             exercises = scaledExercises,

@@ -90,7 +90,7 @@ internal object Engine15DebriefEngine {
         plan: PlanSnapshot, sessionId: String, plans: List<PlanSnapshot>,
         activities: List<ActivityRecord> = emptyList(), zone: ZoneId
     ): SessionDebrief? {
-        if (plan.engineVersion != ENGINE15_VERSION || plan.status == "draft") return null
+        if (!Engine1Engines.supportsCoachingLoop(plan) || plan.status == "draft") return null
         val session = plan.sessions.singleOrNull { it.id == sessionId && it.status == "completed" } ?: return null
         val log = session.log ?: return null
         if (session.suggestion?.accepted == true && session.suggestion.minutes == 0) return null
@@ -117,7 +117,7 @@ internal object Engine15DebriefEngine {
     ): SessionDebrief? {
         if (owner == null || sourceIds.isEmpty()) return null
         val (plan, session) = plans.asSequence()
-            .filter { it.owner == owner && it.engineVersion == ENGINE15_VERSION && it.status != "draft" }
+            .filter { it.owner == owner && Engine1Engines.supportsCoachingLoop(it) && it.status != "draft" }
             .flatMap { plan -> plan.sessions.asSequence().map { plan to it } }
             .filter { (_, session) -> session.discipline != "run" && session.status == "completed" &&
                 session.linkedActivityId in sourceIds && session.log != null }

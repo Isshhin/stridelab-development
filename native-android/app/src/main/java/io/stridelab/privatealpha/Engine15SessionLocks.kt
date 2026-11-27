@@ -41,7 +41,7 @@ internal object Engine15SessionLocks {
     }
 
     fun validateSaved(plan:PlanSnapshot) {
-        if(plan.engineVersion!=ENGINE15_VERSION)return
+        if(plan.engineVersion !in setOf(ENGINE15_VERSION, ENGINE16_VERSION, ENGINE17_VERSION, ENGINE18_VERSION))return
         validateRequest(plan.request)
         validateOutput(plan.request,plan.sessions)
     }

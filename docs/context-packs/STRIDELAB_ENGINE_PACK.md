@@ -1,7 +1,7 @@
 # StrideLab — Architecture, Engine 1.5 & FIT Contracts Pack
 
-> **Generated:** 2026-11-26 16:25 UTC  
-> **Verified Commit:** `eac5cc5c`  
+> **Generated:** 2026-11-27 06:26 UTC  
+> **Verified Commit:** `23c3b321`  
 > **Included Nodes:** 8  
 > **Purpose:** App architecture, deterministic Engine 1.5 coaching rules, SQLite/FIT contracts, Guided Player, and ADRs.
 
@@ -44,6 +44,11 @@ StrideLab is an **offline-first native Android running and multi-discipline trai
 ### Architecture & Guardrails
 - [[App-Architecture]] — 5-slot docked Compose shell (`Today | Training | [ + ] | Activity | More`), `TrainingRepository` mutex pipeline, offline ownership, background workers, and JDK 21 verification commands.
 - [[Engine-1.5]] — Deterministic running & multi-discipline planning, proportional periodization, 14-archetype workout library, difficulty scaling, `.FIT` auto-matcher, diagnostics, and controlled adaptation with rollback.
+- [[Engine-1.6-Strength]] — Pure-Kotlin Strength Intelligence algorithm (always-on): Hevy-style 1–6 day splits, `MOD-13` conservative duration intervals, `MOD-16` e1RM bounds, 9 progression operators, `COARSE_INCREMENT_BRIDGE`, and unified local muscle ledgers.
+- [[Engine-1.7-Calisthenics]] — Pure-Kotlin Calisthenics Intelligence algorithm (always-on): Freeletics-inspired journeys, formal AND/OR prerequisite DAG across 8 domains + 30 catalog progressions, Fresh Skill First, `POL-047` tendon caps, and `Oranchuk 2019` isometric progressions.
+- [[Engine-1.8-Hybrid]] — Pure-Kotlin Hybrid Intelligence & 8-Family Conditioning (always-on): `MOD-19` Leximin multi-goal optimization, `POL-036` bidirectional interference & High/Low concentration, `POL-059` 9-axis cross-discipline stressor limits, repaired `POL-048` 40 s EMOM cutoff, `MD-10` modality HR isolation, and cross-discipline `UnifiedLocalMuscleLedger` deduplication.
+- [[Engine-1.9-Coaching]] — Pure-Kotlin Coaching Intelligence (always-on): `MOD-22` global Hungarian bipartite matcher & 4-gate stitcher, 8-layer multidimensional adherence, 11-hypothesis non-causal differential, `MOD-21` standardized `ln(rMSSD_ms)` HRV, persistent `H1–H4` health holds with monotonic backup merge, 8-stage composable decision pipeline, OCC transactional revisions, and epistemic phrasing/notification guards.
+- [[Engine-2.0-Adaptive]] — Pure-Kotlin Adaptive Intelligence (always-on): `MOD-B1` scaled QR + Joseph covariance CS/$D'$, `MOD-B2/B3` $C^0$ durability decoupling, `E2-03` log-space Bayesian e1RM, `MOD-B4` fractional recoverable muscle bands, `E2-05` 3-state Bayesian fatigue filter, identifiability-gated `MOD-C1` impulse kinetics, Track 8 §11 `CRPS`/`NLL` shadow promotion gates, and `E2-09` bounded autonomy with OCC supervisory defaults.
 - [[Storage-and-FIT-Contracts]] — `PLAN_SCHEMA = 1`, `TrainingStore.java`, `ManualDisciplineStore` (DB v4 / archive v5), Garmin `.FIT` intake/export contracts, `SharePresetStore` v1, and two-tier GPS thumbnail `LruCache`.
 - [[Hard-Guardrails]] — Non-negotiable engineering, scientific, privacy, offline, and UI invariants enforced across code and tests.
 
@@ -169,11 +174,18 @@ Engine 1.5 (`ENGINE15_VERSION = "1.5.0"`) is StrideLab's pure-Kotlin determinist
 - **M2-A..C Calibration & Workload Intelligence:** `Engine15M2APerformanceCalibrator` (Vickers & Vertosick race equivalence and operational threshold anchor), `Engine15M2BIntensityCalibrator` (intensity calibration, verified 5-zone HR hierarchy without `220 - age` synthesis, and monotonic restriction checks), and `Engine15M2CWorkloadIntelligence` (exact-date rolling exposure windows, multimodal cross-training separation, downhill exposure, and 10-family quality ledger) are integrated into `native-android`.
 - **Feature-Flagged Repository Wiring (`Engine15UnifiedAthleteAssembler`):** Unites canonical Garmin/`.FIT` activities, read-only Freeform/Custom workouts (`ManualDisciplineStore.listFreeformReadOnly`), plan sessions, verified HR profiles, and M1-D restrictions into M2-A..C, projecting verified safety limits into `PlanRequest` via `applySafetyAndAssessmentToRequest` behind `FeatureFlags.USE_UNIFIED_ATHLETE_STATE_V1` so `validateSaved(plan)` remains deterministic from `plan.request` alone.
 
+## Unified Athlete Intelligence, M2-D Progression, M3 Workouts & M4 Periodization
+- **Always-On Athlete Assessment (`USE_UNIFIED_ATHLETE_STATE_V1 = true`):** `Engine15UnifiedAthleteAssembler` feeds canonical Garmin/`.FIT` activities, read-only Freeform/Custom logs, HR profiles, and M1-D safety restrictions through M2-A..C into live plan requests.
+- **Upgraded Pace Calibration (`Engine15PaceZoneEstimator`):** Uses `MOD-03` Riegel `k = 1.07`, `MOD-06` `54 min` duration-anchored operational threshold, `MOD-04`/`MOD-05` Vickers & Vertosick (2016) Marathon pace models with `POL-015`/`POL-016` domain guards, and advisory `POL-021` `coachingGuidanceBandFactor`.
+- **M2-D Progression (`Engine15RunningPolicyRegistry`, `Engine15RunningProgressionEngine`):** Implements `MOD-12` 6-mode weekly volume delta (`INCREASE`, `MAINTAIN`, `REDISTRIBUTE`, `CUTBACK`, `REBUILD`, `REDUCE`), `MOD-10` exact ISO `[d-30..d-1]` rolling `r_30`, `POL-027` 9-axis `MultiStressorPolicyV1` (`<= 1 MAJOR_STEP`, `<= 3 MINOR_COORDINATED`), `POL-033`/`POL-057` 6 gapless return buckets, and `POL-034` dual exit paths.
+- **M3 Bounded Workout AST & TID (`Engine15RunningWorkoutConstructor`):** Full `[n_lo, n_hi]` bounded enumeration (`MOD-13`), non-overridable `POL-028`/`POL-029` warm-up/cool-down floors, orthogonal `SegmentRole × PhysiologicalIntensityClass` TID conservation (`MOD-15`), 13-field `FamilySpecificWorkoutDose`, and `MOD-11` 4-level Unknown-Pace stopping predicate.
+- **M4 Macrocycle & Pure-Kotlin Optimizer (`Engine15RunningMacrocycleEngine`, `Engine15RunningPlanOptimizer`):** Disjoint day-conserved phases, `MOD-14` Linear/Exponential/Step tapers off `V_peak_ref`, 7-field Race-Week accounting, 5-dim Goal Feasibility (`Dimension A..E`), `MOD-18` 4-level capacity + per-window contiguity (`CON-19`), `MOD-20` two-pass transitive Pareto order (`K_front = 4`), and standalone `F_final` oracle validation.
+
 ## Protected Boundaries
 Engine 1.5 is completely isolated from [[Freeform-Logger]] and [[Templates-and-Custom-Planner]] (see [[ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging]]). Shadow research modules (`Engine15I3..I10`, `IndependentAdaptiveWeek`, `Engine15HistoryInformedPlanner`) remain unwired from production generation.
 
 ## Related Nodes
-- [[00-StrideLab-Index]] · [[App-Architecture]] · [[Storage-and-FIT-Contracts]] · [[Hard-Guardrails]] · [[Guided-Workout-Player-and-Debrief]] · [[ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging]]
+- [[00-StrideLab-Index]] · [[Engine-1.6-Strength]] · [[Engine-1.7-Calisthenics]] · [[Engine-1.8-Hybrid]] · [[Engine-1.9-Coaching]] · [[Engine-2.0-Adaptive]] · [[App-Architecture]] · [[Storage-and-FIT-Contracts]] · [[Hard-Guardrails]] · [[Guided-Workout-Player-and-Debrief]] · [[ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging]]
 
 ---
 

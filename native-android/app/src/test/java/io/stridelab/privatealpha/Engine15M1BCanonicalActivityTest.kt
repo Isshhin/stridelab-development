@@ -514,6 +514,6 @@ class Engine15M1BCanonicalActivityTest {
         assertEquals(HistoryCoverageStatus.CONFIRMED_ZERO, HistoryCoverageStatus.fromRecentMileageBasis(RecentMileageBasis.CONFIRMED_ZERO))
         assertEquals(HistoryCoverageStatus.MISSING_UNOBSERVED, HistoryCoverageStatus.fromRecentMileageBasis(RecentMileageBasis.UNKNOWN))
         assertEquals(HistoryCoverageStatus.PARTIAL_COVERAGE, HistoryCoverageStatus.fromRecentMileageBasis(RecentMileageBasis.RECORDED_PARTIAL))
-        assertFalse(FeatureFlags.USE_UNIFIED_ATHLETE_STATE_V1)
+        assertTrue(FeatureFlags.USE_UNIFIED_ATHLETE_STATE_V1)
     }
 }

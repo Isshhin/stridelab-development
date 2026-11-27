@@ -22,7 +22,7 @@ class MuscleFocusProjectorTest {
         val v2Records = ExerciseLibraryV2.load { File(assets, it).inputStream() }.records
         val builtins = FreeformExerciseCatalog.builtinRecords()
         assertEquals(66, v2Records.size)
-        assertTrue("Expanded catalog should contain >= 140 records", builtins.size >= 140)
+        assertTrue("Expanded catalog should contain >= 235 records", builtins.size >= 235)
         assertEquals(29, ExerciseMuscleCatalog.STANDARD_MUSCLES.size)
         val allRecords = v2Records + builtins
 
@@ -99,6 +99,19 @@ class MuscleFocusProjectorTest {
             recentNames = emptyList()
         )
         assertTrue(lateralQueryMatches.any { it.id == "str-db-lateral-raise" })
+
+        val reverseGripCurls = FreeformExerciseCatalog.filter(
+            catalog = catalog,
+            scope = PickerScope.ALL,
+            query = "reverse grip curls",
+            recentNames = emptyList()
+        )
+        assertTrue("Searching 'reverse grip curls' must find reverse grip curl variations", reverseGripCurls.any {
+            it.id == "str-rev-grip-bb-curl"
+        })
+        assertTrue(reverseGripCurls.any { it.id == "str-rev-grip-ez-curl" })
+        assertTrue(reverseGripCurls.any { it.id == "str-rev-grip-cable-curl" })
+        assertTrue(reverseGripCurls.any { it.id == "str-rev-grip-db-curl" })
     }
 
     @Test

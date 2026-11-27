@@ -316,12 +316,22 @@ internal object StrengthProgressionProjector {
         )
     }
 
-    /** Epley e1RM strictly restricted to 3-10 hard working reps; warm-ups (<3) and endurance sets (>10) return null. */
+    /**
+     * Epley e1RM bounded strictly per MOD-16 / POL-042:
+     * reps in 3..10, RIR in 0..4 (when supplied), and effectiveReps = reps + RIR <= 10.
+     * Warm-ups (<3), high-rep endurance (>10), and r_eff > 10 return null.
+     */
     fun estimateE1Rm(weightKg: Double, reps: Int, rir: Int? = null): Double? {
-        if (!weightKg.isFinite() || weightKg <= 0.0) return null
         if (reps !in 3..10) return null
-        val effectiveReps = reps + (rir?.coerceIn(0, 4) ?: 0)
-        return weightKg * (1.0 + effectiveReps / 30.0)
+        if (rir != null && rir !in 0..4) return null
+        return Engine16StrengthCalibrationEngine.estimateE1Rm(
+            weightKg = weightKg,
+            reps = reps,
+            rir = rir,
+            techniqueQuality = TechniqueQuality.CLEAN,
+            allowTierBShadowWindow = false,
+            assumeFailureIfRirNull = (rir == null)
+        )?.epleyKg?.value
     }
 
     fun snapWeight(raw: Double, increment: Double = 2.5): Double {

@@ -371,7 +371,7 @@ private fun DiagnosticVisualMeterTile(
 }
 
 @Composable internal fun Engine15CoachReviewCard(plan:PlanSnapshot,actions:PlanActions,busy:Boolean,error:String?=null) {
-    if(plan.status!="approved" || plan.engineVersion!=ENGINE15_VERSION || plan.policyId !in ENGINE15_COACHING_POLICIES)return
+    if(plan.status!="approved" || !Engine1Engines.supportsCoachingLoop(plan))return
     var open by rememberSaveable(plan.owner,plan.id) { mutableStateOf(false) }
     var fatigue by rememberSaveable(plan.owner,plan.id) { mutableStateOf<String?>(null) }
     var unavailableCsv by rememberSaveable(plan.owner,plan.id) { mutableStateOf("") }

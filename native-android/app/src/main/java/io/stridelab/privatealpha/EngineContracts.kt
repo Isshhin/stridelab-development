@@ -15,6 +15,17 @@ internal const val ENGINE15_FOUNDATION_POLICY="stridelab.engine15.foundation-202
 internal const val ENGINE15_POLICY="stridelab.engine15.bounded-running-20261103.1"
 internal const val ENGINE15_MULTI_POLICY="stridelab.engine15.multi-session-20261103.1"
 internal const val ENGINE15_INTERFERENCE_POLICY="stridelab.engine15.interference-calendar-20261103.1"
+internal const val ENGINE16_VERSION="1.6.0"
+internal const val ENGINE16_STRENGTH_POLICY="stridelab.engine16.strength-20261127.1"
+internal const val ENGINE17_VERSION="1.7.0"
+internal const val ENGINE17_CALISTHENICS_POLICY="stridelab.engine17.calisthenics-20261127.1"
+internal const val ENGINE18_VERSION="1.8.0"
+internal const val ENGINE18_HYBRID_POLICY="stridelab.engine18.hybrid-20261127.1"
+internal const val ENGINE18_CONDITIONING_POLICY="stridelab.engine18.conditioning-20261127.1"
+internal const val ENGINE19_VERSION="1.9.0"
+internal const val ENGINE19_COACHING_POLICY="stridelab.engine19.coaching-20261127.1"
+internal const val ENGINE20_VERSION="2.0.0"
+internal const val ENGINE20_ADAPTIVE_POLICY="stridelab.engine20.adaptive-20261127.1"
 internal class PlanConstraint(message:String):IllegalArgumentException(message)
 internal object PlanDisciplineContract {
     val goals=mapOf(

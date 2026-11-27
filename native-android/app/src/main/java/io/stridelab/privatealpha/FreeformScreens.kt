@@ -1,5 +1,6 @@
 package io.stridelab.privatealpha
 
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -49,6 +50,7 @@ internal fun FreeformPage(
     title: String,
     subtitle: String?,
     back: () -> Unit,
+    trailingAction: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(StrideLabSurfaceTokens.canvas)) {
@@ -83,6 +85,7 @@ internal fun FreeformPage(
                     )
                 }
             }
+            trailingAction?.invoke()
         }
         StrideLabHairline()
         content()
@@ -463,7 +466,26 @@ internal fun FreeformHistoryDetail(
         ?: legacy?.let { "${it.discipline.label} · Manual · ${it.performedOn}" }
     val showSkeleton = rememberDelayedSkeletonVisible(loading && workout == null && legacy == null)
     val catalog = rememberAugmentedExerciseCatalog()
-    FreeformPage(title, subtitle, back) {
+    BackHandler(onBack = back)
+    FreeformPage(
+        title = title,
+        subtitle = subtitle,
+        back = back,
+        trailingAction = {
+            TextButton(
+                onClick = back,
+                modifier = Modifier
+                    .heightIn(min = 48.dp)
+                    .testTag("freeform-history-done")
+            ) {
+                Text(
+                    text = "Done",
+                    color = StrideLabSurfaceTokens.lime,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    ) {
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),

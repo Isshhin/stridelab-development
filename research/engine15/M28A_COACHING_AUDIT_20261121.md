@@ -130,7 +130,7 @@ Work uses prescribed meters or time. Parenthesized work time for distance reps i
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Advanced — Improve 10K (68 km/wk, 5d)
-- **Pace Zones:** Easy 4:58–5:26 /km | Tempo 4:18–4:31 /km | Thr 4:08–4:18 /km | Int 3:47–3:59 /km
+- **Pace Zones:** Easy 4:58–5:26 /km | Tempo 4:18–4:30 /km | Thr 4:08–4:18 /km | Int 3:47–3:59 /km
 | Wk | Sessions | Total km | Long run km (% wk) | Quality workout (prescribed work; estimated work time for distance reps) | Spacing |
 |---|---|---|---|---|---|
 | W1 | 5 | 61.2 | 18.3 (30%) | Tempo (24:00 work / 61m tot) | OK |
@@ -144,7 +144,7 @@ Work uses prescribed meters or time. Parenthesized work time for distance reps i
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Advanced — Half marathon (75 km/wk, 5d)
-- **Pace Zones:** Easy 4:58–5:26 /km | Tempo 4:17–4:30 /km | Thr 4:07–4:17 /km | Int 3:46–3:58 /km
+- **Pace Zones:** Easy 4:57–5:26 /km | Tempo 4:17–4:30 /km | Thr 4:07–4:17 /km | Int 3:46–3:58 /km
 | Wk | Sessions | Total km | Long run km (% wk) | Quality workout (prescribed work; estimated work time for distance reps) | Spacing |
 |---|---|---|---|---|---|
 | W1 | 5 | 67.5 | 22.9 (34%) | Tempo (24:00 work / 64m tot) | OK |
@@ -158,7 +158,7 @@ Work uses prescribed meters or time. Parenthesized work time for distance reps i
 - **Audit Status:** PASS (0 rubric flags)
 
 ## Advanced — Marathon (82 km/wk, 6d)
-- **Pace Zones:** Easy 4:58–5:26 /km | Tempo 4:18–4:31 /km | Thr 4:08–4:18 /km | Int 3:47–3:59 /km
+- **Pace Zones:** Easy 4:58–5:26 /km | Tempo 4:18–4:30 /km | Thr 4:08–4:18 /km | Int 3:47–3:59 /km
 | Wk | Sessions | Total km | Long run km (% wk) | Quality workout (prescribed work; estimated work time for distance reps) | Spacing |
 |---|---|---|---|---|---|
 | W1 | 6 | 73.8 | 25.0 (34%) | Tempo (24:00 work / 58m tot) | OK |

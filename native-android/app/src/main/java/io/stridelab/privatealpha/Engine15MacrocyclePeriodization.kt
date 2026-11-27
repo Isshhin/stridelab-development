@@ -151,5 +151,22 @@ internal object Engine15MacrocyclePeriodization {
         if ((volume.shortfallToRequestedTargetKm ?: 0.0) > 2.0) {
             add("VOLUME_JUMP_GUARDRAIL: Weekly volume ramp is bounded to prevent single-session and weekly mileage spikes.")
         }
+
+        val feas = Engine15RunningMacrocycleEngine.classifyGoalFeasibility(
+            request = request,
+            hasHardClinicalHold = request.runningRecoveryHold,
+            paceIsUnknown = (request.weeklyKm == 0.0 && request.recentMileageBasis == "CONFIRMED_ZERO" && request.benchmarkDistanceMeters == null),
+            projectedPeakWeeklyMeters = (volume.peakProposedKm ?: request.weeklyKm) * 1000.0
+        )
+        add("GOAL_FEASIBILITY_5D: calendar=${feas.calendarFeasibility.name}, workload=${feas.workloadProgressionFeasibility.name}, completion=${feas.eventCompletionPreparation.name}, performance=${feas.currentPerformancePlausibility.name}, uncertainty=${feas.futureImprovementUncertainty.name}")
+
+        if (isRaceGoal(request.goal)) {
+            val weekPairs = volume.weeks.map { (it.index + 1) to ((it.proposedKm ?: 0.0) * 1000.0) }
+            val recFlags = volume.weeks.map { it.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY || "RACE_TAPER_VOLUME_REDUCTION" in it.constraintCodes }
+            val (vPeakRefM, refWeeks) = Engine15RunningMacrocycleEngine.computePreTaperReferenceMeters(weekPairs, recFlags)
+            if (vPeakRefM > 0.0 && refWeeks.isNotEmpty()) {
+                add("MOD_14_TAPER_REFERENCE: V_peak_ref=${"%.1f".format(java.util.Locale.US, vPeakRefM / 1000.0)} km from non-cutback loading weeks ${refWeeks.joinToString(",")}.")
+            }
+        }
     }
 }

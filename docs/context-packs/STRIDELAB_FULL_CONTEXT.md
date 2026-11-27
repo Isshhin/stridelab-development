@@ -1,8 +1,8 @@
 # StrideLab — Full Portable Context Pack
 
-> **Generated:** 2026-11-26 16:25 UTC  
-> **Verified Commit:** `eac5cc5c`  
-> **Included Nodes:** 20  
+> **Generated:** 2026-11-27 06:26 UTC  
+> **Verified Commit:** `23c3b321`  
+> **Included Nodes:** 25  
 > **Purpose:** Complete architecture, guardrails, active features, UI system, ADRs, and marked roadmap ideas.
 
 ## Table of Contents
@@ -11,21 +11,26 @@
 3. [Engine 1.5 — Deterministic Training Coach](#3-engine-15-deterministic-training-coach) — `architecture/Engine-1.5.md` (`verified`)
 4. [Storage, Schemas & FIT Contracts](#4-storage-schemas-fit-contracts) — `architecture/Storage-and-FIT-Contracts.md` (`verified`)
 5. [Hard Guardrails & Protected Invariants](#5-hard-guardrails-protected-invariants) — `architecture/Hard-Guardrails.md` (`verified`)
-6. [Freeform Workout Logger](#6-freeform-workout-logger) — `features/Freeform-Logger.md` (`verified`)
-7. [Garmin Integration & Activity Import](#7-garmin-integration-activity-import) — `features/Garmin-and-Activity-Import.md` (`verified`)
-8. [Guided Workout Player & Coach's Debrief](#8-guided-workout-player-coachs-debrief) — `features/Guided-Workout-Player-and-Debrief.md` (`verified`)
-9. [Progress, History & Baseline Evidence](#9-progress-history-baseline-evidence) — `features/Progress-and-History.md` (`verified`)
-10. [Share Studio](#10-share-studio) — `features/Share-Studio.md` (`verified`)
-11. [Templates & Custom Workout Planner](#11-templates-custom-workout-planner) — `features/Templates-and-Custom-Planner.md` (`verified`)
-12. [Screens Map & Navigation Routes](#12-screens-map-navigation-routes) — `ui/Screens-Map.md` (`verified`)
-13. [UI Design System (AMOLED Compose)](#13-ui-design-system-amoled-compose) — `ui/UI-Design-System.md` (`verified`)
-14. [ADR-01: Engine 1.5 Isolation from Freeform and Custom Logging](#14-adr-01-engine-15-isolation-from-freeform-and-custom-logging) — `decisions/ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging.md` (`verified`)
-15. [ADR-02: GPS 200 m Default Privacy Trimming in Share Studio](#15-adr-02-gps-200-m-default-privacy-trimming-in-share-studio) — `decisions/ADR-02-GPS-200m-Default-Privacy-Trimming.md` (`verified`)
-16. [ADR-03: Offline-First Independent Local Ownership](#16-adr-03-offline-first-independent-local-ownership) — `decisions/ADR-03-Offline-First-Independent-Local-Ownership.md` (`verified`)
-17. [ADR-04: Retiring Redundant UI Views While Preserving Unified Data Layers](#17-adr-04-retiring-redundant-ui-views-while-preserving-unified-data-layers) — `decisions/ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers.md` (`verified`)
-18. [Anatomical Muscle Map](#18-anatomical-muscle-map) — `roadmap/Anatomical-Muscle-Map.md` (`verified`)
-19. [Main & Supporting Plans (Concept)](#19-main-supporting-plans-concept) — `roadmap/Main-and-Supporting-Plans.md` (`idea`)
-20. [Strength & Calisthenics Overhaul](#20-strength-calisthenics-overhaul) — `roadmap/Strength-and-Calisthenics-Overhaul.md` (`verified`)
+6. [Engine 1.6 — Strength Intelligence](#6-engine-16-strength-intelligence) — `architecture/Engine-1.6-Strength.md` (`verified`)
+7. [Engine 1.7 — Calisthenics Intelligence](#7-engine-17-calisthenics-intelligence) — `architecture/Engine-1.7-Calisthenics.md` (`verified`)
+8. [Engine 1.8 — Hybrid Intelligence & 8-Family Conditioning](#8-engine-18-hybrid-intelligence-8-family-conditioning) — `architecture/Engine-1.8-Hybrid.md` (`verified`)
+9. [Engine 1.9 — Coaching Intelligence](#9-engine-19-coaching-intelligence) — `architecture/Engine-1.9-Coaching.md` (`verified`)
+10. [Engine 2.0 — Adaptive Intelligence](#10-engine-20-adaptive-intelligence) — `architecture/Engine-2.0-Adaptive.md` (`verified`)
+11. [Freeform Workout Logger](#11-freeform-workout-logger) — `features/Freeform-Logger.md` (`verified`)
+12. [Garmin Integration & Activity Import](#12-garmin-integration-activity-import) — `features/Garmin-and-Activity-Import.md` (`verified`)
+13. [Guided Workout Player & Coach's Debrief](#13-guided-workout-player-coachs-debrief) — `features/Guided-Workout-Player-and-Debrief.md` (`verified`)
+14. [Progress, History & Baseline Evidence](#14-progress-history-baseline-evidence) — `features/Progress-and-History.md` (`verified`)
+15. [Share Studio](#15-share-studio) — `features/Share-Studio.md` (`verified`)
+16. [Templates & Custom Workout Planner](#16-templates-custom-workout-planner) — `features/Templates-and-Custom-Planner.md` (`verified`)
+17. [Screens Map & Navigation Routes](#17-screens-map-navigation-routes) — `ui/Screens-Map.md` (`verified`)
+18. [UI Design System (AMOLED Compose)](#18-ui-design-system-amoled-compose) — `ui/UI-Design-System.md` (`verified`)
+19. [ADR-01: Engine 1.5 Isolation from Freeform and Custom Logging](#19-adr-01-engine-15-isolation-from-freeform-and-custom-logging) — `decisions/ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging.md` (`verified`)
+20. [ADR-02: GPS 200 m Default Privacy Trimming in Share Studio](#20-adr-02-gps-200-m-default-privacy-trimming-in-share-studio) — `decisions/ADR-02-GPS-200m-Default-Privacy-Trimming.md` (`verified`)
+21. [ADR-03: Offline-First Independent Local Ownership](#21-adr-03-offline-first-independent-local-ownership) — `decisions/ADR-03-Offline-First-Independent-Local-Ownership.md` (`verified`)
+22. [ADR-04: Retiring Redundant UI Views While Preserving Unified Data Layers](#22-adr-04-retiring-redundant-ui-views-while-preserving-unified-data-layers) — `decisions/ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers.md` (`verified`)
+23. [Anatomical Muscle Map](#23-anatomical-muscle-map) — `roadmap/Anatomical-Muscle-Map.md` (`verified`)
+24. [Main & Supporting Plans (Concept)](#24-main-supporting-plans-concept) — `roadmap/Main-and-Supporting-Plans.md` (`idea`)
+25. [Strength & Calisthenics Overhaul](#25-strength-calisthenics-overhaul) — `roadmap/Strength-and-Calisthenics-Overhaul.md` (`verified`)
 
 ---
 
@@ -56,6 +61,11 @@ StrideLab is an **offline-first native Android running and multi-discipline trai
 ### Architecture & Guardrails
 - [[App-Architecture]] — 5-slot docked Compose shell (`Today | Training | [ + ] | Activity | More`), `TrainingRepository` mutex pipeline, offline ownership, background workers, and JDK 21 verification commands.
 - [[Engine-1.5]] — Deterministic running & multi-discipline planning, proportional periodization, 14-archetype workout library, difficulty scaling, `.FIT` auto-matcher, diagnostics, and controlled adaptation with rollback.
+- [[Engine-1.6-Strength]] — Pure-Kotlin Strength Intelligence algorithm (always-on): Hevy-style 1–6 day splits, `MOD-13` conservative duration intervals, `MOD-16` e1RM bounds, 9 progression operators, `COARSE_INCREMENT_BRIDGE`, and unified local muscle ledgers.
+- [[Engine-1.7-Calisthenics]] — Pure-Kotlin Calisthenics Intelligence algorithm (always-on): Freeletics-inspired journeys, formal AND/OR prerequisite DAG across 8 domains + 30 catalog progressions, Fresh Skill First, `POL-047` tendon caps, and `Oranchuk 2019` isometric progressions.
+- [[Engine-1.8-Hybrid]] — Pure-Kotlin Hybrid Intelligence & 8-Family Conditioning (always-on): `MOD-19` Leximin multi-goal optimization, `POL-036` bidirectional interference & High/Low concentration, `POL-059` 9-axis cross-discipline stressor limits, repaired `POL-048` 40 s EMOM cutoff, `MD-10` modality HR isolation, and cross-discipline `UnifiedLocalMuscleLedger` deduplication.
+- [[Engine-1.9-Coaching]] — Pure-Kotlin Coaching Intelligence (always-on): `MOD-22` global Hungarian bipartite matcher & 4-gate stitcher, 8-layer multidimensional adherence, 11-hypothesis non-causal differential, `MOD-21` standardized `ln(rMSSD_ms)` HRV, persistent `H1–H4` health holds with monotonic backup merge, 8-stage composable decision pipeline, OCC transactional revisions, and epistemic phrasing/notification guards.
+- [[Engine-2.0-Adaptive]] — Pure-Kotlin Adaptive Intelligence (always-on): `MOD-B1` scaled QR + Joseph covariance CS/$D'$, `MOD-B2/B3` $C^0$ durability decoupling, `E2-03` log-space Bayesian e1RM, `MOD-B4` fractional recoverable muscle bands, `E2-05` 3-state Bayesian fatigue filter, identifiability-gated `MOD-C1` impulse kinetics, Track 8 §11 `CRPS`/`NLL` shadow promotion gates, and `E2-09` bounded autonomy with OCC supervisory defaults.
 - [[Storage-and-FIT-Contracts]] — `PLAN_SCHEMA = 1`, `TrainingStore.java`, `ManualDisciplineStore` (DB v4 / archive v5), Garmin `.FIT` intake/export contracts, `SharePresetStore` v1, and two-tier GPS thumbnail `LruCache`.
 - [[Hard-Guardrails]] — Non-negotiable engineering, scientific, privacy, offline, and UI invariants enforced across code and tests.
 
@@ -181,11 +191,18 @@ Engine 1.5 (`ENGINE15_VERSION = "1.5.0"`) is StrideLab's pure-Kotlin determinist
 - **M2-A..C Calibration & Workload Intelligence:** `Engine15M2APerformanceCalibrator` (Vickers & Vertosick race equivalence and operational threshold anchor), `Engine15M2BIntensityCalibrator` (intensity calibration, verified 5-zone HR hierarchy without `220 - age` synthesis, and monotonic restriction checks), and `Engine15M2CWorkloadIntelligence` (exact-date rolling exposure windows, multimodal cross-training separation, downhill exposure, and 10-family quality ledger) are integrated into `native-android`.
 - **Feature-Flagged Repository Wiring (`Engine15UnifiedAthleteAssembler`):** Unites canonical Garmin/`.FIT` activities, read-only Freeform/Custom workouts (`ManualDisciplineStore.listFreeformReadOnly`), plan sessions, verified HR profiles, and M1-D restrictions into M2-A..C, projecting verified safety limits into `PlanRequest` via `applySafetyAndAssessmentToRequest` behind `FeatureFlags.USE_UNIFIED_ATHLETE_STATE_V1` so `validateSaved(plan)` remains deterministic from `plan.request` alone.
 
+## Unified Athlete Intelligence, M2-D Progression, M3 Workouts & M4 Periodization
+- **Always-On Athlete Assessment (`USE_UNIFIED_ATHLETE_STATE_V1 = true`):** `Engine15UnifiedAthleteAssembler` feeds canonical Garmin/`.FIT` activities, read-only Freeform/Custom logs, HR profiles, and M1-D safety restrictions through M2-A..C into live plan requests.
+- **Upgraded Pace Calibration (`Engine15PaceZoneEstimator`):** Uses `MOD-03` Riegel `k = 1.07`, `MOD-06` `54 min` duration-anchored operational threshold, `MOD-04`/`MOD-05` Vickers & Vertosick (2016) Marathon pace models with `POL-015`/`POL-016` domain guards, and advisory `POL-021` `coachingGuidanceBandFactor`.
+- **M2-D Progression (`Engine15RunningPolicyRegistry`, `Engine15RunningProgressionEngine`):** Implements `MOD-12` 6-mode weekly volume delta (`INCREASE`, `MAINTAIN`, `REDISTRIBUTE`, `CUTBACK`, `REBUILD`, `REDUCE`), `MOD-10` exact ISO `[d-30..d-1]` rolling `r_30`, `POL-027` 9-axis `MultiStressorPolicyV1` (`<= 1 MAJOR_STEP`, `<= 3 MINOR_COORDINATED`), `POL-033`/`POL-057` 6 gapless return buckets, and `POL-034` dual exit paths.
+- **M3 Bounded Workout AST & TID (`Engine15RunningWorkoutConstructor`):** Full `[n_lo, n_hi]` bounded enumeration (`MOD-13`), non-overridable `POL-028`/`POL-029` warm-up/cool-down floors, orthogonal `SegmentRole × PhysiologicalIntensityClass` TID conservation (`MOD-15`), 13-field `FamilySpecificWorkoutDose`, and `MOD-11` 4-level Unknown-Pace stopping predicate.
+- **M4 Macrocycle & Pure-Kotlin Optimizer (`Engine15RunningMacrocycleEngine`, `Engine15RunningPlanOptimizer`):** Disjoint day-conserved phases, `MOD-14` Linear/Exponential/Step tapers off `V_peak_ref`, 7-field Race-Week accounting, 5-dim Goal Feasibility (`Dimension A..E`), `MOD-18` 4-level capacity + per-window contiguity (`CON-19`), `MOD-20` two-pass transitive Pareto order (`K_front = 4`), and standalone `F_final` oracle validation.
+
 ## Protected Boundaries
 Engine 1.5 is completely isolated from [[Freeform-Logger]] and [[Templates-and-Custom-Planner]] (see [[ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging]]). Shadow research modules (`Engine15I3..I10`, `IndependentAdaptiveWeek`, `Engine15HistoryInformedPlanner`) remain unwired from production generation.
 
 ## Related Nodes
-- [[00-StrideLab-Index]] · [[App-Architecture]] · [[Storage-and-FIT-Contracts]] · [[Hard-Guardrails]] · [[Guided-Workout-Player-and-Debrief]] · [[ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging]]
+- [[00-StrideLab-Index]] · [[Engine-1.6-Strength]] · [[Engine-1.7-Calisthenics]] · [[Engine-1.8-Hybrid]] · [[Engine-1.9-Coaching]] · [[Engine-2.0-Adaptive]] · [[App-Architecture]] · [[Storage-and-FIT-Contracts]] · [[Hard-Guardrails]] · [[Guided-Workout-Player-and-Debrief]] · [[ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging]]
 
 ---
 
@@ -282,7 +299,152 @@ These invariants are non-negotiable contracts enforced across StrideLab's coachi
 
 ---
 
-## 6. Freeform Workout Logger
+## 6. Engine 1.6 — Strength Intelligence
+
+- **Source Node:** `docs/wiki/architecture/Engine-1.6-Strength.md`
+- **Area / Status:** `architecture` / `verified`
+- **Key Files:** `native-android/app/src/main/java/io/stridelab/privatealpha/Engine16StrengthPolicyRegistry.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine16StrengthModels.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine16StrengthCalibrationEngine.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine16LocalMuscleLedgerBuilder.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine16StrengthExerciseCatalog.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine16StrengthWorkoutConstructor.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine16StrengthProgressionEngine.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine16StrengthProgramBuilder.kt`
+
+# Engine 1.6 — Strength Intelligence
+
+Engine 1.6 (`ENGINE16_VERSION = "1.6.0"`, `ENGINE16_STRENGTH_POLICY`) implements StrideLab's pure-Kotlin deterministic strength coaching algorithm (enabled always via `FeatureFlags.USE_ENGINE16_STRENGTH_V1` in debug and release builds), blending Hevy-inspired routine clarity with the mathematical contracts and safety boundaries from Track 6 and the 2026 ACSM Position Stand (`PMC12965823`).
+
+## Core Components
+- **Policy Registry (`Engine16StrengthPolicyRegistry`):** Centralizes `POL-033`, `POL-042` through `POL-046`, `POL-049`, `POL-058` through `POL-060`, and the 7-objective evidence matrix (`Maximal strength`, `Hypertrophy`, `General strength`, `Strength endurance`, `Strength maintenance`, `Strength for runners`, `Power development`), plus non-failure defaults (`1–3` RIR hypertrophy, `2–3` RIR strength/runner, blocking `0` RIR failure on axial compounds).
+- **Calibration & Load Semantics (`Engine16StrengthModels`, `Engine16StrengthCalibrationEngine`):**
+  - Strictly enforces typed `ExternalLoadSemantics` (`TotalBarbellMass`, `DumbbellPerHand`, `MachineStackSetting`, `ResistanceBandTier`, `AssistedBodyweight`, `ExternalAddedMass`, `UnloadedBodyweight`), preventing per-hand vs. combined load mismatches (`MD-02`).
+  - Implements `MOD-16` / `POL-042` piecewise Epley and Brzycki provisional e1RM (`reps in 1..10`, `rir in 0..4`, `reps + rir <= 10`, `CLEAN` technique; `11..12` Tier B shadow only; `> 12` rejected) and downgrades cross-context transfers cleanly to `DiscoverByRir`.
+- **Unified Local Muscle Ledgers (`Engine16LocalMuscleLedgerBuilder`):** Tracks `directHardSets`, `indirectHardSets`, isometric hold seconds, eccentric-focused sets, plyo contacts, and RIR bins across Strength, Calisthenics, Conditioning, and Freeform sessions (`MD-06`), preserving Observed vs. Projected isolation (`INV-02`, `MD-14`) and computing Tier B `direct + 0.5 * indirect` shadow volume (`MOD-B4`).
+- **Exercise Catalog & Bounded Constructor (`Engine16StrengthExerciseCatalog`, `Engine16StrengthWorkoutConstructor`):**
+  - Unites `ExerciseLibraryV2` and `ExpandedExerciseCatalog.strengthRecords` under an 8-field descriptor without modifying `catalog.json`.
+  - Generates Hevy-style frequency-aware splits across `1–6` days/week (`Full Body`, `Full Body A/B`, `Full Body DUP`, `Upper/Lower A/B`, `UL + PPL`, `Push/Pull/Legs A/B`), strictly ordered (`Power/Skill -> Primary Compound -> Secondary/Unilateral -> Isolation/Core`).
+  - Validates conservative `[T_min, T_max]` intervals (`MOD-13` / `POL-044`), packing antagonist supersets or `MED_STRENGTH` (`2` sets/pattern) under tight 30–40 min budgets without clipping warm-ups (`T_max <= T_day_max`, `MD-07`).
+- **Progression & Multi-Week Mesocycles (`Engine16StrengthProgressionEngine`, `Engine16StrengthProgramBuilder`):**
+  - Implements 9 bounded operators (`CONSOLIDATE_MAINTAIN`, `PROGRESS_ONE_SET`, `PROGRESS_PARTIAL_SETS`, `PROGRESS_ALL_SETS`, `PROGRESS_LOAD_RESET_REPS`, `PROGRESS_SET_VOLUME` with RP distribution-preserving muscle-set allocation, `REDUCE_WORKING_SETS` `POL-049` deloads, `REDUCE_LOAD`, `SUBSTITUTE_MOVEMENT`).
+  - Resolves fixed equipment steps `> 12%` via `COARSE_INCREMENT_BRIDGE` (`POL-045`, `MD-03`), minimal-input continuity (`POL-046`, `MD-04`), execution-conflict detection, 6-bucket gapless return curves (`POL-033`, `POL-058`, `MD-13`), and running `MAJOR_STEP` lower-body holds (`POL-059`, `MD-15`).
+  - Emits `PLAN_SCHEMA = 1` `PlanSnapshot` drafts with deterministic `validateSaved(plan)` replay from `plan.request` alone.
+
+## Related Nodes
+- [[00-StrideLab-Index]] · [[Engine-1.5]] · [[Engine-1.7-Calisthenics]] · [[Engine-1.8-Hybrid]] · [[Engine-1.9-Coaching]] · [[Engine-2.0-Adaptive]] · [[Hard-Guardrails]] · [[Strength-and-Calisthenics-Overhaul]] · [[Storage-and-FIT-Contracts]] · [[ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging]]
+
+---
+
+## 7. Engine 1.7 — Calisthenics Intelligence
+
+- **Source Node:** `docs/wiki/architecture/Engine-1.7-Calisthenics.md`
+- **Area / Status:** `architecture` / `verified`
+- **Key Files:** `native-android/app/src/main/java/io/stridelab/privatealpha/Engine17CalisthenicsPolicyRegistry.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine17CalisthenicsModels.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine17CalisthenicsDagCatalog.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine17CalisthenicsProgressionEngine.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine17CalisthenicsWorkoutConstructor.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine17CalisthenicsProgramBuilder.kt`
+
+# Engine 1.7 — Calisthenics Intelligence
+
+Engine 1.7 (`ENGINE17_VERSION = "1.7.0"`, `ENGINE17_CALISTHENICS_POLICY`) implements StrideLab's pure-Kotlin Freeletics-inspired calisthenics journey generator, enabled always via `FeatureFlags.USE_ENGINE17_CALISTHENICS_V1` while retaining deterministic validation for legacy `ENGINE15_INDEPENDENT_CALISTHENICS_POLICY` plans.
+
+## Core Architecture
+- **Policy Registry (`Engine17CalisthenicsPolicyRegistry`):** Codifies `POL-033`, `POL-044` duration cadence intervals, `POL-046` minimal-input continuity, `POL-047` mastery gates (`>= 2` consecutive `CLEAN` sessions; beginner slow eccentric cap `<= 2` sets × `2–3` reps, `<= 2×/wk` per `McHugh 2003`), `POL-049` conditional deloads, `POL-058` 6-bucket return reentry, and `POL-061` entry bypass & fresh skill ordering.
+- **Formal AND/OR Prerequisite Hypergraph (`Engine17CalisthenicsDagCatalog`):**
+  - Covers all **8 core Track 6 domains** (`PULL_UP`, `PUSH_UP`, `DIP`, `HANDSTAND_SKILL`, `CORE_AND_L_SIT`, `SINGLE_LEG_SQUAT`, `WEIGHTED_CALISTHENICS`, `ISOMETRIC_STATIC_HOLDS`) unifying baseline seeds with all **30 structured progressions** in `ExpandedExerciseCatalog.calisthenicsRecords` without modifying SHA-256 JSON files.
+  - Encodes explicit `RequireAll` (`AND` mobility + strength) gates, `RequireAny` (`OR`) pathways, `>= 3` strict clean rep bypasses (`POL-061`), and unblocks `"Handstand foundations"`.
+- **Progression & Regressions (`Engine17CalisthenicsProgressionEngine`):**
+  - Strictly separates **Technical Failure** (`BREAKDOWN_OR_PAIN`) from muscular failure, triggering safe DAG parent regression or `~30%` isometric tremor reduction (`Oranchuk 2019` `15 -> 30 -> 45 s`).
+  - Handles zero-pull-up Scenario S05 Prerequisite Cluster pairing (`Band-Assisted Pull-Ups + Low-Vol 4 s Eccentrics + Inverted Rows`), vertical suspended `ExternalAddedMass` bridging, and exports directly into Engine 1.6's shared `UnifiedLocalMuscleLedger`.
+- **Journey Splits & Duration Compliance (`Engine17CalisthenicsWorkoutConstructor`, `Engine17CalisthenicsProgramBuilder`):**
+  - Schedules `1..6` days/week splits placing **Fresh Skill Practice (`5–10 min`) FIRST**, enforces `MOD-13` conservative `T_max <= T_day_max`, honors M1-D hard blocks, avoids em-dashes in copy, and replays deterministically through `validateSaved(plan)`.
+
+## Related Nodes
+- [[00-StrideLab-Index]] · [[Engine-1.5]] · [[Engine-1.6-Strength]] · [[Engine-1.8-Hybrid]] · [[Engine-1.9-Coaching]] · [[Engine-2.0-Adaptive]] · [[Hard-Guardrails]] · [[Strength-and-Calisthenics-Overhaul]]
+
+---
+
+## 8. Engine 1.8 — Hybrid Intelligence & 8-Family Conditioning
+
+- **Source Node:** `docs/wiki/architecture/Engine-1.8-Hybrid.md`
+- **Area / Status:** `architecture` / `verified`
+- **Key Files:** `native-android/app/src/main/java/io/stridelab/privatealpha/Engine18HybridPolicyRegistry.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine18HybridGoalOptimizer.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine18ConditioningWorkoutConstructor.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine18HybridCoordinationEngine.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine18HybridProgramBuilder.kt`
+
+# Engine 1.8 — Hybrid Intelligence & 8-Family Conditioning
+
+Engine 1.8 (`ENGINE18_VERSION = "1.8.0"`, `ENGINE18_HYBRID_POLICY`, `ENGINE18_CONDITIONING_POLICY`) coordinates multi-discipline running, strength, calisthenics, and conditioning plans as well as standalone 8-family conditioning plans (`FeatureFlags.USE_ENGINE18_HYBRID_V1 = true` in debug and release builds), while preserving deterministic validation (`validateSaved(plan)`) for legacy `ENGINE15_INDEPENDENT_COMBINED_POLICY` and `ENGINE15_INDEPENDENT_CONDITIONING_POLICY` snapshots.
+
+## Core Architecture
+- **Central Policy Registry (`Engine18HybridPolicyRegistry`):** Codifies `POL-036` / `POL-038` bidirectional lower-body/running spacing (`>= 48 h` preferred, `>= 24 h` / 2 calendar days floor, configurable `>= 6 h` AM/PM High/Low separation), repaired `POL-048` / `MOD-17` EMOM `40.0 s/min` cutoff protecting `>= 20.0 s` rest per minute, `POL-059` 9-axis cross-discipline stressor limits (`<= 1` lower-body `MAJOR_STEP`, `<= 1` systemic `MAJOR_STEP`), `MOD-19` `5%` Leximin shortfall buckets, and `UNIFIED_LEDGER_HIGH_OVERLAP_THRESHOLD_SETS = 10`.
+- **Multi-Goal & Pareto Optimizer (`Engine18HybridGoalOptimizer`):**
+  - Short-circuited normalized goal shortfall `s_g in [0.0, 2.0]` eliminating `0/0` edge cases when `T* == m_g == 0` or `achievedDoseQ >= T*`.
+  - Two-pass strictly transitive `leximinComparator` across 5% quantized buckets -> raw descending shortfalls -> interference penalty -> candidate ID, without arbitrary scalar cross-discipline weights.
+  - Secondary Development preservation when primary shortfall is zero, Spiering (2021) alternating 4-week emphasis blocks, Scenario S15 Pareto-frontier alternatives (`Run-Biased`, `Strength/Skill-Biased`, `Balanced Hybrid`), and Scenario S19 modeled capacity infeasibility diagnostics.
+- **Complete 8-Family Conditioning Constructor (`Engine18ConditioningWorkoutConstructor`):**
+  - Supports all 8 Track 6 §8 families (`CONTINUOUS_AEROBIC`, `MODALITY_HIIT`, `STRUCTURED_CIRCUITS`, `EMOM`, `QUALITY_PACED_AMRAP`, `WORK_REST_INTERVALS`, `MIXED_MODAL_CONDITIONING`, `MUSCULAR_ENDURANCE_CIRCUITS`) backed by `ExpandedExerciseCatalog.conditioningRecords` and safe bodyweight seeds.
+  - Enforces `MD-10` strict physiological modality HR isolation (zero cross-application of running HR to bike/swim/rowing/circuits), `MD-08` novice complex-skill gating, `MD-09` single-axis conditioning progression, `MD-06` `UnifiedLocalMuscleLedger` export, and standalone `buildSoloPlan` / `validateSavedSolo`.
+- **Bidirectional Interference & Coordination Engine (`Engine18HybridCoordinationEngine`):**
+  - Enforces `POL-036` bidirectional spacing, non-zero systemic fatigue handling on upper axial compounds, Scenario S18 fixed-commitment conflict resolution (`Option A` / `Option B` / `Option C`), `POL-059` 9-axis evaluation (Axis 4 correlated lower-strength bundle counted once), `MD-15` / `S09` taper lower-strength hold/drop, `MD-06` cross-discipline muscle aggregation, and `MD-13` / `S17` independent per-discipline continuity with cycling-to-running tissue mismatch warnings.
+- **Unified Program Builder & Coaching Loop (`Engine18HybridProgramBuilder`, `Engine1Engines.supportsCoachingLoop`):**
+  - Coordinates Engine 1.5 Running, Engine 1.6 Strength, Engine 1.7 Calisthenics, and Engine 1.8 Conditioning behind `Engine15IndependentPlanGenerator` with shared week-1 muscle overlap filtering (`blockedForCond`), quality-run weekday preservation, daily load shaping, `HybridPlanBuilder` cross-track ledger warnings, and `Engine15Feedback` / `Engine15WeeklyReview` / `Engine15PlanAdaptationEngine` compatibility.
+
+## Related Nodes
+- [[00-StrideLab-Index]] · [[Engine-1.5]] · [[Engine-1.6-Strength]] · [[Engine-1.7-Calisthenics]] · [[Engine-1.9-Coaching]] · [[Engine-2.0-Adaptive]] · [[Hard-Guardrails]] · [[Storage-and-FIT-Contracts]]
+
+---
+
+## 9. Engine 1.9 — Coaching Intelligence
+
+- **Source Node:** `docs/wiki/architecture/Engine-1.9-Coaching.md`
+- **Area / Status:** `architecture` / `verified`
+- **Key Files:** `native-android/app/src/main/java/io/stridelab/privatealpha/Engine19CoachingPolicyRegistry.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine19ActivityMatcherAndStitcher.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine19ExecutionAndDifferentialEngine.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine19HealthEscalationAndState.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine19CoachingDecisionEngine.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine19ExplanationAndNotificationPolicy.kt`
+
+# Engine 1.9 — Coaching Intelligence
+
+Engine 1.9 (`ENGINE19_VERSION = "1.9.0"`, `ENGINE19_COACHING_POLICY`, always-on via `FeatureFlags.USE_ENGINE19_COACHING_V1 = true`) implements Track 7's pure-Kotlin, human-in-the-loop supervisory coaching decision layer across Running (1.5), Strength (1.6), Calisthenics (1.7), and Hybrid / 8-Family Conditioning (1.8), while keeping `PLAN_SCHEMA = 1`, deterministic `validateSaved(plan)`, `TrainingStore.java`, and `ManualDisciplineStore` untouched.
+
+## Core Architecture
+- **Central Policy Registry (`Engine19CoachingPolicyRegistry`):** Codifies `POL-050` unique `CanonicalActivityId` confirmation dwell (`m = 2` default, `m = 3` Pathway B un-trapping, `1` verified race, `0` safety hold, `28 d` freshness), `POL-051` per-class cooldowns & `14 d` `STABILITY_HOLD` after `>= 2` accept/reject reversals, `POL-052` `7 d` proposal TTL, `POL-053` / `MOD-21` HRV floors (`>= 5.0 ms` rMSSD, `>= 4/7 d` [min `3`], `>= 14/28 d` baseline, `>= 14 d` post-illness HR quarantine), `POL-054` optional prompt caps (`<= 1/sess`, `<= 2/wk`), and `POL-063` (`[B]/[C]` bipartite matching parameters).
+- **Global 1-to-1 Bipartite Matcher & Stitcher (`Engine19ActivityMatcherAndStitcher`):**
+  - Enforces the 4-condition stitching gate (`CD-02`: identical discipline, non-overlapping sequential order, complementary roles `WU + Main + CD` or interrupted segments, positive device/GPS/ID continuity).
+  - Solves exact $(m+n) \times (m+n)$ Hungarian min-cost 1-to-1 assignment (`MOD-22`, `CD-03`) across `±2 cal d` with explicit unmatched sinks & missed sources, flagging near-ties as `AMBIGUOUS_USER_CONFIRM` while keeping 100% of activities in `observedWorkloadActivityIds`.
+- **8-Layer Execution Assessment, `MOD-21` HRV & 11-Hypothesis Differential (`Engine19ExecutionAndDifferentialEngine`):**
+  - Tracks 12 structurally separated descriptive dimensions (`Measured`, `Unknown`, `NotApplicable`) banning scalar `"% adherence"` or `"0-100 readiness"` composite scores (`EXCL-D`).
+  - Evaluates standardized `ln(rMSSD_ms)` HRV baselines without mixing protocols or `SDNN`, and scores all 11 Track 7 non-causal differential hypotheses (`CD-14`) detecting subjective/objective conflicts conservatively.
+- **Persistent 4-Tier Health Escalation (`Engine19HealthEscalationAndState`):**
+  - Implements `H1 POTENTIAL_EMERGENCY`, `H2 CLINICAL_EVALUATION_REQUIRED` (blocks self-directed test runs until `USER_REPORTED_CLINICAL_CLEARANCE` while preserving unaffected localized modalities [`D13`, `D28`, `CD-11`]), `H3 TEMPORARY_CONSERVATIVE_HOLD` (post-febrile resolution check + `>= 14 d` HR quarantine [`D14`]), and `H4 ORDINARY_FATIGUE_OR_SORENESS`, backed by `m1-coach-*` local records (`M1LocalRecordBackend`) and monotonic anti-rollback backup merging (`CD-10`).
+- **8-Stage Composable Decision Engine & OCC Protocol (`Engine19CoachingDecisionEngine`, `Engine19ExplanationAndNotificationPolicy`):**
+  - Non-short-circuiting pipeline (`CD-04`, `CD-15`) supporting all 16 actions, 5 advancement pathways (`D03` single-axis Pathway B un-trapping, `POL-046` minimal-input `MINOR`-only continuity [`CD-05`]), Action Compatibility Matrix, 9-precedence Weekly Review, 8-dimension Conditional Branch activation-time revalidation (`CD-08`, `D26`), OCC `inputStateHash` + full transitive downstream validation (`CD-06`, `CD-07`, `CD-09`), strict epistemic copy auditing (`CD-13`), and safety/blocking exempt `POL-054` notifications (`CD-16`).
+  - Paired with `TrainingRepository` mutex-serialized coaching helpers and `Engine15DebriefEngine` cross-training debrief parity (`Engine1Engines.supportsCoachingLoop`).
+
+## Related Nodes
+- [[00-StrideLab-Index]] · [[Engine-1.5]] · [[Engine-1.6-Strength]] · [[Engine-1.7-Calisthenics]] · [[Engine-1.8-Hybrid]] · [[Engine-2.0-Adaptive]] · [[Hard-Guardrails]] · [[Storage-and-FIT-Contracts]] · [[Guided-Workout-Player-and-Debrief]]
+
+---
+
+## 10. Engine 2.0 — Adaptive Intelligence
+
+- **Source Node:** `docs/wiki/architecture/Engine-2.0-Adaptive.md`
+- **Area / Status:** `architecture` / `verified`
+- **Key Files:** `native-android/app/src/main/java/io/stridelab/privatealpha/Engine20AdaptivePolicyRegistry.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine20RunningPhysiologyAdapter.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine20StrengthResponseAdapter.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine20FatigueAndDoseResponseEngine.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine20ShadowPromotionEvaluator.kt`, `native-android/app/src/main/java/io/stridelab/privatealpha/Engine20AdaptivePlanEngine.kt`
+
+# Engine 2.0 — Adaptive Intelligence
+
+Engine 2.0 (`ENGINE20_VERSION = "2.0.0"`, `ENGINE20_ADAPTIVE_POLICY`, enabled always via `FeatureFlags.USE_ENGINE20_ADAPTIVE_V1 = true`) delivers individualized, evidence-gated training adaptations across Running, Strength, Calisthenics, and Hybrid athletes—scaling an Olympic-coach model safely to beginners, watch-free runners, and high-volume hybrid athletes while keeping `PLAN_SCHEMA = 1`, `validateSaved(plan)`, `TrainingStore.java`, and `ManualDisciplineStore` untouched.
+
+## Core Architecture
+- **Adaptive Policy Registry (`Engine20AdaptivePolicyRegistry`):** Centralizes `POL-B01`–`POL-B06` (`MOD-B1..B4`, `MOD-C1`, `E2-01..E2-09`) thresholds, Huber damping (`kappa = 1.5`), Bayesian log-e1RM variance floors (`sigma_floor = 0.035`), fractional set multipliers (`0.5`), `MOD-C1` identifiability floors (`>= 56 d`, `>= 3` anchors), `E2-09` bounded autonomy ceilings (`<= 10%` downward trim, `-1` working set backoff, `>= 28 d` consistent history), and Track 8 §11 shadow-model promotion/demotion bounds.
+- **Running Speed-Duration & Durability (`Engine20RunningPhysiologyAdapter`):**
+  - `MOD-B1`: Exact scaled Householder/Givens QR factorization (`t_scaled = t / 600 s`) + Joseph $2\times 2$ covariance solving Critical Speed & $D'$ (`cond(H_scl) < 10`), rejecting mismatched surface/shoe, narrow trial spans, non-maximal efforts, and wide-$D'$ SE fits cleanly.
+  - `MOD-B2` & `MOD-B3`: $C^0$-continuous endurance extension beyond `t_ref` and SI cardiac cost decoupling (`c_HR = f_HR / v_GAP`), strictly quarantining optical PPG, heat-confounded, fueling-deficit, and `< 60 min` runs.
+- **Strength & Recoverable Volume Response (`Engine20StrengthResponseAdapter`):**
+  - `E2-03`: Log-space Bayesian RIR-adjusted e1RM (`r + RIR <= 12`, `Halperin 2022` RIR dispersion + Huber outlier damping + temporal diffusion) predicting conservative lower-credible targets.
+  - `MOD-B4`: `0.5` fractional indirect-set accounting (`Pelland 2025/2026`) paired with separate Direct/Indirect ledgers and soreness/stall-driven recoverable muscle volume bands (`LOW_TOLERANCE | STANDARD_TOLERANCE | HIGH_TOLERANCE`).
+- **Probabilistic Fatigue Filter & Kinetics (`Engine20FatigueAndDoseResponseEngine`):**
+  - `E2-05`: 3-state transparent Bayes filter over `{FRESH_ADAPTING, FUNCTIONAL_OVERLOAD, NON_FUNCTIONAL_FATIGUE_RISK}` consuming subjective trends (`Saw 2016`), execution stability, and `MOD-21` standardized `SD(ln rMSSD)` HRV (`>= 3–4 d`), requiring multi-day persistence (`>= 0.65`) for action, never producing an opaque `0–100` score, and never overriding `H1–H3` holds.
+  - `MOD-C1`: Identifiability-gated Ridge/MAP Banister/Busso fitness-fatigue impulse kinetics (`Busso 2003`; `Hellard 2006`) falling back explicitly to Track 4 static tapers when sparse (`< 56 d` or `< 3` anchors).
+- **Shadow Promotion Gates & Governance (`Engine20ShadowPromotionEvaluator`, `Engine20AdaptivePlanEngine`, `TrainingRepository`):**
+  - Enforces Track 8 §11 closed-form Gaussian `CRPS`, `NLL`, 90% interval coverage, and optimistic safety-tail non-inferiority (`PROMOTION_NON_INFERIORITY_DELTA_SAFE = 0.03`), plus deterministic `MOD-B4` decision-usefulness gating.
+  - Classifies each athlete transparently (`FOUNDATION_BUILDER`, `FAST_RESPONDER`, `FATIGUE_SENSITIVE_OR_OVERREACHING`, `ENDURANCE_DURABILITY_LIMITED`, `HYBRID_BALANCER`) with jargon-free plain-English briefings audited by `Engine19ExplanationAndNotificationPolicy`.
+  - Defaults to `SUPERVISORY_APPROVAL` (emitting Engine 1.9 OCC `PlanRevisionCandidate` payloads) while supporting `OPT_IN_BOUNDED_AUTONOMY` strictly for downward recovery adjustments with immutable 1-tap `undoReceiptId` receipts, persisted locally under `m1-adaptive-profile-*`.
+
+## Related Nodes
+- [[00-StrideLab-Index]] · [[Engine-1.5]] · [[Engine-1.6-Strength]] · [[Engine-1.7-Calisthenics]] · [[Engine-1.8-Hybrid]] · [[Engine-1.9-Coaching]] · [[Hard-Guardrails]] · [[Storage-and-FIT-Contracts]]
+
+---
+
+## 11. Freeform Workout Logger
 
 - **Source Node:** `docs/wiki/features/Freeform-Logger.md`
 - **Area / Status:** `feature` / `verified`
@@ -310,7 +472,7 @@ The Freeform Logger enables offline, universal ad-hoc workout recording across a
 
 ---
 
-## 7. Garmin Integration & Activity Import
+## 12. Garmin Integration & Activity Import
 
 - **Source Node:** `docs/wiki/features/Garmin-and-Activity-Import.md`
 - **Area / Status:** `feature` / `verified`
@@ -341,7 +503,7 @@ StrideLab supports full signed-out Garmin Personal API syncing, local `.FIT` fil
 
 ---
 
-## 8. Guided Workout Player & Coach's Debrief
+## 13. Guided Workout Player & Coach's Debrief
 
 - **Source Node:** `docs/wiki/features/Guided-Workout-Player-and-Debrief.md`
 - **Area / Status:** `feature` / `verified`
@@ -367,7 +529,7 @@ Guided plan execution pairs a durable AMOLED **Workout Player** for non-running 
 
 ---
 
-## 9. Progress, History & Baseline Evidence
+## 14. Progress, History & Baseline Evidence
 
 - **Source Node:** `docs/wiki/features/Progress-and-History.md`
 - **Area / Status:** `feature` / `verified`
@@ -396,7 +558,7 @@ StrideLab aggregates completed workouts across Coached plans, Custom schedules, 
 
 ---
 
-## 10. Share Studio
+## 15. Share Studio
 
 - **Source Node:** `docs/wiki/features/Share-Studio.md`
 - **Area / Status:** `feature` / `verified`
@@ -431,7 +593,7 @@ Share Studio renders fixed-resolution (`1080 × {1920, 1350, 1080}`) athletic sh
 
 ---
 
-## 11. Templates & Custom Workout Planner
+## 16. Templates & Custom Workout Planner
 
 - **Source Node:** `docs/wiki/features/Templates-and-Custom-Planner.md`
 - **Area / Status:** `feature` / `verified`
@@ -460,7 +622,7 @@ Templates and Custom Schedules allow athletes to author reusable multi-disciplin
 
 ---
 
-## 12. Screens Map & Navigation Routes
+## 17. Screens Map & Navigation Routes
 
 - **Source Node:** `docs/wiki/ui/Screens-Map.md`
 - **Area / Status:** `ui` / `verified`
@@ -503,7 +665,7 @@ All navigation routes live under `NativeMainActivity.kt` (`NavHost`) reading imm
 
 ---
 
-## 13. UI Design System (AMOLED Compose)
+## 18. UI Design System (AMOLED Compose)
 
 - **Source Node:** `docs/wiki/ui/UI-Design-System.md`
 - **Area / Status:** `ui` / `verified`
@@ -549,7 +711,7 @@ StrideLab uses a pure AMOLED black design system (`StrideLabSurfaceTokens` in `S
 
 ---
 
-## 14. ADR-01: Engine 1.5 Isolation from Freeform and Custom Logging
+## 19. ADR-01: Engine 1.5 Isolation from Freeform and Custom Logging
 
 - **Source Node:** `docs/wiki/decisions/ADR-01-Engine15-Isolation-from-Freeform-and-Custom-Logging.md`
 - **Area / Status:** `decision` / `verified`
@@ -575,7 +737,7 @@ Keep Engine 1.5 plan snapshots (`TrainingStore` / `PLAN_SCHEMA = 1`) completely 
 
 ---
 
-## 15. ADR-02: GPS 200 m Default Privacy Trimming in Share Studio
+## 20. ADR-02: GPS 200 m Default Privacy Trimming in Share Studio
 
 - **Source Node:** `docs/wiki/decisions/ADR-02-GPS-200m-Default-Privacy-Trimming.md`
 - **Area / Status:** `decision` / `verified`
@@ -601,7 +763,7 @@ Default Share Studio's route privacy control to `SharePrivacy.STANDARD` (`200 m`
 
 ---
 
-## 16. ADR-03: Offline-First Independent Local Ownership
+## 21. ADR-03: Offline-First Independent Local Ownership
 
 - **Source Node:** `docs/wiki/decisions/ADR-03-Offline-First-Independent-Local-Ownership.md`
 - **Area / Status:** `decision` / `verified`
@@ -627,7 +789,7 @@ Maintain independent local owner namespaces (`localGarminOwner`, `localPlanOwner
 
 ---
 
-## 17. ADR-04: Retiring Redundant UI Views While Preserving Unified Data Layers
+## 22. ADR-04: Retiring Redundant UI Views While Preserving Unified Data Layers
 
 - **Source Node:** `docs/wiki/decisions/ADR-04-Retiring-Redundant-UI-While-Preserving-Unified-Data-Layers.md`
 - **Area / Status:** `decision` / `verified`
@@ -659,7 +821,7 @@ To separate forward-looking **Training** (coached plans, upcoming weeks, custom 
 
 ---
 
-## 18. Anatomical Muscle Map
+## 23. Anatomical Muscle Map
 
 - **Source Node:** `docs/wiki/roadmap/Anatomical-Muscle-Map.md`
 - **Area / Status:** `roadmap` / `verified`
@@ -704,7 +866,7 @@ All 66 baseline records in `exercise-library-v2.json` and all 170 curated exerci
 
 ---
 
-## 19. Main & Supporting Plans (Concept)
+## 24. Main & Supporting Plans (Concept)
 
 - **Source Node:** `docs/wiki/roadmap/Main-and-Supporting-Plans.md`
 - **Area / Status:** `roadmap` / `idea`
@@ -731,7 +893,7 @@ Pair **1 active Main Plan** (`Running`, `Strength`, or `Calisthenics`) with **up
 
 ---
 
-## 20. Strength & Calisthenics Overhaul
+## 25. Strength & Calisthenics Overhaul
 
 - **Source Node:** `docs/wiki/roadmap/Strength-and-Calisthenics-Overhaul.md`
 - **Area / Status:** `roadmap` / `verified`

@@ -113,15 +113,50 @@ internal object FreeformExerciseCatalog {
         }
     }
 
+    private fun tokenizeNormalized(raw: String): List<String> =
+        raw.lowercase(Locale.ROOT)
+            .replace('-', ' ')
+            .replace('_', ' ')
+            .split(Regex("\\s+"))
+            .map { it.trim(',', '.', '(', ')', '/', ':') }
+            .filter { it.isNotEmpty() }
+
+    private fun tokenVariants(token: String): List<String> = buildList {
+        add(token)
+        when {
+            token == "flyes" -> add("fly")
+            token.endsWith("ies") && token.length > 4 -> add(token.dropLast(3) + "y")
+            token.endsWith("es") && token.length > 4 -> {
+                add(token.dropLast(1))
+                if (token.endsWith("sses") || token.endsWith("ches") || token.endsWith("shes") || token.endsWith("xes")) {
+                    add(token.dropLast(2))
+                }
+            }
+            token.endsWith("s") && token.length > 3 -> add(token.dropLast(1))
+        }
+    }
+
     private fun matchesQuery(record: ExerciseLibraryRecordV2, search: String): Boolean {
         if (search.isBlank()) return true
-        if (record.name.contains(search, ignoreCase = true)) return true
-        if (record.movementPatterns.any { it.contains(search, ignoreCase = true) }) return true
-        if (record.categories.any { it.contains(search, ignoreCase = true) }) return true
+        val tokens = tokenizeNormalized(search)
+        if (tokens.isEmpty()) return true
         val muscles = record.primaryMuscles + record.secondaryMuscles
-        return muscles.any { key ->
-            key.contains(search, ignoreCase = true) ||
-                ExerciseMuscleCatalog.formatLabel(key).contains(search, ignoreCase = true)
+        val haystack = buildString {
+            append(record.name)
+            append(' ')
+            append(record.movementPatterns.joinToString(" "))
+            append(' ')
+            append(record.categories.joinToString(" "))
+            append(' ')
+            muscles.forEach { key ->
+                append(key)
+                append(' ')
+                append(ExerciseMuscleCatalog.formatLabel(key))
+                append(' ')
+            }
+        }.lowercase(Locale.ROOT).replace('-', ' ').replace('_', ' ')
+        return tokens.all { token ->
+            tokenVariants(token).any { variant -> haystack.contains(variant) }
         }
     }
 
@@ -294,6 +329,8 @@ internal fun FreeformEditor(
     var picker by rememberSaveable(initial.id) { mutableStateOf(false) }
     var details by rememberSaveable(initial.id) { mutableStateOf(false) }
     var discard by rememberSaveable(initial.id) { mutableStateOf(false) }
+    var finished by rememberSaveable(initial.id) { mutableStateOf(initial.isComplete) }
+    var weightUnit by rememberSaveable(initial.id) { mutableStateOf(FreeformWeightUnit.KG) }
     var inspectExercise by remember(initial.id) { mutableStateOf<FreeformExercise?>(null) }
     val exerciseCatalog = rememberAugmentedExerciseCatalog()
 
@@ -351,6 +388,10 @@ internal fun FreeformEditor(
 
     fun saveAndLeave() {
         if (working) return
+        if (finished || draft.isComplete) {
+            leave()
+            return
+        }
         if (!isPersisted && draft == initial) {
             leave()
             return
@@ -360,7 +401,12 @@ internal fun FreeformEditor(
             error = null
             freeformAttempt { persistDraft(draft) }.onSuccess {
                 update(it)
-                if (it.isComplete) saved(it.id) else leave()
+                if (it.isComplete) {
+                    finished = true
+                    saved(it.id)
+                } else {
+                    leave()
+                }
             }.onFailure { error = it.freeformMessage("Could not save your draft. Try again.") }
             working = false
         }
@@ -377,11 +423,11 @@ internal fun FreeformEditor(
     }
 
     BackHandler { back() }
-    LaunchedEffect(draft.modifiedAt, working, isPersisted) {
+    LaunchedEffect(draft.modifiedAt, working, isPersisted, finished) {
         val pending = draft
         val shouldPersist = (isPersisted && pending.modifiedAt > persistedAt) ||
             (!isPersisted && pending != initial)
-        if (!working && shouldPersist) {
+        if (!working && !finished && !pending.isComplete && shouldPersist) {
             delay(350)
             freeformAttempt { persistDraft(pending) }.onSuccess { stored ->
                 update(stored)
@@ -409,7 +455,7 @@ internal fun FreeformEditor(
                             style = MaterialTheme.typography.labelLarge
                         )
                         Text(
-                            draft.summary(),
+                            FreeformWeightConverter.formatWorkoutSummary(draft, weightUnit),
                             color = StrideLabSurfaceTokens.ink,
                             style = MaterialTheme.typography.headlineSmall.tabular(),
                             fontWeight = FontWeight.Bold,
@@ -450,7 +496,8 @@ internal fun FreeformEditor(
                             )
                             exercise.sets.filter { it.completed }.forEach { set ->
                                 Text(
-                                    set.actual.label(exDiscipline).ifBlank { "Round completed" },
+                                    FreeformWeightConverter.formatMeasureLabel(set.actual, exDiscipline, weightUnit)
+                                        .ifBlank { "Round completed" },
                                     color = StrideLabSurfaceTokens.inkSecondary,
                                     style = TabularTextStyle
                                 )
@@ -480,6 +527,7 @@ internal fun FreeformEditor(
                                 val target = persistDraft(normalized)
                                 persistMutex.withLock { access.finish(target) }
                             }.onSuccess {
+                                finished = true
                                 update(it)
                                 saved(it.id)
                             }.onFailure {
@@ -684,7 +732,7 @@ internal fun FreeformEditor(
                             )
                             val thirdLabel = if (confirmedVolume <= 0.0 && confirmedHoldSec > 0) "TIME" else "VOLUME"
                             val thirdValue = when {
-                                confirmedVolume > 0.0 -> "${freeformNumber(confirmedVolume)} kg"
+                                confirmedVolume > 0.0 -> FreeformWeightConverter.formatVolume(confirmedVolume, weightUnit)
                                 confirmedHoldSec > 0 -> "${confirmedHoldSec}s"
                                 else -> "—"
                             }
@@ -863,7 +911,9 @@ internal fun FreeformEditor(
                                 restRemainingSeconds = restPresetSeconds
                                 restRunning = true
                             },
-                            allowAllMetrics = customExercise
+                            allowAllMetrics = customExercise,
+                            weightUnit = weightUnit,
+                            onToggleWeightUnit = { weightUnit = weightUnit.toggle() }
                         )
                     }
                     item(key = "freeform-add-exercise-btn") {
@@ -1325,7 +1375,9 @@ internal fun FreeformExercisePanel(
     authoring: Boolean = false,
     onInspect: (() -> Unit)? = null,
     onSetConfirmed: () -> Unit = {},
-    allowAllMetrics: Boolean = false
+    allowAllMetrics: Boolean = false,
+    weightUnit: FreeformWeightUnit = FreeformWeightUnit.KG,
+    onToggleWeightUnit: () -> Unit = {}
 ) {
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by rememberSaveable(exercise.id) { mutableStateOf(false) }
@@ -1380,7 +1432,7 @@ internal fun FreeformExercisePanel(
                 )
                 if (previous != null) {
                     Text(
-                        "Previous · ${previous.label(discipline)}",
+                        "Previous · ${FreeformWeightConverter.formatMeasureLabel(previous, discipline, weightUnit)}",
                         color = StrideLabSurfaceTokens.inkMuted,
                         fontSize = 12.sp,
                         style = TabularTextStyle
@@ -1510,16 +1562,47 @@ internal fun FreeformExercisePanel(
                     maxLines = 1
                 )
                 metrics.forEach { metric ->
-                    Text(
-                        metric.headerLabel,
-                        Modifier.weight(1f),
-                        color = StrideLabSurfaceTokens.inkMuted,
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    if (metric == MeasureInput.LOAD) {
+                        Surface(
+                            onClick = onToggleWeightUnit,
+                            shape = RoundedCornerShape(8.dp),
+                            color = StrideLabSurfaceTokens.surfaceElevated,
+                            border = BorderStroke(1.dp, StrideLabSurfaceTokens.lime.copy(alpha = 0.45f)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 32.dp)
+                                .testTag("freeform-weight-unit-toggle")
+                                .semantics {
+                                    contentDescription = "Switch weight unit, currently ${weightUnit.shortLabel}"
+                                }
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "${weightUnit.shortLabel} ⇄",
+                                    color = StrideLabSurfaceTokens.lime,
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            metric.headerLabel,
+                            Modifier.weight(1f),
+                            color = StrideLabSurfaceTokens.inkMuted,
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 Text(
                     "✓",
@@ -1542,9 +1625,12 @@ internal fun FreeformExercisePanel(
                     discipline = discipline,
                     metrics = metrics,
                     format = exercise.format,
-                    previousHint = set.target.label(discipline).ifBlank {
-                        previous?.label(discipline).orEmpty()
-                    },
+                    weightUnit = weightUnit,
+                    previousHint = FreeformWeightConverter.formatMeasureLabel(set.target, discipline, weightUnit)
+                        .ifBlank {
+                            previous?.let { FreeformWeightConverter.formatMeasureLabel(it, discipline, weightUnit) }
+                                .orEmpty()
+                        },
                     edit = { next ->
                         val becameCompleted = !set.completed && next.completed
                         change(exercise.copy(sets = exercise.sets.toMutableList().apply { set(index, next) }))
@@ -1618,6 +1704,7 @@ private fun FreeformSetRow(
     discipline: ManualDiscipline,
     metrics: List<MeasureInput>,
     format: ConditioningFormat,
+    weightUnit: FreeformWeightUnit = FreeformWeightUnit.KG,
     previousHint: String,
     edit: (FreeformSet) -> Unit,
     remove: () -> Unit,
@@ -1628,6 +1715,27 @@ private fun FreeformSetRow(
     var expanded by rememberSaveable(set.id) { mutableStateOf(false) }
     var setError by remember { mutableStateOf(false) }
     val unit = if (discipline == ManualDiscipline.CONDITIONING) "Round" else "Set"
+    var loadInputText by remember(set.id, weightUnit) {
+        mutableStateOf(FreeformWeightConverter.kgStringToDisplay(set.actual.kg, weightUnit))
+    }
+    LaunchedEffect(set.actual.kg, weightUnit) {
+        if (weightUnit == FreeformWeightUnit.KG) {
+            if (loadInputText != set.actual.kg) loadInputText = set.actual.kg
+        } else {
+            val currentCanonical = FreeformWeightConverter.displayStringToCanonicalKg(loadInputText, FreeformWeightUnit.LB)
+            if (set.actual.kg.isBlank()) {
+                if (loadInputText.isNotBlank() && loadInputText != ".") loadInputText = ""
+            } else if (currentCanonical != set.actual.kg) {
+                val typedNum = loadInputText.trim().replace(',', '.').toDoubleOrNull()
+                val storedNum = set.actual.kg.trim().replace(',', '.').toDoubleOrNull()
+                if (typedNum == null || storedNum == null ||
+                    kotlin.math.abs(FreeformWeightConverter.lbToKg(typedNum) - storedNum) > 0.05
+                ) {
+                    loadInputText = FreeformWeightConverter.kgStringToDisplay(set.actual.kg, FreeformWeightUnit.LB)
+                }
+            }
+        }
+    }
 
     if (authoring) {
         Column(
@@ -1674,11 +1782,16 @@ private fun FreeformSetRow(
     }
 
     val rowBg = when {
-        set.completed -> StrideLabSurfaceTokens.lime.copy(alpha = 0.07f)
+        set.completed -> Color(0xFF101808)
         isNextActive -> StrideLabSurfaceTokens.surfaceElevated
-        else -> Color.Transparent
+        else -> Color(0xFF0B0D10)
     }
-    val rowAlpha = if (set.completed) 0.9f else 1f
+    val rowBorder = when {
+        set.completed -> StrideLabSurfaceTokens.lime.copy(alpha = 0.25f)
+        isNextActive -> StrideLabSurfaceTokens.hairline
+        else -> StrideLabSurfaceTokens.hairline.copy(alpha = 0.45f)
+    }
+    val rowAlpha = if (set.completed) 0.92f else 1f
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart && canRemove) {
@@ -1695,7 +1808,11 @@ private fun FreeformSetRow(
         enableDismissFromStartToEnd = false,
         enableDismissFromEndToStart = canRemove,
         backgroundContent = {
-            if (canRemove) {
+            val revealDelete = canRemove && (
+                dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart ||
+                    dismissState.targetValue == SwipeToDismissBoxValue.EndToStart
+                )
+            if (revealDelete) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -1718,6 +1835,7 @@ private fun FreeformSetRow(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
                 .background(rowBg)
+                .border(1.dp, rowBorder, RoundedCornerShape(10.dp))
                 .padding(horizontal = 4.dp, vertical = 4.dp)
                 .testTag("freeform-set-$index"),
             verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -1778,15 +1896,30 @@ private fun FreeformSetRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         metrics.forEach { metric ->
-                            CompactSetInput(
-                                value = metric.get(set.actual),
-                                label = "Actual ${metric.label}",
-                                tag = "freeform-actual-$index-${metric.suffix}",
-                                decimal = metric == MeasureInput.LOAD,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                setError = false
-                                edit(set.copy(actual = metric.update(set.actual, it)))
+                            if (metric == MeasureInput.LOAD) {
+                                CompactSetInput(
+                                    value = loadInputText,
+                                    label = "Actual ${weightUnit.unitSuffix}",
+                                    tag = "freeform-actual-$index-${metric.suffix}",
+                                    decimal = true,
+                                    modifier = Modifier.weight(1f)
+                                ) { raw ->
+                                    loadInputText = raw
+                                    setError = false
+                                    val canonicalKg = FreeformWeightConverter.displayStringToCanonicalKg(raw, weightUnit)
+                                    edit(set.copy(actual = set.actual.copy(kg = canonicalKg)))
+                                }
+                            } else {
+                                CompactSetInput(
+                                    value = metric.get(set.actual),
+                                    label = "Actual ${metric.label}",
+                                    tag = "freeform-actual-$index-${metric.suffix}",
+                                    decimal = false,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    setError = false
+                                    edit(set.copy(actual = metric.update(set.actual, it)))
+                                }
                             }
                         }
                     }
@@ -1843,12 +1976,12 @@ private fun FreeformSetRow(
             }
 
             val targetSummary = listOfNotNull(
-                set.target.label(discipline).takeIf { it.isNotBlank() && !compact },
+                FreeformWeightConverter.formatMeasureLabel(set.target, discipline, weightUnit).takeIf { it.isNotBlank() && !compact },
                 set.targetRir.takeIf { it.isNotBlank() }?.let { "RIR $it" },
                 set.rpe.takeIf { it.isNotBlank() }?.let { "RPE $it" },
                 set.rir.takeIf { it.isNotBlank() }?.let { "RIR $it" }
             )
-            if (targetSummary.isNotEmpty() || discipline == ManualDiscipline.STRENGTH || discipline == ManualDiscipline.CALISTHENICS) {
+            if (canRemove || targetSummary.isNotEmpty() || discipline == ManualDiscipline.STRENGTH || discipline == ManualDiscipline.CALISTHENICS) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1867,17 +2000,47 @@ private fun FreeformSetRow(
                     } else {
                         Spacer(Modifier.weight(1f))
                     }
-                    if (discipline == ManualDiscipline.STRENGTH || discipline == ManualDiscipline.CALISTHENICS) {
-                        Text(
-                            text = if (expanded) "Hide RIR/RPE" else "+ RIR/RPE",
-                            color = StrideLabSurfaceTokens.inkMuted,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .clickable { expanded = !expanded }
-                                .padding(horizontal = 6.dp, vertical = 4.dp)
-                        )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (discipline == ManualDiscipline.STRENGTH || discipline == ManualDiscipline.CALISTHENICS) {
+                            Text(
+                                text = if (expanded) "Hide RIR/RPE" else "+ RIR/RPE",
+                                color = StrideLabSurfaceTokens.inkMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable { expanded = !expanded }
+                                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                            )
+                        }
+                        if (canRemove) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable(onClick = remove)
+                                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                                    .testTag("freeform-remove-set-$index")
+                                    .semantics { contentDescription = "Remove $unit ${index + 1}" }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Delete,
+                                    contentDescription = null,
+                                    tint = freeformPalette.highCoral,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "Remove",
+                                    color = freeformPalette.highCoral,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                 }
             }

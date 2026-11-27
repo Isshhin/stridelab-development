@@ -47,7 +47,7 @@ internal object Engine15Feedback {
     )
 
     private fun available(plan: PlanSnapshot) =
-        plan.engineVersion == ENGINE15_VERSION && plan.policyId in ENGINE15_COACHING_POLICIES &&
+        Engine1Engines.supportsCoachingLoop(plan) &&
             plan.status in setOf("approved", "paused") && Engine1Engines.canManage(plan)
 
     private fun dismissed(plan: PlanSnapshot, target: String) =
@@ -183,8 +183,7 @@ internal object Engine15Feedback {
         plan: PlanSnapshot, targetSessionId: String, asOf: LocalDate,
         allPlans: List<PlanSnapshot> = listOf(plan)
     ) {
-        if (plan.engineVersion != ENGINE15_VERSION ||
-            plan.policyId !in ENGINE15_COACHING_POLICIES)
+        if (!Engine1Engines.supportsCoachingLoop(plan))
             return
         val target = plan.sessions.find { it.id == targetSessionId } ?: return
         val pending = target.suggestion ?: return

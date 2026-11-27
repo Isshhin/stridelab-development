@@ -139,7 +139,21 @@ internal object HybridPlanBuilder {
             throw PlanConstraint("$detail Open another training day, move a fixed support session, or reduce support frequency. No track was activated.")
         }
         picked.forEach { (_, draft) -> PlanScheduleValidation.validatePlan(draft.copy(status = "approved")) }
-        return HybridPlanPreview(id, picked.toList(), active.associate { it.id to it.revision }, notes.distinct())
+        val overlapLedgerNotes = runCatching {
+            val weekStart = requests.first().request.start
+            val weekEnd = weekStart.plusDays(6)
+            val strengthCondSessions = picked.flatMap { (_, draft) ->
+                draft.sessions.filter { it.discipline in setOf("str", "cal", "cond") && it.date in weekStart..weekEnd }
+            }
+            if (strengthCondSessions.size >= 2) {
+                val ledgers = listOf(Engine18ConditioningWorkoutConstructor.exportToSharedLocalLedger(owner, weekStart, weekEnd, strengthCondSessions))
+                val (_, blocked) = Engine18HybridCoordinationEngine.aggregateWeeklyUnifiedLedger(owner, weekStart, weekEnd, ledgers)
+                if (blocked.isNotEmpty()) {
+                    listOf("Shared muscle ledger warning across tracks: elevated week-1 volume on ${blocked.sorted().joinToString(", ")}.")
+                } else emptyList()
+            } else emptyList()
+        }.getOrDefault(emptyList())
+        return HybridPlanPreview(id, picked.toList(), active.associate { it.id to it.revision }, (notes + overlapLedgerNotes).distinct())
     }
 
     fun prepareActivation(preview: HybridPlanPreview, owner: String, existing: List<PlanSnapshot>): List<PlanSnapshot> {

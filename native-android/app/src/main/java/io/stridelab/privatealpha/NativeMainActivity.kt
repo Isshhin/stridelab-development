@@ -156,7 +156,8 @@ private fun isTabRootSwitch(from: String?, to: String?) = to in mainTabRoutes
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
     if (currentDestination?.route == path) return
-    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "more/activity-backup", "builder/{discipline}", "workout/{planId}/{sessionId}", "manage/{planId}/{date}")) {
+    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "more/activity-backup", "builder/{discipline}", "workout/{planId}/{sessionId}", "manage/{planId}/{date}") ||
+        currentDestination?.route?.startsWith("freeform/") == true) {
         if(!popBackStack()) break
     }
     navigate(path) {
@@ -166,6 +167,24 @@ private fun NavHostController.openTabRoot(path: String) {
     }
     // Also normalize stacks restored from an older build that saved a child destination.
     if(currentDestination?.route != path) popBackStack(path, inclusive = false)
+}
+
+private fun NavHostController.popOrOpenHome() {
+    if (!popBackStack()) openTabRoot("home")
+}
+
+private fun NavHostController.finishFreeformToHistory(completedId: String, editorDestinationId: Int) {
+    val encoded = android.net.Uri.encode(completedId)
+    val rootFreeformRoute = listOf("freeform/add", "freeform/templates", "freeform/custom/{series}/{anchor}")
+        .firstOrNull { route -> runCatching { getBackStackEntry(route) }.isSuccess }
+    navigate("freeform/history/freeform/$encoded") {
+        if (rootFreeformRoute != null) {
+            popUpTo(rootFreeformRoute) { inclusive = true }
+        } else {
+            popUpTo(editorDestinationId) { inclusive = true }
+        }
+        launchSingleTop = true
+    }
 }
 
 private fun NavHostController.openWorkout(planId: String, sessionId: String) {
@@ -447,7 +466,7 @@ private fun NavHostController.openActivity(id: String) {
                         key(freeformOwner, state.loginGeneration) {
                             FreeformHub(
                                 owner = freeformOwner, board = freeformBoard, readError = freeformReadError,
-                                access = freeformAccess, back = { nav.popBackStack() }, retry = { freeformReload++ },
+                                access = freeformAccess, back = { nav.popOrOpenHome() }, retry = { freeformReload++ },
                                 update = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
                                 removeDraft = { id -> freeformBoard = freeformBoard?.without(id) },
                                 restored = { freeformBoard = it },
@@ -461,7 +480,7 @@ private fun NavHostController.openActivity(id: String) {
                             )
                         }
                     } else {
-                        FreeformHistoryDetail(null, null, state.initializing) { nav.popBackStack() }
+                        FreeformHistoryDetail(null, null, state.initializing) { nav.popOrOpenHome() }
                     }
                 }
                 composable("freeform/templates") {
@@ -592,7 +611,7 @@ private fun NavHostController.openActivity(id: String) {
                                 )
                             } else {
                                 FreeformHistoryDetail(linked?.takeIf { it.isComplete }, null,
-                                    freeformBoard == null && freeformReadError == null) { nav.popBackStack() }
+                                    freeformBoard == null && freeformReadError == null) { nav.popOrOpenHome() }
                             }
                         }
                     }
@@ -610,17 +629,14 @@ private fun NavHostController.openActivity(id: String) {
                                 initial = initial, board = board, access = freeformAccess, persisted = false,
                                 update = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
                                 remove = { freeformBoard = freeformBoard?.without(it) },
-                                leave = { nav.popBackStack() },
+                                leave = { nav.popOrOpenHome() },
                                 saved = { completedId ->
-                                    nav.navigate("freeform/history/freeform/${android.net.Uri.encode(completedId)}") {
-                                        popUpTo(destination.id) { inclusive = true }
-                                        launchSingleTop = true
-                                    }
+                                    nav.finishFreeformToHistory(completedId, destination.destination.id)
                                 }
                             )
                         }
                     } else {
-                        FreeformHistoryDetail(null, null, board == null && freeformReadError == null) { nav.popBackStack() }
+                        FreeformHistoryDetail(null, null, board == null && freeformReadError == null) { nav.popOrOpenHome() }
                     }
                 }
                 composable("freeform/edit/{id}") { destination ->
@@ -633,17 +649,14 @@ private fun NavHostController.openActivity(id: String) {
                                 initial = workout, board = board, access = freeformAccess, persisted = true,
                                 update = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
                                 remove = { freeformBoard = freeformBoard?.without(it) },
-                                leave = { nav.popBackStack() },
+                                leave = { nav.popOrOpenHome() },
                                 saved = { completedId ->
-                                    nav.navigate("freeform/history/freeform/${android.net.Uri.encode(completedId)}") {
-                                        popUpTo(destination.id) { inclusive = true }
-                                        launchSingleTop = true
-                                    }
+                                    nav.finishFreeformToHistory(completedId, destination.destination.id)
                                 }
                             )
                         }
                     } else {
-                        FreeformHistoryDetail(workout, null, board == null && freeformReadError == null) { nav.popBackStack() }
+                        FreeformHistoryDetail(workout, null, board == null && freeformReadError == null) { nav.popOrOpenHome() }
                     }
                 }
                 composable("freeform/history/{kind}/{id}") { destination ->
@@ -659,7 +672,7 @@ private fun NavHostController.openActivity(id: String) {
                         onRepeatWorkout = if (!legacy && id != null && freeformAccess != null) {
                             { nav.navigate("freeform/schedule/history/${android.net.Uri.encode(id)}") }
                         } else null,
-                        back = { nav.popBackStack() }
+                        back = { nav.popOrOpenHome() }
                     )
                 }
                 composable("manage/{planId}/{date}") { back ->

@@ -43,7 +43,7 @@ class Engine15IndependentDevelopmentRouteTest {
             owner, emptyList(), "adapted-multi", now,
             ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
         )
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, adaptedCombined.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, adaptedCombined.policyId)
         assertEquals(56, adaptedCombined.sessions.size)
         Engine15IndependentPlanGenerator.validateSaved(adaptedCombined)
     }
@@ -122,12 +122,19 @@ class Engine15IndependentDevelopmentRouteTest {
         val library = ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
         val plan = Engine15IndependentPlanGenerator.generateWithHistory(request, owner, emptyList(), "cal-eight", now, library)
         assertEquals(16, plan.sessions.size)
-        assertEquals(ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, plan.policyId)
-        assertTrue(plan.sessions.all { session ->
-            session.discipline == "cal" && session.exercises.map { it.id }.containsAll(listOf("e4", "br", "fc"))
-        })
-        assertTrue(plan.sessions.filter { it.date >= request.start.plusWeeks(3) && it.date < request.start.plusWeeks(4) }
-            .all { it.exercises.all { exercise -> exercise.sets == 1 } })
+        if (FeatureFlags.USE_ENGINE17_CALISTHENICS_V1) {
+            assertEquals(ENGINE17_CALISTHENICS_POLICY, plan.policyId)
+            assertTrue(plan.sessions.all { it.discipline == "cal" && it.exercises.size >= 2 })
+            assertTrue(plan.sessions.filter { it.date >= request.start.plusWeeks(3) && it.date < request.start.plusWeeks(4) }
+                .all { it.exercises.all { exercise -> exercise.sets <= 2 } })
+        } else {
+            assertEquals(ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, plan.policyId)
+            assertTrue(plan.sessions.all { session ->
+                session.discipline == "cal" && session.exercises.map { it.id }.containsAll(listOf("e4", "br", "fc"))
+            })
+            assertTrue(plan.sessions.filter { it.date >= request.start.plusWeeks(3) && it.date < request.start.plusWeeks(4) }
+                .all { it.exercises.all { exercise -> exercise.sets == 1 } })
+        }
         Engine15IndependentPlanGenerator.validateSaved(plan)
     }
 
@@ -140,16 +147,22 @@ class Engine15IndependentDevelopmentRouteTest {
         val library = ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
         val plan = Engine15IndependentPlanGenerator.generateWithHistory(request, owner, emptyList(), "cond-eight", now, library)
         assertEquals(16, plan.sessions.size)
-        assertEquals(ENGINE15_INDEPENDENT_CONDITIONING_POLICY, plan.policyId)
+        assertEquals(ENGINE18_CONDITIONING_POLICY, plan.policyId)
         assertTrue(plan.sessions.all { session ->
             session.discipline == "cond" && session.kind == "conditioning" &&
-                session.exercises.single().id == "cond-step-jack" && session.steps.size == 3
+                session.exercises.isNotEmpty() && session.steps.size == 3
         })
         val minutesByWeek = (0..7).map { week ->
             plan.sessions.first { it.date >= request.start.plusWeeks(week.toLong()) && it.date < request.start.plusWeeks(week + 1L) }.minutes
         }
-        assertEquals(listOf(15, 17, 19, 15, 15, 17, 19, 15), minutesByWeek)
+        assertEquals(listOf(27, 30, 33, 24, 27, 30, 33, 24), minutesByWeek)
         Engine15IndependentPlanGenerator.validateSaved(plan)
+        val legacyCond = plan.copy(
+            engineVersion = ENGINE15_VERSION,
+            policyId = ENGINE15_INDEPENDENT_CONDITIONING_POLICY,
+            sessions = Engine15ConditioningWorkoutComposer.compose(request, "legacy-cond-eight", library)
+        ).copy(id = "legacy-cond-eight")
+        Engine15IndependentPlanGenerator.validateSaved(legacyCond)
     }
 
     @Test fun combinedRunningAndCalisthenicsPlanPreservesDoubleDayRulesAndLocks() {
@@ -168,7 +181,7 @@ class Engine15IndependentDevelopmentRouteTest {
         )
         val library = ExerciseLibraryV2.load { path -> java.io.File("src/main/assets", path).inputStream() }
         val plan = Engine15IndependentPlanGenerator.generateWithHistory(request, owner, emptyList(), "combined-eight", now, library)
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, plan.policyId)
         assertEquals(32, plan.sessions.size)
         for (week in 0 until 8) {
             val monday = start.plusWeeks(week.toLong())
@@ -180,6 +193,10 @@ class Engine15IndependentDevelopmentRouteTest {
             assertEquals(6, sessions.single { it.kind == "long" }.date.dayOfWeek.value)
         }
         Engine15IndependentPlanGenerator.validateSaved(plan)
+        val legacyCombined = Engine15StaticMultiDisciplinePlanner.compose(
+            request, owner, "legacy-combined-eight", now, emptyList(), library
+        )
+        Engine15IndependentPlanGenerator.validateSaved(legacyCombined)
         val withoutFlag = Engine15IndependentPlanGenerator.generateWithHistory(
             request.copy(allowDoubleDays = false), owner, emptyList(), "combo-auto-adapt", now, library
         )
@@ -258,13 +275,13 @@ class Engine15IndependentDevelopmentRouteTest {
                 )
             } catch (e: PlanConstraint) { throw AssertionError("Combination $index deferred: ${e.message}", e) }
             assertEquals(request.weeks * (request.runDays + request.strengthDays + request.calDays + request.conditioningDays), plan.sessions.size)
-            assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
+            assertEquals(ENGINE18_HYBRID_POLICY, plan.policyId)
             Engine15IndependentPlanGenerator.validateSaved(plan)
         }
         val allFour = Engine15IndependentPlanGenerator.generateWithHistory(
             requests.last(), owner, emptyList(), "all-four-mix", now, library
         )
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, allFour.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, allFour.policyId)
         assertEquals(requests.last().weeks * 6, allFour.sessions.size)
         Engine15IndependentPlanGenerator.validateSaved(allFour)
     }

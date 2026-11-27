@@ -393,7 +393,7 @@ class Engine15M1CWorkloadSeparationTest {
             asOfUtc = reviewNow
         )
         assertEquals(10000.0, (observed.observedLongestRunMeters30d() as BeliefState.Estimated).estimate.value, 0.001)
-        assertFalse(FeatureFlags.USE_UNIFIED_ATHLETE_STATE_V1)
+        assertTrue(FeatureFlags.USE_UNIFIED_ATHLETE_STATE_V1)
     }
 
     @Test fun linkedActivityDoesNotDoubleCountAndInvalidInputsFailClosed() {

@@ -69,18 +69,34 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
 
     fun validateRequest(request: PlanRequest) {
         if (listOf("run", "str", "cal", "cond").count { request.disciplineSessionCount(it) > 0 } > 1) {
-            Engine15StaticMultiDisciplinePlanner.validateRequest(request)
+            if (FeatureFlags.USE_ENGINE18_HYBRID_V1) {
+                Engine18HybridProgramBuilder.validateRequest(request)
+            } else {
+                Engine15StaticMultiDisciplinePlanner.validateRequest(request)
+            }
             return
         }
         if (request.runDays == 0 && request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays > 0) {
-            Engine15ConditioningWorkoutComposer.validateRequest(request)
+            if (FeatureFlags.USE_ENGINE18_HYBRID_V1) {
+                Engine18ConditioningWorkoutConstructor.validateSoloRequest(request)
+            } else {
+                Engine15ConditioningWorkoutComposer.validateRequest(request)
+            }
             return
         }
         if (request.runDays == 0 && request.strengthDays == 0 && request.calDays > 0) {
+            if (FeatureFlags.USE_ENGINE17_CALISTHENICS_V1) {
+                Engine17CalisthenicsProgramBuilder.validateRequest(request)
+                return
+            }
             Engine15CalisthenicsWorkoutComposer.validateRequest(request)
             return
         }
         if (request.runDays == 0 && request.strengthDays > 0) {
+            if (FeatureFlags.USE_ENGINE16_STRENGTH_V1 && strengthTrack(request) == "str") {
+                Engine16StrengthProgramBuilder.validateRequest(request)
+                return
+            }
             Engine15StrengthWorkoutComposer.validateRequest(request)
             return
         }
@@ -270,6 +286,18 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         detections: List<Engine15DetectedWorkout> = emptyList()
     ): PlanSnapshot {
         if (listOf("run", "str", "cal", "cond").count { request.disciplineSessionCount(it) > 0 } > 1) {
+            if (FeatureFlags.USE_ENGINE18_HYBRID_V1) {
+                return Engine18HybridProgramBuilder.build(
+                    request = request,
+                    owner = owner,
+                    id = id,
+                    now = now,
+                    existingPlans = plans,
+                    library = exerciseLibrary,
+                    activities = activities,
+                    detections = detections
+                )
+            }
             val library = exerciseLibrary ?: throw PlanConstraint(
                 "ENGINE15_COMBINED_CATALOG_REQUIRED: The shared offline exercise catalog is unavailable; no substitute was generated."
             )
@@ -278,6 +306,15 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             )
         }
         if (request.runDays == 0 && request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays > 0) {
+            if (FeatureFlags.USE_ENGINE18_HYBRID_V1) {
+                Engine18ConditioningWorkoutConstructor.validateSoloRequest(request)
+                RecordPolicy.identifier(owner)
+                RecordPolicy.identifier(id)
+                val (scheduledRequest, _) = soloExternalCalendar(request, owner, plans, "cond") { r ->
+                    Engine18ConditioningWorkoutConstructor.composeSessions(r, id)
+                }
+                return Engine18ConditioningWorkoutConstructor.buildSoloPlan(scheduledRequest, owner, id, now)
+            }
             Engine15ConditioningWorkoutComposer.validateRequest(request)
             val library = exerciseLibrary ?: throw PlanConstraint(
                 "CONDITIONING_CATALOG_REQUIRED: The shared offline exercise catalog is unavailable; no substitute was generated."
@@ -300,6 +337,15 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             )
         }
         if (request.runDays == 0 && request.strengthDays == 0 && request.calDays > 0) {
+            if (FeatureFlags.USE_ENGINE17_CALISTHENICS_V1) {
+                Engine17CalisthenicsProgramBuilder.validateRequest(request)
+                RecordPolicy.identifier(owner)
+                RecordPolicy.identifier(id)
+                val (scheduledRequest, _) = soloExternalCalendar(request, owner, plans, "cal") { r ->
+                    Engine17CalisthenicsProgramBuilder.build(r, owner, id, now).snapshot.sessions
+                }
+                return Engine17CalisthenicsProgramBuilder.build(scheduledRequest, owner, id, now).snapshot
+            }
             Engine15CalisthenicsWorkoutComposer.validateRequest(request)
             val library = exerciseLibrary ?: throw PlanConstraint(
                 "CALISTHENICS_CATALOG_REQUIRED: The shared offline exercise catalog is unavailable; no substitute was generated."
@@ -322,6 +368,15 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             )
         }
         if (request.runDays == 0 && request.strengthDays > 0) {
+            if (FeatureFlags.USE_ENGINE16_STRENGTH_V1 && strengthTrack(request) == "str") {
+                Engine16StrengthProgramBuilder.validateRequest(request)
+                RecordPolicy.identifier(owner)
+                RecordPolicy.identifier(id)
+                val (scheduledRequest, _) = soloExternalCalendar(request, owner, plans, "str") { r ->
+                    Engine16StrengthProgramBuilder.build(r, owner, id, now).snapshot.sessions
+                }
+                return Engine16StrengthProgramBuilder.build(scheduledRequest, owner, id, now).snapshot
+            }
             Engine15StrengthWorkoutComposer.validateRequest(request)
             val library = exerciseLibrary ?: throw PlanConstraint(
                 "STRENGTH_CATALOG_REQUIRED: The shared offline exercise catalog is unavailable; no substitute was generated."
@@ -366,12 +421,42 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
     private fun appDraft(decision: Engine15IndependentPlanDecision): PlanSnapshot = when (decision) {
         is Engine15IndependentPlanDecision.Deferred ->
             throw PlanConstraint("${decision.reasonCode}: ${decision.explanation}")
-        is Engine15IndependentPlanDecision.Candidate -> decision.plan.copy(
-            policyId = policyId,
-            name = "StrideLab ${decision.plan.request.goal} Plan",
-            explanations = decision.plan.explanations.filterNot { it.startsWith("Preview only:") } +
-                "Engine 1.5 personalized plan ready for your review."
-        )
+        is Engine15IndependentPlanDecision.Candidate -> {
+            val req = decision.plan.request
+            val optSessions = decision.plan.sessions.map { s ->
+                val distM = (s.distanceKm ?: 0.0) * 1000.0
+                OptimizerSessionCandidate(
+                    id = s.id,
+                    date = s.date,
+                    discipline = s.discipline,
+                    isHighStress = s.quality || s.kind == "long",
+                    isLowerBodyHeavy = false,
+                    durationMinSeconds = (s.minutes * 60).toDouble() * 0.85,
+                    durationMaxSeconds = (s.minutes * 60).toDouble(),
+                    distanceConservativeMeters = distM,
+                    distanceOptimisticMeters = distM
+                )
+            }
+            val availByDate = if (req.timeBudgetEnabled) {
+                decision.plan.sessions.associate { s ->
+                    s.date to OptimizerDayAvailability(
+                        date = s.date,
+                        windows = emptyList(),
+                        unspecifiedAllDayBudgetSeconds = maxOf(s.minutes * 60, req.dailyMinutes * 60)
+                    )
+                }
+            } else {
+                emptyMap()
+            }
+            val finalCheck = Engine15RunningPlanOptimizer.validateFinal(optSessions, availByDate)
+            val optimizerNote = "M4 F_final oracle: ${finalCheck.outcome.name}."
+            decision.plan.copy(
+                policyId = policyId,
+                name = "StrideLab ${req.goal} Plan",
+                explanations = decision.plan.explanations.filterNot { it.startsWith("Preview only:") } +
+                    listOf(optimizerNote, "Engine 1.5 personalized plan ready for your review.")
+            )
+        }
     }
 
     fun preview(
@@ -1300,9 +1385,12 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             .flatMap { plan -> plan.sessions.map { plan.policyId to it } }
             .filter { (_, session) -> session.status in setOf("planned", "in_progress") && session.date in window }
         val policy = when (discipline) {
-            "str" -> ENGINE15_INDEPENDENT_STRENGTH_POLICY
-            "cal" -> ENGINE15_INDEPENDENT_CALISTHENICS_POLICY
-            else -> ENGINE15_INDEPENDENT_CONDITIONING_POLICY
+            "str" -> if (FeatureFlags.USE_ENGINE16_STRENGTH_V1 && strengthTrack(request) == "str") ENGINE16_STRENGTH_POLICY
+                else ENGINE15_INDEPENDENT_STRENGTH_POLICY
+            "cal" -> if (FeatureFlags.USE_ENGINE17_CALISTHENICS_V1) ENGINE17_CALISTHENICS_POLICY
+                else ENGINE15_INDEPENDENT_CALISTHENICS_POLICY
+            else -> if (FeatureFlags.USE_ENGINE18_HYBRID_V1) ENGINE18_CONDITIONING_POLICY
+                else ENGINE15_INDEPENDENT_CONDITIONING_POLICY
         }
         fun fits(rows: List<PlannedSession>, strict: Boolean) = rows.none { row ->
             existing.any { (savedPolicy, saved) ->
@@ -1351,8 +1439,16 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         combinedExternalHardDates: Set<LocalDate> = emptySet(),
         combinedMaxMinutesById: Map<String, Int> = emptyMap()
     ) {
+        if (plan.policyId == ENGINE18_HYBRID_POLICY) {
+            Engine18HybridProgramBuilder.validateSaved(plan)
+            return
+        }
         if (plan.policyId == ENGINE15_INDEPENDENT_COMBINED_POLICY) {
             Engine15StaticMultiDisciplinePlanner.validateSaved(plan)
+            return
+        }
+        if (plan.policyId == ENGINE18_CONDITIONING_POLICY) {
+            Engine18ConditioningWorkoutConstructor.validateSavedSolo(plan)
             return
         }
         if (plan.policyId == ENGINE15_INDEPENDENT_CONDITIONING_POLICY) {
@@ -1361,10 +1457,18 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             Engine15ConditioningWorkoutComposer.validateSaved(plan)
             return
         }
+        if (plan.policyId == ENGINE17_CALISTHENICS_POLICY) {
+            Engine17CalisthenicsProgramBuilder.validateSaved(plan)
+            return
+        }
         if (plan.policyId == ENGINE15_INDEPENDENT_CALISTHENICS_POLICY) {
             if (plan.engineVersion != version)
                 throw PlanConstraint("The independent calisthenics plan has an unsupported engine identity.")
             Engine15CalisthenicsWorkoutComposer.validateSaved(plan)
+            return
+        }
+        if (plan.policyId == ENGINE16_STRENGTH_POLICY) {
+            Engine16StrengthProgramBuilder.validateSaved(plan)
             return
         }
         if (plan.policyId == ENGINE15_INDEPENDENT_STRENGTH_POLICY) {

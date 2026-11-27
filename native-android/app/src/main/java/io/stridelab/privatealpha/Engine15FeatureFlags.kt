@@ -8,4 +8,19 @@ package io.stridelab.privatealpha
 internal object FeatureFlags {
     val USE_UNIFIED_ATHLETE_STATE_V1: Boolean
         get() = BuildConfig.USE_UNIFIED_ATHLETE_STATE_V1
+
+    val USE_ENGINE16_STRENGTH_V1: Boolean
+        get() = BuildConfig.USE_ENGINE16_STRENGTH_V1
+
+    val USE_ENGINE17_CALISTHENICS_V1: Boolean
+        get() = BuildConfig.USE_ENGINE17_CALISTHENICS_V1
+
+    val USE_ENGINE18_HYBRID_V1: Boolean
+        get() = BuildConfig.USE_ENGINE18_HYBRID_V1
+
+    val USE_ENGINE19_COACHING_V1: Boolean
+        get() = BuildConfig.USE_ENGINE19_COACHING_V1
+
+    val USE_ENGINE20_ADAPTIVE_V1: Boolean
+        get() = BuildConfig.USE_ENGINE20_ADAPTIVE_V1
 }
