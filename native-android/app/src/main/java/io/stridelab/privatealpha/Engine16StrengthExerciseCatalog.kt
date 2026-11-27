@@ -181,19 +181,32 @@ internal object Engine16StrengthExerciseCatalog {
     private val unilateralIds = setOf(
         "e6", "rl", "str-walking-lunge", "str-step-up", "str-single-leg-rdl",
         "str-single-arm-pulldown", "str-landmine-press", "str-dumbbell-snatch",
-        "str-cable-glute-kickback", "side-plank", "bird-dog"
+        "str-cable-glute-kickback", "side-plank", "bird-dog",
+        "str-rev-grip-db-curl", "str-alt-db-curl", "str-db-concentration-curl",
+        "str-cable-bayesian-curl", "str-db-hammer-preacher-curl",
+        "str-single-arm-pushdown", "str-db-triceps-kickback",
+        "str-single-arm-db-row", "str-meadows-row", "str-leaning-lat-raise",
+        "str-single-leg-press", "str-db-bulgarian-split-squat", "str-bb-bulgarian-split-squat",
+        "str-db-reverse-lunge", "str-curtsy-lunge", "str-single-leg-db-calf-raise",
+        "str-cable-side-bend"
     )
 
     private val axialIds = setOf(
         "e1", "e3", "str-front-squat", "str-zercher-squat", "str-conv-deadlift",
         "str-sumo-deadlift", "str-trap-bar-deadlift", "str-overhead-press",
-        "str-good-morning", "str-bb-row", "str-tbar-row"
+        "str-good-morning", "str-bb-row", "str-tbar-row",
+        "str-pendlay-row", "str-rack-pull", "str-standing-db-ohp",
+        "str-stiff-leg-deadlift", "str-bb-bulgarian-split-squat", "str-smith-squat"
     )
 
     private val highEccentricIds = setOf(
         "e3", "dh", "e6", "str-walking-lunge", "str-step-up", "str-single-leg-rdl",
         "str-lying-leg-curl", "machine-leg-curl", "str-glute-ham-raise", "str-good-morning",
-        "str-conv-deadlift", "str-standing-calf-raise", "str-seated-calf-raise"
+        "str-conv-deadlift", "str-standing-calf-raise", "str-seated-calf-raise",
+        "str-stiff-leg-deadlift", "str-db-bulgarian-split-squat", "str-bb-bulgarian-split-squat",
+        "str-db-reverse-lunge", "str-curtsy-lunge", "str-donkey-calf-raise",
+        "str-single-leg-db-calf-raise", "str-smith-calf-raise", "str-db-skull-crusher",
+        "str-db-oh-triceps-ext"
     )
 
     private val ballisticIds = setOf(
@@ -289,7 +302,16 @@ internal object Engine16StrengthExerciseCatalog {
         priorExercise: StrengthExerciseMetadata? = null
     ): ExerciseSubstitutionResult? {
         val candidates = catalog.filter { ex ->
-            ex.pattern == targetPattern &&
+            val patternMatch = ex.pattern == targetPattern ||
+                (targetPattern == StrengthPattern.ARM_ISOLATION && ex.pattern in setOf(
+                    StrengthPattern.BICEPS_FOREARM_ISOLATION,
+                    StrengthPattern.TRICEPS_ISOLATION
+                )) ||
+                (targetPattern == StrengthPattern.DELTOID_ISOLATION && ex.pattern in setOf(
+                    StrengthPattern.LATERAL_FRONT_DELT,
+                    StrengthPattern.REAR_DELT_UPPER_BACK
+                ))
+            patternMatch &&
                 ex.id !in excludedIds &&
                 matchesEquipment(ex, availableTokens) &&
                 proficiencyAllowed(ex, experience) &&
@@ -342,7 +364,11 @@ internal object Engine16StrengthExerciseCatalog {
             if (record.id in ballisticIds) add(MechanicalTag.BALLISTIC)
             if (isEmpty() && pattern in setOf(
                     StrengthPattern.ARM_ISOLATION,
+                    StrengthPattern.BICEPS_FOREARM_ISOLATION,
+                    StrengthPattern.TRICEPS_ISOLATION,
                     StrengthPattern.DELTOID_ISOLATION,
+                    StrengthPattern.LATERAL_FRONT_DELT,
+                    StrengthPattern.REAR_DELT_UPPER_BACK,
                     StrengthPattern.CORE_STABILITY,
                     StrengthPattern.QUAD_ISOLATION,
                     StrengthPattern.HAMSTRING_ISOLATION
@@ -362,7 +388,11 @@ internal object Engine16StrengthExerciseCatalog {
                 "gs", "dh", "fp", "bp", "dr", "machine-leg-press", "machine-chest-press",
                 "cable-lat-pulldown", "str-trap-bar-deadlift", "str-barbell-hip-thrust",
                 "str-bb-bench-press", "str-incline-db-press", "str-db-shoulder-press",
-                "str-chest-supported-row", "str-seated-cable-row"
+                "str-chest-supported-row", "str-seated-cable-row",
+                "str-45-leg-press", "str-smith-bench-press", "str-smith-incline-press",
+                "str-decline-db-press", "str-wide-lat-pulldown", "str-neutral-lat-pulldown",
+                "str-underhand-lat-pulldown", "str-machine-seated-row",
+                "str-machine-shoulder-press", "str-smith-ohp"
             )) -> StrengthSlotOrder.PRIMARY_COMPOUND
             pattern == StrengthPattern.UNILATERAL_LOWER ||
                 laterality == StrengthLaterality.UNILATERAL -> StrengthSlotOrder.SECONDARY_COMPOUND_OR_UNILATERAL
@@ -421,22 +451,41 @@ internal object Engine16StrengthExerciseCatalog {
             record.id in setOf("machine-leg-curl", "str-lying-leg-curl", "str-glute-ham-raise") ||
                 "knee_flexion" in record.movementPatterns -> StrengthPattern.HAMSTRING_ISOLATION
             "calf" in text || "tibialis" in text -> StrengthPattern.CALF_ANKLE
-            record.id in setOf("str-db-lateral-raise", "str-cable-lateral-raise", "str-rear-delt-fly", "str-face-pull") ->
-                StrengthPattern.DELTOID_ISOLATION
+            record.id in setOf("str-face-pull", "str-rear-delt-fly", "str-reverse-pec-deck", "str-bent-over-rear-delt-fly") ||
+                "rear delt" in text -> StrengthPattern.REAR_DELT_UPPER_BACK
+            record.id in setOf(
+                "str-db-lateral-raise", "str-cable-lateral-raise", "str-leaning-lat-raise",
+                "str-machine-lat-raise", "str-db-front-raise", "str-cable-front-raise",
+                "str-cable-upright-row", "str-bb-upright-row"
+            ) -> StrengthPattern.LATERAL_FRONT_DELT
+            record.id in setOf(
+                "str-triceps-pushdown", "str-overhead-triceps-ext", "str-skull-crusher",
+                "str-cable-bar-pushdown", "str-vbar-pushdown", "str-single-arm-pushdown",
+                "str-db-oh-triceps-ext", "str-db-skull-crusher", "str-db-triceps-kickback",
+                "str-machine-triceps-dip", "str-bench-dip", "str-jm-press"
+            ) -> StrengthPattern.TRICEPS_ISOLATION
             record.id in setOf(
                 "curl-db", "str-hammer-curl", "str-incline-db-curl", "str-preacher-curl", "str-cable-curl",
-                "str-wrist-curl", "str-triceps-pushdown", "str-overhead-triceps-ext", "str-skull-crusher"
-            ) -> StrengthPattern.ARM_ISOLATION
-            record.id in setOf("e6", "rl", "str-walking-lunge", "str-step-up", "str-copenhagen-adduction", "str-hip-abduction") ||
-                "unilateral" in record.movementPatterns -> StrengthPattern.UNILATERAL_LOWER
-            "hinge" in text || "deadlift" in text || "glute" in text || "back extension" in text || "good morning" in text ->
+                "str-wrist-curl", "str-rev-grip-bb-curl", "str-rev-grip-ez-curl", "str-rev-grip-cable-curl",
+                "str-rev-grip-db-curl", "str-bb-biceps-curl", "str-ez-biceps-curl", "str-alt-db-curl",
+                "str-db-concentration-curl", "str-spider-curl", "str-cable-bayesian-curl",
+                "str-zottman-curl", "str-db-hammer-preacher-curl", "str-rev-wrist-curl",
+                "str-behind-back-wrist-curl"
+            ) -> StrengthPattern.BICEPS_FOREARM_ISOLATION
+            record.id in setOf(
+                "e6", "rl", "str-walking-lunge", "str-step-up", "str-copenhagen-adduction", "str-hip-abduction",
+                "str-single-leg-press", "str-db-bulgarian-split-squat", "str-bb-bulgarian-split-squat",
+                "str-db-reverse-lunge", "str-curtsy-lunge"
+            ) || "unilateral" in record.movementPatterns -> StrengthPattern.UNILATERAL_LOWER
+            "hinge" in text || "deadlift" in text || "glute" in text || "back extension" in text ||
+                "good morning" in text || "rack pull" in text ->
                 StrengthPattern.HINGE
             "squat" in text || "leg press" in text || "sit-to-stand" in text ->
                 StrengthPattern.SQUAT
             "vertical push" in text || "overhead press" in text || "shoulder press" in text || "arnold" in text || "landmine press" in text ->
                 StrengthPattern.VERTICAL_PUSH
             "horizontal" in text && "push" in text || "bench" in text || "floor press" in text || "chest" in text ||
-                "push-up" in text || "dip" in text || "pec deck" in text ->
+                "push-up" in text || "dip" in text || "pec deck" in text || "squeeze press" in text ->
                 StrengthPattern.HORIZONTAL_PUSH
             "vertical pull" in text || "pulldown" in text || "pullover" in text || "upright row" in text || "shrug" in text ->
                 StrengthPattern.VERTICAL_PULL

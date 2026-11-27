@@ -163,7 +163,8 @@ internal object Engine17CalisthenicsDagCatalog {
         for (raw in catalogRecords) {
             if (raw.id in metaById) continue
             val adapted = Engine16StrengthExerciseCatalog.toMetadata(raw)
-            val isHold = "hold" in raw.id || "tuck" in raw.id || "crow" in raw.id || "scap" in raw.id
+            val isHold = "hold" in raw.id || "tuck" in raw.id || "crow" in raw.id || "scap" in raw.id ||
+                "lsit" in raw.id || "lean" in raw.id
             metaById[raw.id] = adapted.copy(
                 loadSemanticsKind = ExternalLoadSemanticsKind.UNLOADED_BODYWEIGHT,
                 isIsometricHold = adapted.isIsometricHold || isHold
@@ -183,11 +184,13 @@ internal object Engine17CalisthenicsDagCatalog {
         "e2", "cal-chinup" -> CalisthenicsDagNode(meta, CalisthenicsDomain.PULL_UP, 2, CalisthenicsPrerequisiteGate.RequireAny(listOf("ap", "cal-negative-pullup", "cal-ring-row"), setOf(CalisthenicsBottleneck.STRENGTH)), regressionNodeId = "ap")
         "cal-wide-pullup", "cal-commando-pullup" -> CalisthenicsDagNode(meta, CalisthenicsDomain.PULL_UP, 3, CalisthenicsPrerequisiteGate.RequireAll(listOf("e2"), setOf(CalisthenicsBottleneck.STRENGTH)), regressionNodeId = "e2")
         "cal-archer-row" -> CalisthenicsDagNode(meta, CalisthenicsDomain.PULL_UP, 2, CalisthenicsPrerequisiteGate.RequireAny(listOf("cal-ring-row", "e2"), setOf(CalisthenicsBottleneck.STRENGTH, CalisthenicsBottleneck.COORDINATION_SKILL)), regressionNodeId = "cal-ring-row")
-        "cal-muscle-up-transition" -> CalisthenicsDagNode(meta, CalisthenicsDomain.PULL_UP, 4, CalisthenicsPrerequisiteGate.RequireAll(listOf("e2"), setOf(CalisthenicsBottleneck.STRENGTH, CalisthenicsBottleneck.COORDINATION_SKILL)), isSkillPracticeOnly = true, regressionNodeId = "e2")
+        "cal-neutral-pullup" -> CalisthenicsDagNode(meta, CalisthenicsDomain.PULL_UP, 2, CalisthenicsPrerequisiteGate.RequireAny(listOf("ap", "cal-ring-row"), setOf(CalisthenicsBottleneck.STRENGTH)), regressionNodeId = "ap")
+        "cal-muscle-up-transition", "cal-bar-muscle-up" -> CalisthenicsDagNode(meta, CalisthenicsDomain.PULL_UP, 4, CalisthenicsPrerequisiteGate.RequireAll(listOf("e2"), setOf(CalisthenicsBottleneck.STRENGTH, CalisthenicsBottleneck.COORDINATION_SKILL)), isSkillPracticeOnly = true, regressionNodeId = "e2")
+        "cal-ring-pelican-curl" -> CalisthenicsDagNode(meta, CalisthenicsDomain.PULL_UP, 3, CalisthenicsPrerequisiteGate.RequireAll(listOf("cal-ring-row", "e2"), setOf(CalisthenicsBottleneck.STRENGTH)), regressionNodeId = "cal-ring-row")
 
         // 2. PUSH_UP domain
-        "wall-push" -> CalisthenicsDagNode(meta, CalisthenicsDomain.PUSH_UP, 0, CalisthenicsPrerequisiteGate.None)
-        "e4" -> CalisthenicsDagNode(meta, CalisthenicsDomain.PUSH_UP, 1, CalisthenicsPrerequisiteGate.RequireAll(listOf("wall-push"), setOf(CalisthenicsBottleneck.STRENGTH)), regressionNodeId = "wall-push")
+        "wall-push", "cal-scapular-pushup" -> CalisthenicsDagNode(meta, CalisthenicsDomain.PUSH_UP, 0, CalisthenicsPrerequisiteGate.None)
+        "e4", "cal-standard-pushup" -> CalisthenicsDagNode(meta, CalisthenicsDomain.PUSH_UP, 1, CalisthenicsPrerequisiteGate.RequireAll(listOf("wall-push"), setOf(CalisthenicsBottleneck.STRENGTH)), regressionNodeId = "wall-push")
         "cal-diamond-pushup", "cal-decline-pushup", "cal-ring-pushup" ->
             CalisthenicsDagNode(meta, CalisthenicsDomain.PUSH_UP, 2, CalisthenicsPrerequisiteGate.RequireAll(listOf("e4"), setOf(CalisthenicsBottleneck.STRENGTH)), regressionNodeId = "e4")
         "cal-pike-pushup" -> CalisthenicsDagNode(meta, CalisthenicsDomain.PUSH_UP, 2, CalisthenicsPrerequisiteGate.RequireAll(listOf("e4"), setOf(CalisthenicsBottleneck.STRENGTH, CalisthenicsBottleneck.MOBILITY_ROM)), regressionNodeId = "e4")
@@ -197,12 +200,13 @@ internal object Engine17CalisthenicsDagCatalog {
         // 3. DIP domain (AND Support Hold + Floor Push-Up)
         "cal-support-hold" -> CalisthenicsDagNode(meta, CalisthenicsDomain.DIP, 0, CalisthenicsPrerequisiteGate.None, defaultHoldSeconds = 30)
         "cal-dip-assisted" -> CalisthenicsDagNode(meta, CalisthenicsDomain.DIP, 1, CalisthenicsPrerequisiteGate.RequireAll(listOf("cal-support-hold", "e4"), setOf(CalisthenicsBottleneck.STRENGTH)), regressionNodeId = "e4")
-        "cal-ring-dip" -> CalisthenicsDagNode(meta, CalisthenicsDomain.DIP, 3, CalisthenicsPrerequisiteGate.RequireAll(listOf("cal-dip-assisted", "cal-support-hold"), setOf(CalisthenicsBottleneck.STRENGTH, CalisthenicsBottleneck.BALANCE_PROPRIOCEPTION)), regressionNodeId = "cal-dip-assisted")
+        "cal-ring-dip", "cal-korean-dip" -> CalisthenicsDagNode(meta, CalisthenicsDomain.DIP, 3, CalisthenicsPrerequisiteGate.RequireAll(listOf("cal-dip-assisted", "cal-support-hold"), setOf(CalisthenicsBottleneck.STRENGTH, CalisthenicsBottleneck.BALANCE_PROPRIOCEPTION)), regressionNodeId = "cal-dip-assisted")
 
         // 4. HANDSTAND_SKILL domain (AND Wrist/Overhead + Wall Plank -> Crow / Chest-to-Wall -> Wall HSPU)
         "cal-wall-plank" -> CalisthenicsDagNode(meta, CalisthenicsDomain.HANDSTAND_SKILL, 0, CalisthenicsPrerequisiteGate.None, isSkillPracticeOnly = true, mobilityCheckRequired = "Wrist extension and overhead flexion check", defaultHoldSeconds = 25)
         "cal-crow-pose" -> CalisthenicsDagNode(meta, CalisthenicsDomain.HANDSTAND_SKILL, 1, CalisthenicsPrerequisiteGate.RequireAll(listOf("cal-wall-plank"), setOf(CalisthenicsBottleneck.BALANCE_PROPRIOCEPTION, CalisthenicsBottleneck.MOBILITY_ROM)), isSkillPracticeOnly = true, regressionNodeId = "cal-wall-plank", mobilityCheckRequired = "Wrist loading tolerance check", defaultHoldSeconds = 20)
         "cal-chest-to-wall-hs" -> CalisthenicsDagNode(meta, CalisthenicsDomain.HANDSTAND_SKILL, 1, CalisthenicsPrerequisiteGate.RequireAll(listOf("cal-wall-plank", "cal-pike-pushup"), setOf(CalisthenicsBottleneck.BALANCE_PROPRIOCEPTION, CalisthenicsBottleneck.MOBILITY_ROM)), isSkillPracticeOnly = true, regressionNodeId = "cal-wall-plank", mobilityCheckRequired = "Overhead shoulder flexion check", defaultHoldSeconds = 25)
+        "cal-planche-lean" -> CalisthenicsDagNode(meta, CalisthenicsDomain.HANDSTAND_SKILL, 2, CalisthenicsPrerequisiteGate.RequireAll(listOf("e4", "cal-wall-plank"), setOf(CalisthenicsBottleneck.STRENGTH, CalisthenicsBottleneck.BALANCE_PROPRIOCEPTION)), isSkillPracticeOnly = true, regressionNodeId = "cal-wall-plank", defaultHoldSeconds = 20)
         "cal-hspu-wall" -> CalisthenicsDagNode(meta, CalisthenicsDomain.HANDSTAND_SKILL, 3, CalisthenicsPrerequisiteGate.RequireAll(listOf("cal-chest-to-wall-hs", "cal-pike-pushup"), setOf(CalisthenicsBottleneck.STRENGTH, CalisthenicsBottleneck.BALANCE_PROPRIOCEPTION)), regressionNodeId = "cal-pike-pushup")
 
         // 5. CORE_AND_L_SIT domain
@@ -212,6 +216,7 @@ internal object Engine17CalisthenicsDagCatalog {
         "cal-russian-twist" -> CalisthenicsDagNode(meta, CalisthenicsDomain.CORE_AND_L_SIT, 1, CalisthenicsPrerequisiteGate.None, regressionNodeId = "fc")
         "cal-v-up", "cal-windshield-wiper" -> CalisthenicsDagNode(meta, CalisthenicsDomain.CORE_AND_L_SIT, 2, CalisthenicsPrerequisiteGate.RequireAll(listOf("core-hollow"), setOf(CalisthenicsBottleneck.STRENGTH, CalisthenicsBottleneck.MOBILITY_ROM)), regressionNodeId = "core-hollow")
         "cal-toes-to-bar", "cal-dragon-flag-neg" -> CalisthenicsDagNode(meta, CalisthenicsDomain.CORE_AND_L_SIT, 3, CalisthenicsPrerequisiteGate.RequireAll(listOf("core-hollow", "cal-v-up"), setOf(CalisthenicsBottleneck.STRENGTH)), regressionNodeId = "cal-v-up")
+        "cal-floor-lsit" -> CalisthenicsDagNode(meta, CalisthenicsDomain.CORE_AND_L_SIT, 3, CalisthenicsPrerequisiteGate.RequireAll(listOf("core-hollow", "cal-support-hold"), setOf(CalisthenicsBottleneck.STRENGTH, CalisthenicsBottleneck.MOBILITY_ROM)), regressionNodeId = "core-hollow", defaultHoldSeconds = 20)
 
         // 6. SINGLE_LEG_SQUAT domain
         "cal-split-squat" -> CalisthenicsDagNode(meta, CalisthenicsDomain.SINGLE_LEG_SQUAT, 0, CalisthenicsPrerequisiteGate.None, regressionNodeId = null)

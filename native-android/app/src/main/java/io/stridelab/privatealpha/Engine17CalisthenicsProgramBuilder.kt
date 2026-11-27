@@ -109,6 +109,7 @@ internal object Engine17CalisthenicsProgramBuilder {
             val weekStartDow = weekStart.dayOfWeek.value
             val isRecoveryOrDeload = (week % 4 == 0) || (request.returning && week <= 2)
             val rung = (week - 1) % 4
+            val blockIndex = (week - 1) / 4
             val setMult = when {
                 request.returning && week == 1 -> 0.65
                 isRecoveryOrDeload -> 0.60
@@ -116,8 +117,10 @@ internal object Engine17CalisthenicsProgramBuilder {
             }
             val isoSecs = when {
                 isRecoveryOrDeload -> Engine17CalisthenicsPolicyRegistry.ISOMETRIC_STAGE_1_SECONDS
-                rung == 1 -> Engine17CalisthenicsPolicyRegistry.ISOMETRIC_STAGE_2_SECONDS
-                rung >= 2 && request.coreLevel >= 1 -> Engine17CalisthenicsPolicyRegistry.ISOMETRIC_STAGE_3_SECONDS
+                rung == 1 && blockIndex == 0 -> Engine17CalisthenicsPolicyRegistry.ISOMETRIC_STAGE_2_SECONDS
+                rung >= 2 || blockIndex >= 1 ->
+                    if (request.coreLevel >= 1) Engine17CalisthenicsPolicyRegistry.ISOMETRIC_STAGE_3_SECONDS
+                    else Engine17CalisthenicsPolicyRegistry.ISOMETRIC_STAGE_2_SECONDS
                 else -> Engine17CalisthenicsPolicyRegistry.ISOMETRIC_STAGE_1_SECONDS
             }
 
@@ -132,6 +135,7 @@ internal object Engine17CalisthenicsProgramBuilder {
                     throw PlanConstraint("CALISTHENICS_SESSION_LOCK_CONFLICT: A locked date conflicts with its weekday or plan week.")
                 }
 
+                val calVariant = calVariantIndexFor(request.calDays, slot)
                 val constructed = Engine17CalisthenicsWorkoutConstructor.construct(
                     input = CalisthenicsSessionConstructionInput(
                         objective = objective,
@@ -146,11 +150,13 @@ internal object Engine17CalisthenicsProgramBuilder {
                         safetyIntensityCap = safetyCap,
                         setMultiplier = setMult,
                         isometricOverrideSeconds = isoSecs,
-                        isDeloadOrRecovery = isRecoveryOrDeload
+                        isDeloadOrRecovery = isRecoveryOrDeload,
+                        variantIndex = calVariant
                     ),
                     allNodes = nodes
                 )
 
+                val blockRepBoost = if (!isRecoveryOrDeload) blockIndex.coerceAtMost(2) else 0
                 val progressedSlots = constructed.slots.map { s ->
                     if (s.holdSeconds != null || s.blockRole == CalisthenicsBlockRole.FRESH_SKILL_PRACTICE ||
                         s.node.isEccentricHighTendonStrain || isRecoveryOrDeload
@@ -158,7 +164,7 @@ internal object Engine17CalisthenicsProgramBuilder {
                         s
                     } else {
                         val repSpan = (spec.defaultRepRange.last - spec.defaultRepRange.first).coerceAtLeast(1)
-                        val bumpedReps = ((s.reps ?: spec.defaultRepRange.first) + rung.coerceAtMost(repSpan))
+                        val bumpedReps = ((s.reps ?: spec.defaultRepRange.first) + (rung + blockRepBoost).coerceAtMost(repSpan))
                             .coerceAtMost(spec.defaultRepRange.last)
                         s.copy(reps = bumpedReps)
                     }
@@ -197,8 +203,13 @@ internal object Engine17CalisthenicsProgramBuilder {
 
                 val steps = buildList {
                     add(
-                        if (constructed.isCompactFallback) "3 min wrist, shoulder, and scapular warm-up"
-                        else "5 min wrist, shoulder, and scapular activation prep"
+                        if (constructed.isLowerBodySession) {
+                            if (constructed.isCompactFallback) "3 min ankle, hip, and glute prep"
+                            else "5 min ankle rocks, hip switches, and single-leg stability prep"
+                        } else {
+                            if (constructed.isCompactFallback) "3 min wrist, shoulder, and scapular warm-up"
+                            else "5 min wrist, shoulder, and scapular activation prep"
+                        }
                     )
                     if (progressedSlots.any { it.blockRole == CalisthenicsBlockRole.FRESH_SKILL_PRACTICE }) {
                         add("Perform the skill balance block FIRST while fresh before strength sets.")
@@ -299,6 +310,13 @@ internal object Engine17CalisthenicsProgramBuilder {
             }
         }
         Engine15SessionLocks.validateOutput(plan.request, plan.sessions)
+    }
+
+    private fun calVariantIndexFor(calDays: Int, slot: Int): Int = when (calDays) {
+        4 -> slot / 2
+        5 -> if (slot >= 3) 1 else 0
+        6 -> slot / 3
+        else -> slot
     }
 
     private fun matchingLockId(request: PlanRequest, week: Int, slot: Int): String? =

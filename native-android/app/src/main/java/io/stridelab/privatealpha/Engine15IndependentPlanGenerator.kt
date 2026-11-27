@@ -792,9 +792,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                         val effortText = when {
                             work -> when (archetype) {
                                 Engine15WorkoutArchetype.SHORT_HILL_SPRINTS ->
-                                    "Strong uphill drive (5–8% grade) at ~5K effort (RPE 8/10) — focus on tall posture and power, judge by effort rather than flat pace."
+                                    "Strong uphill drive (5-8% grade) at ~5K effort (RPE 8/10): focus on tall posture and power, judge by effort rather than flat pace."
                                 Engine15WorkoutArchetype.LONG_AEROBIC_HILLS ->
-                                    "Steady uphill climb (4–6% grade) at Threshold/10K effort (RPE 7–8/10) — hold rhythm by effort on the incline."
+                                    "Steady uphill climb (4-6% grade) at Threshold/10K effort (RPE 7-8/10): hold rhythm by effort on the incline."
                                 Engine15WorkoutArchetype.AEROBIC_FARTLEK ->
                                     "Controlled surge at Tempo–5K effort; settle smoothly into easy float recovery."
                                 Engine15WorkoutArchetype.CONTINUOUS_TEMPO ->
@@ -980,8 +980,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 steps=workout.mixedSegments?.mapIndexed { i,step ->
                     val extent=if(step.meters!=null) "${step.meters} m" else "${step.seconds} s"
                     val equivalent=step.distanceEquivalentMeters?.let { " ($it m user-supplied distance equivalent)" }.orEmpty()
-                    "${i+1}. $extent${equivalent} ${step.purpose.lowercase().replace('_',' ')} — ${step.effort}."
-                } ?: workout.segments.mapIndexed { i,step -> "${i+1}. ${step.meters} m ${step.purpose.lowercase().replace('_',' ')} — ${step.effort}." },
+                    "${i+1}. $extent${equivalent} ${step.purpose.lowercase().replace('_',' ')}: ${step.effort}."
+                } ?: workout.segments.mapIndexed { i,step -> "${i+1}. ${step.meters} m ${step.purpose.lowercase().replace('_',' ')}: ${step.effort}." },
                 reason="User-defined workout structure and intensity targets are preserved as supplied; no coach qualification or athlete-specific intensity validation is claimed." +
                     if(workout.reconciledDistanceMeters!=null) " Timed steps use explicit user-supplied distance equivalents; none were inferred." else "")
         }
@@ -1251,7 +1251,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                             add(
                                 RunningStepV2(
                                     purpose = "TRANSITION",
-                                    effort = "20s smooth relaxed stride — quick cadence and tall posture, never an all-out sprint.",
+                                    effort = "20s smooth relaxed stride: quick cadence and tall posture, never an all-out sprint.",
                                     seconds = 20,
                                     distanceEquivalentMeters = strideM,
                                     stepIntent = RunningStepIntent.STRIDE,

@@ -104,6 +104,7 @@ internal object Engine18HybridProgramBuilder {
         var calResult: Engine17ProgramResult? = null
 
         val nonCondSessions = mutableListOf<PlannedSession>()
+        var runMajorStepWeeks = emptySet<Int>()
         for (discipline in active.filter { it != "cond" }) {
             val solo = soloRequest(request, discipline)
             when (discipline) {
@@ -119,10 +120,16 @@ internal object Engine18HybridProgramBuilder {
                         runCandidateVolume = cand.volume
                         cand.plan.sessions
                     }
+                    runMajorStepWeeks = computeRunningHoldWeeks(runRows, request)
                     nonCondSessions += runRows
                 }
                 "str" -> if (FeatureFlags.USE_ENGINE16_STRENGTH_V1 && strengthTrack(solo) == "str") {
-                    strResult = Engine16StrengthProgramBuilder.build(solo, owner, id, now, allowCalendarReschedule = true, safetyRestrictions = safetyRestrictions)
+                    strResult = Engine16StrengthProgramBuilder.build(
+                        solo, owner, id, now,
+                        allowCalendarReschedule = true,
+                        safetyRestrictions = safetyRestrictions,
+                        runningMajorStepWeeks = runMajorStepWeeks
+                    )
                     nonCondSessions += strResult.snapshot.sessions
                 } else {
                     val resolvedLib = library ?: throw PlanConstraint(
@@ -269,6 +276,7 @@ internal object Engine18HybridProgramBuilder {
             }.toMap()
         } else emptyMap()
 
+        val runMajorStepWeeks = computeRunningHoldWeeks(scheduled.filter { it.discipline == "run" }, request)
         active.forEach { discipline ->
             val solo = soloRequest(request, discipline)
             val rows = scheduled.filter { it.discipline == discipline }
@@ -292,7 +300,8 @@ internal object Engine18HybridProgramBuilder {
                 } else {
                     Engine16StrengthProgramBuilder.validateSaved(
                         plan.copy(engineVersion = ENGINE16_VERSION, policyId = ENGINE16_STRENGTH_POLICY, request = solo, sessions = rows),
-                        allowCalendarReschedule = true
+                        allowCalendarReschedule = true,
+                        runningMajorStepWeeks = runMajorStepWeeks
                     )
                 }
                 "cal" -> Engine17CalisthenicsProgramBuilder.validateSaved(
@@ -421,14 +430,44 @@ internal object Engine18HybridProgramBuilder {
         return (enrichedRuns + otherSessions).sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
     }
 
+    private fun computeRunningHoldWeeks(runSessions: List<PlannedSession>, request: PlanRequest): Set<Int> {
+        if (runSessions.isEmpty()) return emptySet()
+        val weekKm = (1..request.weeks).associateWith { week ->
+            val wStart = request.start.plusWeeks((week - 1).toLong())
+            val wEnd = wStart.plusDays(6)
+            runSessions.filter { it.date in wStart..wEnd }.sumOf { it.baselineSession().distanceKm ?: 0.0 }
+        }
+        return buildSet {
+            for (week in 2..request.weeks) {
+                val prev = weekKm[week - 1] ?: 0.0
+                val cur = weekKm[week] ?: 0.0
+                if (prev > 0.0 && cur >= prev * 1.08) add(week)
+                if (week == request.weeks && request.weeks >= 4 && prev > 0.0 && cur <= prev * 0.90) add(week)
+            }
+        }
+    }
+
     private fun annotateHybridNotes(sessions: List<PlannedSession>, primaryGoal: String): List<PlannedSession> {
         val byDate = sessions.groupBy { it.date }
+        val hasRunInPlan = sessions.any { it.discipline == "run" }
+        val hasStrengthInPlan = sessions.any { it.discipline == "str" }
+        val nonRunPrimaryLabel = when {
+            hasStrengthInPlan -> "strength"
+            sessions.any { it.discipline == "cal" } -> "calisthenics"
+            else -> "conditioning"
+        }
         return sessions.map { session ->
             val peers = byDate[session.date].orEmpty().filter { it.id != session.id }
             val tightSpacing = sessions.any { it.id != session.id && it.date != session.date && Engine15IndependentPlanGenerator.conflict(session, it) }
             val note = buildList {
                 if (peers.isNotEmpty()) {
-                    add("Stacked day (${peers.joinToString { it.discipline.uppercase() }}): separate by 6 hours AM/PM and prioritize running first ($primaryGoal).")
+                    val hasRunOnDay = session.discipline == "run" || peers.any { it.discipline == "run" }
+                    val leadLabel = if (hasRunOnDay || hasRunInPlan && (session.discipline == "run" || peers.any { it.discipline == "run" })) {
+                        "running"
+                    } else {
+                        nonRunPrimaryLabel
+                    }
+                    add("Stacked day (${peers.joinToString { it.discipline.uppercase() }}): separate by 6 hours AM/PM and prioritize $leadLabel first ($primaryGoal).")
                 }
                 if (tightSpacing) {
                     add("Back-to-back load (< 48 h buffer): keep non-primary effort at 2 to 3 RIR and monitor recovery.")
@@ -483,7 +522,8 @@ internal object Engine18HybridProgramBuilder {
         session.quality || session.lower
     } else {
         session.quality || session.kind == "long" ||
-            session.discipline == "cal" || (session.discipline in setOf("str", "cond") && session.lower)
+            (session.discipline == "cal" && (session.lower || session.minutes >= 35)) ||
+            (session.discipline in setOf("str", "cond") && session.lower)
     }
 
     private fun slotIndex(session: PlannedSession): Int {

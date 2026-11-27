@@ -36,7 +36,8 @@ internal data class CalisthenicsSessionConstructionInput(
     val setMultiplier: Double = 1.0,
     val isometricOverrideSeconds: Int? = null,
     val targetRirOverride: IntRange? = null,
-    val isDeloadOrRecovery: Boolean = false
+    val isDeloadOrRecovery: Boolean = false,
+    val variantIndex: Int = 0
 )
 
 /**
@@ -88,34 +89,50 @@ internal object Engine17CalisthenicsWorkoutConstructor {
             return fallbackDomain?.let { dom -> eligible.firstOrNull { it.domain == dom } }
         }
 
+        fun pickVariant(
+            ids: List<String>,
+            variant: Int = input.variantIndex,
+            excludeIds: Set<String> = emptySet(),
+            fallbackDomain: CalisthenicsDomain? = null
+        ): CalisthenicsDagNode? {
+            val matches = ids.mapNotNull { id ->
+                eligible.firstOrNull { it.exercise.id == id && it.exercise.id !in excludeIds }
+            }
+            if (matches.isNotEmpty()) return matches[variant.coerceAtLeast(0) % matches.size]
+            return fallbackDomain?.let { dom ->
+                val domMatches = eligible.filter { it.domain == dom && it.exercise.id !in excludeIds }
+                domMatches.takeIf { it.isNotEmpty() }?.let { it[variant.coerceAtLeast(0) % it.size] }
+            }
+        }
+
         val hasBar = "pullup_bar" in input.availableEquipment
         val hasRings = "rings" in input.availableEquipment
         val pullPref = when {
-            hasBar && input.pullLevel >= 2 -> listOf("e2", "cal-chinup", "cal-wide-pullup", "ap", "br")
-            hasBar && input.pullLevel == 1 -> listOf("ap", "cal-negative-pullup", "br")
+            hasBar && input.pullLevel >= 2 -> listOf("e2", "cal-chinup", "cal-neutral-pullup", "cal-wide-pullup", "cal-commando-pullup", "ap", "br")
+            hasBar && input.pullLevel == 1 -> listOf("ap", "cal-negative-pullup", "cal-ring-row", "br")
             hasBar -> listOf("cal-scap-hang", "ap", "br")
-            hasRings -> listOf("cal-ring-row", "br")
+            hasRings -> listOf("cal-ring-row", "cal-archer-row", "br")
             else -> listOf("br", "cal-sl-glute-bridge")
         }
         val pushPref = when (input.experience) {
-            0 -> listOf("wall-push", "e4", "cal-pike-pushup")
-            1 -> listOf("e4", "cal-decline-pushup", "cal-diamond-pushup", "cal-pike-pushup")
-            else -> listOf("cal-decline-pushup", "cal-diamond-pushup", "cal-pike-pushup", "cal-archer-pushup", "e4")
+            0 -> listOf("wall-push", "cal-standard-pushup", "cal-scapular-pushup", "e4")
+            1 -> listOf("cal-standard-pushup", "cal-decline-pushup", "cal-diamond-pushup", "cal-pike-pushup", "e4")
+            else -> listOf("cal-decline-pushup", "cal-diamond-pushup", "cal-pike-pushup", "cal-archer-pushup", "cal-ring-pushup", "cal-ring-dip", "e4")
         }
         val legsPref = when (input.experience) {
             0 -> listOf("cal-split-squat", "cal-cossack-squat", "cal-sl-glute-bridge")
-            1 -> listOf("cal-rfess", "cal-sissy-squat", "cal-cossack-squat", "cal-split-squat")
-            else -> listOf("cal-pistol-squat", "cal-rfess", "cal-shrimp-squat", "cal-sissy-squat", "cal-split-squat")
+            1 -> listOf("cal-rfess", "cal-cossack-squat", "cal-sissy-squat", "cal-sl-glute-bridge", "cal-split-squat")
+            else -> listOf("cal-pistol-squat", "cal-shrimp-squat", "cal-rfess", "cal-nordic-curl", "cal-sissy-squat", "cal-cossack-squat")
         }
         val corePref = when (input.coreLevel) {
-            0 -> listOf("fc", "cal-russian-twist", "side-plank")
-            1 -> listOf("side-plank", "core-hollow", "cal-v-up", "fc")
-            else -> listOf("core-hollow", "cal-toes-to-bar", "cal-windshield-wiper", "cal-v-up", "side-plank")
+            0 -> listOf("fc", "side-plank", "cal-russian-twist")
+            1 -> listOf("core-hollow", "side-plank", "cal-v-up", "fc")
+            else -> listOf("core-hollow", "cal-toes-to-bar", "cal-floor-lsit", "cal-windshield-wiper", "cal-dragon-flag-neg", "cal-v-up")
         }
         val handstandSkillPref = when (input.experience) {
             0 -> listOf("cal-wall-plank", "cal-crow-pose")
             1 -> listOf("cal-chest-to-wall-hs", "cal-crow-pose", "cal-wall-plank")
-            else -> listOf("cal-chest-to-wall-hs", "cal-crow-pose", "cal-hspu-wall")
+            else -> listOf("cal-chest-to-wall-hs", "cal-planche-lean", "cal-crow-pose", "cal-hspu-wall")
         }
 
         val dayLabel = dayLabelFor(split, input.slotIndex, input.objective)
@@ -211,6 +228,7 @@ internal object Engine17CalisthenicsWorkoutConstructor {
                 c2?.let { slots += makeSlot(it, CalisthenicsBlockRole.TECHNIQUE_INTERVAL_FINISHER, 3, 10, it.defaultHoldSeconds, 60) }
             }
             else -> {
+                val wantUpperOnly = (split == CalisthenicsJourneySplit.UPPER_LOWER_A_B && input.slotIndex % 2 == 0)
                 val wantLowerOnly = (split == CalisthenicsJourneySplit.UPPER_LOWER_A_B && input.slotIndex % 2 == 1) ||
                     ((split == CalisthenicsJourneySplit.PPL_PLUS_SKILL_5D || split == CalisthenicsJourneySplit.PPL_A_B_6D) && input.slotIndex % 3 == 2) ||
                     input.objective == CalisthenicsObjective.SINGLE_LEG_CONTROL
@@ -219,35 +237,58 @@ internal object Engine17CalisthenicsWorkoutConstructor {
                 val wantPushOnly = (split == CalisthenicsJourneySplit.PUSH_PULL_CONTROL && input.slotIndex == 0) ||
                     ((split == CalisthenicsJourneySplit.PPL_PLUS_SKILL_5D || split == CalisthenicsJourneySplit.PPL_A_B_6D) && input.slotIndex % 3 == 0)
 
-                if (wantLowerOnly) {
-                    pickFirst(legsPref, CalisthenicsDomain.SINGLE_LEG_SQUAT)?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 3, 6, null, 90) }
-                    pickFirst(listOf("cal-cossack-squat", "cal-sl-glute-bridge"))?.let {
-                        if (slots.none { s -> s.node.exercise.id == it.exercise.id }) {
-                            slots += makeSlot(it, CalisthenicsBlockRole.PREREQUISITE_CLUSTER, 2, 8, null, 75)
-                        }
+                if (wantUpperOnly) {
+                    val primaryPush = pickVariant(pushPref, input.variantIndex, emptySet(), CalisthenicsDomain.PUSH_UP)
+                    primaryPush?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 3, spec.defaultRepRange.first, null, 90) }
+                    val usedUpper = slots.map { s -> s.node.exercise.id }.toSet()
+                    val upperPullPref = pullPref.filter { it != "cal-sl-glute-bridge" }
+                    pickVariant(upperPullPref, input.variantIndex, usedUpper, CalisthenicsDomain.PULL_UP)?.let {
+                        slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 3, spec.defaultRepRange.first, null, 90)
                     }
-                    pickFirst(corePref, CalisthenicsDomain.CORE_AND_L_SIT)?.let { slots += makeSlot(it, CalisthenicsBlockRole.TECHNIQUE_INTERVAL_FINISHER, 2, 10, it.defaultHoldSeconds, 60) }
+                    val usedAfterPull = slots.map { s -> s.node.exercise.id }.toSet()
+                    pickVariant(
+                        listOf("cal-pike-pushup", "cal-dip-assisted", "cal-ring-dip", "br", "cal-scapular-pushup", "cal-support-hold"),
+                        input.variantIndex,
+                        usedAfterPull
+                    )?.let {
+                        slots += makeSlot(it, CalisthenicsBlockRole.PREREQUISITE_CLUSTER, 3, 8, it.defaultHoldSeconds, 75)
+                    }
+                    val usedFinal = slots.map { s -> s.node.exercise.id }.toSet()
+                    pickVariant(corePref, input.variantIndex, usedFinal, CalisthenicsDomain.CORE_AND_L_SIT)?.let {
+                        slots += makeSlot(it, CalisthenicsBlockRole.TECHNIQUE_INTERVAL_FINISHER, 2, 10, it.defaultHoldSeconds, 60)
+                    }
+                } else if (wantLowerOnly) {
+                    val legPrimary = pickVariant(legsPref, input.variantIndex, emptySet(), CalisthenicsDomain.SINGLE_LEG_SQUAT)
+                    legPrimary?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 3, 6, null, 90) }
+                    val used = slots.map { s -> s.node.exercise.id }.toSet()
+                    pickVariant(listOf("cal-cossack-squat", "cal-sl-glute-bridge", "cal-sissy-squat", "cal-rfess"), input.variantIndex, used)?.let {
+                        slots += makeSlot(it, CalisthenicsBlockRole.PREREQUISITE_CLUSTER, 2, 8, null, 75)
+                    }
+                    pickVariant(corePref, input.variantIndex, used, CalisthenicsDomain.CORE_AND_L_SIT)?.let { slots += makeSlot(it, CalisthenicsBlockRole.TECHNIQUE_INTERVAL_FINISHER, 2, 10, it.defaultHoldSeconds, 60) }
                 } else if (wantPullOnly) {
-                    pickFirst(pullPref, CalisthenicsDomain.PULL_UP)?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 3, 6, null, 105) }
-                    pickFirst(listOf("br", "cal-ring-row", "cal-scap-hang"))?.let {
-                        if (slots.none { s -> s.node.exercise.id == it.exercise.id }) {
-                            slots += makeSlot(it, CalisthenicsBlockRole.PREREQUISITE_CLUSTER, 3, 8, it.defaultHoldSeconds, 75)
-                        }
+                    val pullPrimary = pickVariant(pullPref, input.variantIndex, emptySet(), CalisthenicsDomain.PULL_UP)
+                    pullPrimary?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 3, 6, null, 105) }
+                    val used = slots.map { s -> s.node.exercise.id }.toSet()
+                    pickVariant(listOf("br", "cal-ring-row", "cal-archer-row", "cal-scap-hang", "cal-negative-pullup"), input.variantIndex, used)?.let {
+                        slots += makeSlot(it, CalisthenicsBlockRole.PREREQUISITE_CLUSTER, 3, 8, it.defaultHoldSeconds, 75)
                     }
-                    pickFirst(corePref, CalisthenicsDomain.CORE_AND_L_SIT)?.let { slots += makeSlot(it, CalisthenicsBlockRole.TECHNIQUE_INTERVAL_FINISHER, 2, 10, it.defaultHoldSeconds, 60) }
+                    pickVariant(corePref, input.variantIndex, used, CalisthenicsDomain.CORE_AND_L_SIT)?.let { slots += makeSlot(it, CalisthenicsBlockRole.TECHNIQUE_INTERVAL_FINISHER, 2, 10, it.defaultHoldSeconds, 60) }
                 } else if (wantPushOnly) {
-                    pickFirst(pushPref, CalisthenicsDomain.PUSH_UP)?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 3, 8, null, 90) }
-                    pickFirst(listOf("cal-support-hold", "cal-pike-pushup"))?.let {
-                        if (slots.none { s -> s.node.exercise.id == it.exercise.id }) {
-                            slots += makeSlot(it, CalisthenicsBlockRole.PREREQUISITE_CLUSTER, 3, 6, it.defaultHoldSeconds, 75)
-                        }
+                    val pushPrimary = pickVariant(pushPref, input.variantIndex, emptySet(), CalisthenicsDomain.PUSH_UP)
+                    pushPrimary?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 3, 8, null, 90) }
+                    val used = slots.map { s -> s.node.exercise.id }.toSet()
+                    pickVariant(listOf("cal-pike-pushup", "cal-dip-assisted", "cal-support-hold", "cal-scapular-pushup", "cal-ring-dip"), input.variantIndex, used)?.let {
+                        slots += makeSlot(it, CalisthenicsBlockRole.PREREQUISITE_CLUSTER, 3, 6, it.defaultHoldSeconds, 75)
                     }
-                    pickFirst(corePref, CalisthenicsDomain.CORE_AND_L_SIT)?.let { slots += makeSlot(it, CalisthenicsBlockRole.TECHNIQUE_INTERVAL_FINISHER, 2, 10, it.defaultHoldSeconds, 60) }
+                    pickVariant(corePref, input.variantIndex, used, CalisthenicsDomain.CORE_AND_L_SIT)?.let { slots += makeSlot(it, CalisthenicsBlockRole.TECHNIQUE_INTERVAL_FINISHER, 2, 10, it.defaultHoldSeconds, 60) }
                 } else {
-                    pickFirst(pushPref, CalisthenicsDomain.PUSH_UP)?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 3, spec.defaultRepRange.first, null, 90) }
-                    pickFirst(pullPref, CalisthenicsDomain.PULL_UP)?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 3, spec.defaultRepRange.first, null, 90) }
-                    pickFirst(legsPref, CalisthenicsDomain.SINGLE_LEG_SQUAT)?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 2, 6, null, 90) }
-                    pickFirst(corePref, CalisthenicsDomain.CORE_AND_L_SIT)?.let { slots += makeSlot(it, CalisthenicsBlockRole.ISOMETRIC_HOLD, 2, 10, it.defaultHoldSeconds, 60) }
+                    pickVariant(pushPref, input.variantIndex, emptySet(), CalisthenicsDomain.PUSH_UP)?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 3, spec.defaultRepRange.first, null, 90) }
+                    val usedAfterPush = slots.map { s -> s.node.exercise.id }.toSet()
+                    pickVariant(pullPref, input.variantIndex, usedAfterPush, CalisthenicsDomain.PULL_UP)?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 3, spec.defaultRepRange.first, null, 90) }
+                    val usedAfterPull = slots.map { s -> s.node.exercise.id }.toSet()
+                    pickVariant(legsPref, input.variantIndex, usedAfterPull, CalisthenicsDomain.SINGLE_LEG_SQUAT)?.let { slots += makeSlot(it, CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH, 2, 6, null, 90) }
+                    val usedAfterLegs = slots.map { s -> s.node.exercise.id }.toSet()
+                    pickVariant(corePref, input.variantIndex, usedAfterLegs, CalisthenicsDomain.CORE_AND_L_SIT)?.let { slots += makeSlot(it, CalisthenicsBlockRole.ISOMETRIC_HOLD, 2, 10, it.defaultHoldSeconds, 60) }
                 }
             }
         }

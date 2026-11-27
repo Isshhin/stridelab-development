@@ -314,6 +314,72 @@ internal object Engine18ConditioningWorkoutConstructor {
         Engine15SessionLocks.validateRequest(request)
     }
 
+    fun rankCandidatesForFamily(
+        candidates: List<ConditioningExerciseDescriptor>,
+        family: ConditioningFamily8,
+        availableTokens: Set<String>,
+        experience: Int
+    ): List<ConditioningExerciseDescriptor> {
+        val lowImpactIntroIds = setOf("cond-step-jack", "cond-tempo-march", "cond-kb-dead-bug-circuit")
+        return candidates.sortedWith(
+            compareByDescending<ConditioningExerciseDescriptor> { desc ->
+                when (family) {
+                    ConditioningFamily8.MODALITY_HIIT,
+                    ConditioningFamily8.CONTINUOUS_AEROBIC -> when {
+                        desc.modality in setOf(ConditioningModality.BIKE, ConditioningModality.ROW, ConditioningModality.SKI_ERG) &&
+                            desc.equipmentOptions.any { opt -> opt.isNotEmpty() && availableTokens.containsAll(opt) } -> 5
+                        desc.id in setOf("cond-jump-rope-singles", "cond-double-unders", "cond-battle-ropes") &&
+                            desc.equipmentOptions.any { opt -> opt.isNotEmpty() && availableTokens.containsAll(opt) } -> 4
+                        desc.id in lowImpactIntroIds ->
+                            if (family == ConditioningFamily8.CONTINUOUS_AEROBIC && experience == 0 && availableTokens.isEmpty()) 4 else 0
+                        else -> 2
+                    }
+                    ConditioningFamily8.MIXED_MODAL_CONDITIONING,
+                    ConditioningFamily8.EMOM,
+                    ConditioningFamily8.QUALITY_PACED_AMRAP,
+                    ConditioningFamily8.STRUCTURED_CIRCUITS,
+                    ConditioningFamily8.MUSCULAR_ENDURANCE_CIRCUITS,
+                    ConditioningFamily8.WORK_REST_INTERVALS -> when {
+                        desc.modality == ConditioningModality.MIXED_MODAL &&
+                            desc.equipmentOptions.any { opt -> opt.isNotEmpty() && availableTokens.containsAll(opt) } -> 5
+                        desc.modality in setOf(ConditioningModality.BIKE, ConditioningModality.ROW, ConditioningModality.SKI_ERG) &&
+                            desc.equipmentOptions.any { opt -> opt.isNotEmpty() && availableTokens.containsAll(opt) } -> 4
+                        desc.equipmentOptions.any { opt -> opt.isNotEmpty() && availableTokens.containsAll(opt) } -> 4
+                        desc.id in lowImpactIntroIds ->
+                            if (experience == 0 && availableTokens.isEmpty()) 2 else 0
+                        else -> 3
+                    }
+                }
+            }.thenBy { it.id }
+        )
+    }
+
+    private fun selectStationsForSlot(
+        ranked: List<ConditioningExerciseDescriptor>,
+        desiredCount: Int,
+        offset: Int
+    ): List<ConditioningExerciseDescriptor> {
+        if (ranked.isEmpty()) return emptyList()
+        val limit = desiredCount.coerceAtMost(ranked.size)
+        val picked = mutableListOf<ConditioningExerciseDescriptor>()
+        val usedIds = HashSet<String>()
+        var cursor = offset.coerceAtLeast(0) % ranked.size
+        var attempts = 0
+        while (picked.size < limit && attempts < ranked.size * 2) {
+            val cand = ranked[cursor % ranked.size]
+            if (cand.id !in usedIds) {
+                val sharesPrimary = picked.lastOrNull()?.primaryMuscles?.intersect(cand.primaryMuscles.toSet())?.isNotEmpty() == true
+                if (!sharesPrimary || attempts >= ranked.size) {
+                    picked += cand
+                    usedIds += cand.id
+                }
+            }
+            cursor++
+            attempts++
+        }
+        return picked
+    }
+
     fun composeSessions(
         request: PlanRequest,
         id: String,
@@ -328,7 +394,7 @@ internal object Engine18ConditioningWorkoutConstructor {
         val goal = request.disciplineGoal("cond")
         val family = familyFromGoal(goal, request.experience, hasEq)
 
-        val candidates = catalogDescriptors().filter { desc ->
+        val eligible = catalogDescriptors().filter { desc ->
             desc.id !in request.excluded &&
                 isMovementAllowedForConditioning(desc.id, desc.difficulty, request.experience) &&
                 desc.equipmentOptions.any { opt -> opt.isEmpty() || tokens.containsAll(opt) } &&
@@ -336,7 +402,7 @@ internal object Engine18ConditioningWorkoutConstructor {
         }.ifEmpty {
             catalogDescriptors().filter { it.id !in request.excluded && it.equipmentOptions.any { opt -> opt.isEmpty() } }
         }
-        if (candidates.isEmpty()) {
+        if (eligible.isEmpty()) {
             throw PlanConstraint("CONDITIONING_EXERCISE_UNAVAILABLE: All eligible conditioning movements are excluded.")
         }
 
@@ -345,8 +411,8 @@ internal object Engine18ConditioningWorkoutConstructor {
         val isSafetyEasy = safetyRestrictions?.effectiveIntensityCap(AthleteDiscipline.CONDITIONING, evaluatedAtUtc) in
             setOf(SafetyIntensityCap.EASY_AEROBIC_ONLY, SafetyIntensityCap.NO_HIGH_INTENSITY_Z3)
 
-        val primaryMove = candidates.first()
-        val secondaryMove = candidates.getOrElse(1) { primaryMove }
+        val effFamilyBase = if (isSafetyEasy) ConditioningFamily8.CONTINUOUS_AEROBIC else family
+        val rankedCandidates = rankCandidatesForFamily(eligible, effFamilyBase, tokens, request.experience)
 
         return buildList {
             for (week in 1..request.weeks) {
@@ -368,7 +434,7 @@ internal object Engine18ConditioningWorkoutConstructor {
                         val emomMins = if (recovery) 10 else (12 + step * 2)
                         Tuple4(emomMins, emomMins, "RPE 7 to 8 paced repeatability (at least 20 s rest every minute)", listOf(
                             "6 min movement prep warm-up",
-                            "$emomMins min EMOM: stop each minute cleanly at 40 s if pace slows so >= 20 s rest holds",
+                            "$emomMins min alternating EMOM: stop each minute cleanly at 40 s if pace slows so >= 20 s rest holds",
                             "4 min relaxed breathing cool-down"
                         ))
                     }
@@ -376,7 +442,7 @@ internal object Engine18ConditioningWorkoutConstructor {
                         val amrapMins = if (recovery) 8 else (10 + step * 2)
                         Tuple4(amrapMins, 1, "Quality-Paced AMRAP at RPE 7 to 8 (zero maximal failure)", listOf(
                             "6 min warm-up",
-                            "$amrapMins min quality-paced AMRAP: pause cleanly whenever form begins to drift",
+                            "$amrapMins min quality-paced multi-station AMRAP: pause cleanly whenever form begins to drift",
                             "4 min cool-down"
                         ))
                     }
@@ -393,7 +459,7 @@ internal object Engine18ConditioningWorkoutConstructor {
                         val rds = if (recovery) 2 else (3 + (step / 2))
                         Tuple4(rds * 4, rds, "RPE 6 to 7 controlled stations, 2 to 3 RIR", listOf(
                             "5 min dynamic warm-up",
-                            "$rds rounds alternating push/pull/lower/core stations (30 s work / 30 s transition)",
+                            "$rds rounds rotating across alternating conditioning stations (30 s work / 30 s transition)",
                             "3 min easy walk cool-down"
                         ))
                     }
@@ -412,6 +478,14 @@ internal object Engine18ConditioningWorkoutConstructor {
                 val finalMin = if (request.timeBudgetEnabled) rawMin.coerceAtMost(request.minutes) else rawMin
                 val effWorkSec = ((finalMin - wuCdMin).coerceAtLeast(5)) * 60
 
+                val multiStation = effFamily in setOf(
+                    ConditioningFamily8.STRUCTURED_CIRCUITS,
+                    ConditioningFamily8.MUSCULAR_ENDURANCE_CIRCUITS,
+                    ConditioningFamily8.QUALITY_PACED_AMRAP,
+                    ConditioningFamily8.EMOM,
+                    ConditioningFamily8.MIXED_MODAL_CONDITIONING
+                )
+
                 for (slot in 0 until request.conditioningDays) {
                     val targetDow = weekdays[slot]
                     val naturalDate = weekStart.plusDays(((targetDow - weekStart.dayOfWeek.value + 7) % 7).toLong())
@@ -419,30 +493,44 @@ internal object Engine18ConditioningWorkoutConstructor {
                     if (lockDate != null && !allowCalendarReschedule && lockDate != naturalDate) {
                         throw PlanConstraint("CONDITIONING_SESSION_LOCK_CONFLICT: Locked date conflicts with weekday.")
                     }
-                    val chosen = if (slot % 2 == 0) primaryMove else secondaryMove
+                    val desiredStations = if (multiStation) 3 else 1
+                    val stations = selectStationsForSlot(
+                        ranked = rankedCandidates,
+                        desiredCount = desiredStations,
+                        offset = slot + (week - 1) % maxOf(1, rankedCandidates.size.coerceAtMost(3))
+                    )
                     val sessionId = matchingLockId(request, week, slot) ?: "$id-w$week-cond$slot"
-                    val eqText = chosen.equipmentOptions.firstOrNull { opt -> opt.isEmpty() || tokens.containsAll(opt) }
-                        ?.sorted()?.joinToString(" + ")?.ifBlank { "None" } ?: "None"
+                    fun eqLabel(chosen: ConditioningExerciseDescriptor): String =
+                        chosen.equipmentOptions.firstOrNull { opt -> opt.isEmpty() || tokens.containsAll(opt) }
+                            ?.sorted()?.joinToString(" + ")?.ifBlank { "None" } ?: "None"
+
                     val exList = if (effFamily == ConditioningFamily8.EMOM) {
-                        listOf(ExercisePrescription(
-                            id = chosen.id,
-                            name = chosen.name,
-                            sets = roundsCount,
-                            reps = 8,
-                            rest = 25,
-                            equipment = eqText,
-                            cue = "${chosen.cue} $rpeCue. Stop by 40 s each minute."
-                        ))
+                        val setsPerStation = (roundsCount / stations.size.coerceAtLeast(1)).coerceIn(1, 30)
+                        stations.mapIndexed { idx, chosen ->
+                            val prefix = if (stations.size > 1) "Minute ${idx + 1}/${stations.size}: " else ""
+                            ExercisePrescription(
+                                id = chosen.id,
+                                name = chosen.name,
+                                sets = setsPerStation,
+                                reps = 8,
+                                rest = 25,
+                                equipment = eqLabel(chosen),
+                                cue = "$prefix${chosen.cue} $rpeCue. Stop by 40 s each minute."
+                            )
+                        }
                     } else {
-                        listOf(ExercisePrescription(
-                            id = chosen.id,
-                            name = chosen.name,
-                            sets = roundsCount,
-                            seconds = effWorkSec / roundsCount,
-                            rest = if (roundsCount > 1) 30 else 0,
-                            equipment = eqText,
-                            cue = "${chosen.cue} $rpeCue."
-                        ))
+                        val perStationWorkSec = (effWorkSec / (roundsCount * stations.size).coerceAtLeast(1)).coerceAtLeast(20)
+                        stations.map { chosen ->
+                            ExercisePrescription(
+                                id = chosen.id,
+                                name = chosen.name,
+                                sets = roundsCount.coerceIn(1, 30),
+                                seconds = perStationWorkSec,
+                                rest = if (roundsCount > 1 || stations.size > 1) 30 else 0,
+                                equipment = eqLabel(chosen),
+                                cue = "${chosen.cue} $rpeCue."
+                            )
+                        }
                     }
                     add(PlannedSession(
                         id = sessionId,
@@ -452,7 +540,9 @@ internal object Engine18ConditioningWorkoutConstructor {
                         minutes = finalMin,
                         distanceKm = null,
                         kind = "conditioning",
-                        lower = effFamily.isLowerBodyHeavy || chosen.primaryMuscles.any { it in setOf("quadriceps", "hamstrings", "gluteus_maximus", "calves") },
+                        lower = effFamily.isLowerBodyHeavy || stations.any { chosen ->
+                            chosen.primaryMuscles.any { it in setOf("quadriceps", "hamstrings", "gluteus_maximus", "calves") }
+                        },
                         quality = effFamily.isHighStress || (!isSafetyEasy && goal.lowercase(Locale.ROOT).let { "threshold" in it || "interval" in it }),
                         exercises = exList,
                         steps = blockSteps,

@@ -151,13 +151,19 @@ internal object Engine16StrengthProgramBuilder {
             val weekStartDow = weekStart.dayOfWeek.value
             val weekEnd = weekStart.plusDays(6)
             val rungInBlock = (week - 1) % 4
+            val blockIndex = (week - 1) / 4
             val runningHold = week in runningMajorStepWeeks
 
             val setMult = when (phase) {
                 StrengthMesocyclePhase.CONDITIONAL_DELOAD ->
                     Engine16StrengthPolicyRegistry.DELOAD_DEFAULT_SET_RETAIN_FRACTION
                 StrengthMesocyclePhase.TAPER -> 0.50
-                StrengthMesocyclePhase.ACCUMULATION -> if (objective == StrengthObjective.HYPERTROPHY && rungInBlock == 2 && request.strengthExperience > 0) 1.25 else 1.0
+                StrengthMesocyclePhase.ACCUMULATION -> if (
+                    objective == StrengthObjective.HYPERTROPHY &&
+                    request.strengthExperience > 0 &&
+                    !runningHold &&
+                    (rungInBlock == 2 || (blockIndex >= 1 && rungInBlock >= 1))
+                ) 1.25 else 1.0
                 else -> 1.0
             }
             val repOverride = when {
@@ -186,6 +192,7 @@ internal object Engine16StrengthProgramBuilder {
                     throw PlanConstraint("STRENGTH_SESSION_LOCK_CONFLICT: A locked date conflicts with its fixed weekday or plan week.")
                 }
 
+                val variantIdx = variantIndexFor(request.strengthDays, slot)
                 val constructed = Engine16StrengthWorkoutConstructor.construct(
                     input = StrengthWorkoutConstructionInput(
                         objective = objective,
@@ -199,7 +206,8 @@ internal object Engine16StrengthProgramBuilder {
                         setMultiplier = setMult,
                         repOverride = repOverride,
                         targetRirOverride = rirOverride,
-                        preferAlternatingVariant = (slot % 2 == 1),
+                        preferAlternatingVariant = (variantIdx % 2 == 1),
+                        variantIndex = variantIdx,
                         isDeloadOrRecovery = phase in setOf(
                             StrengthMesocyclePhase.CONDITIONAL_DELOAD,
                             StrengthMesocyclePhase.TAPER
@@ -213,6 +221,7 @@ internal object Engine16StrengthProgramBuilder {
                     slots = constructed.slots,
                     phase = phase,
                     rung = rungInBlock,
+                    blockIndex = blockIndex,
                     runningHold = runningHold
                 )
 
@@ -248,10 +257,7 @@ internal object Engine16StrengthProgramBuilder {
                 }
 
                 val steps = buildList {
-                    add(
-                        if (constructed.isMedFallback) "3 to 4 min compact warm-up and joint prep"
-                        else "5 to 8 min general warm-up and movement prep"
-                    )
+                    add(warmupStepFor(constructed))
                     if (constructed.rampNotes.isNotEmpty()) {
                         addAll(constructed.rampNotes)
                     }
@@ -345,7 +351,11 @@ internal object Engine16StrengthProgramBuilder {
         )
     }
 
-    fun validateSaved(plan: PlanSnapshot, allowCalendarReschedule: Boolean = false) {
+    fun validateSaved(
+        plan: PlanSnapshot,
+        allowCalendarReschedule: Boolean = false,
+        runningMajorStepWeeks: Set<Int> = emptySet()
+    ) {
         if (plan.engineVersion != ENGINE16_VERSION || plan.policyId != ENGINE16_STRENGTH_POLICY) {
             throw PlanConstraint("The saved Engine 1.6 strength plan has an unsupported engine identity.")
         }
@@ -355,7 +365,8 @@ internal object Engine16StrengthProgramBuilder {
             owner = plan.owner,
             id = plan.id,
             now = plan.createdAt,
-            allowCalendarReschedule = allowCalendarReschedule
+            allowCalendarReschedule = allowCalendarReschedule,
+            runningMajorStepWeeks = runningMajorStepWeeks
         ).snapshot
         val expectedById = expected.sessions.associateBy { it.id }
         if (plan.sessions.size != expectedById.size ||
@@ -385,30 +396,62 @@ internal object Engine16StrengthProgramBuilder {
         }
     }
 
+    private fun variantIndexFor(strengthDays: Int, slot: Int): Int = when (strengthDays) {
+        4 -> slot / 2
+        5 -> if (slot >= 2) 1 else 0
+        6 -> slot / 3
+        else -> slot
+    }
+
+    private fun warmupStepFor(constructed: ConstructedStrengthSession): String {
+        val durationPrefix = if (constructed.isMedFallback) "3 to 4 min" else "5 to 8 min"
+        val patterns = constructed.slots.map { it.exercise.pattern }.toSet()
+        val hasPush = patterns.any { it in setOf(StrengthPattern.HORIZONTAL_PUSH, StrengthPattern.VERTICAL_PUSH) }
+        val hasPull = patterns.any { it in setOf(StrengthPattern.HORIZONTAL_PULL, StrengthPattern.VERTICAL_PULL) }
+        return when {
+            constructed.isLowerBodySession && !hasPush && !hasPull ->
+                "$durationPrefix lower-body prep: 90/90 hip switches, ankle rocks, and glute bridge activation."
+            hasPush && !hasPull && !constructed.isLowerBodySession ->
+                "$durationPrefix upper push prep: thoracic open-books, scapular wall slides, and shoulder pass-throughs."
+            hasPull && !hasPush && !constructed.isLowerBodySession ->
+                "$durationPrefix upper pull prep: scapular wall slides, dead-hang or band pull-aparts, and thoracic rotation."
+            constructed.isLowerBodySession ->
+                "$durationPrefix full-body prep: world's greatest stretch, 90/90 hip switches, and band pass-throughs."
+            else ->
+                "$durationPrefix upper-body prep: thoracic open-books, scapular wall slides, and light rotator cuff prep."
+        }
+    }
+
     private fun applyWeekProgression(
         slots: List<ConstructedExerciseSlot>,
         phase: StrengthMesocyclePhase,
         rung: Int,
+        blockIndex: Int,
         runningHold: Boolean
-    ): List<ConstructedExerciseSlot> = slots.map { slot ->
-        if (phase in setOf(
-                StrengthMesocyclePhase.CONDITIONAL_DELOAD,
-                StrengthMesocyclePhase.TAPER,
-                StrengthMesocyclePhase.MAINTENANCE
-            )
-        ) {
-            return@map slot
+    ): List<ConstructedExerciseSlot> {
+        val blockBoost = if (phase in setOf(StrengthMesocyclePhase.ACCUMULATION, StrengthMesocyclePhase.TRANSMUTATION) && !runningHold) {
+            blockIndex.coerceAtMost(2)
+        } else 0
+        return slots.map { slot ->
+            if (phase in setOf(
+                    StrengthMesocyclePhase.CONDITIONAL_DELOAD,
+                    StrengthMesocyclePhase.TAPER,
+                    StrengthMesocyclePhase.MAINTENANCE
+                )
+            ) {
+                return@map slot
+            }
+            if (runningHold && slot.exercise.isLowerBody) {
+                return@map slot
+            }
+            if (slot.prescribedSeconds != null) {
+                val targetSec = (slot.prescribedSeconds + (rung + blockBoost) * 5).coerceAtMost(slot.repRange.last)
+                slot.copy(prescribedSeconds = targetSec)
+            } else if (slot.prescribedReps != null) {
+                val targetReps = (slot.prescribedReps + rung + blockBoost).coerceAtMost(slot.repRange.last)
+                slot.copy(prescribedReps = targetReps)
+            } else slot
         }
-        if (runningHold && slot.exercise.isLowerBody) {
-            return@map slot
-        }
-        if (slot.prescribedSeconds != null) {
-            val targetSec = (slot.prescribedSeconds + rung * 5).coerceAtMost(slot.repRange.last)
-            slot.copy(prescribedSeconds = targetSec)
-        } else if (slot.prescribedReps != null) {
-            val targetReps = (slot.prescribedReps + rung).coerceAtMost(slot.repRange.last)
-            slot.copy(prescribedReps = targetReps)
-        } else slot
     }
 
     private fun matchingLockId(request: PlanRequest, week: Int, slot: Int): String? =
