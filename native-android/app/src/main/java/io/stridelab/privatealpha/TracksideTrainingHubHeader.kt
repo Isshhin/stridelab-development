@@ -112,6 +112,33 @@ internal fun TracksideTrainingHubHeader(
             customCalendar = customCalendar,
             onSelect = onSelectedDate
         )
+        if (tracks.size > 1) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                StrideLabFilterPill(
+                    label = "All",
+                    selected = selectedTrack == null,
+                    onClick = { onPlanSelected(selectedPlan?.id) }
+                )
+                tracks.forEach { track ->
+                    StrideLabFilterPill(
+                        label = trainingTrackLabel(track),
+                        selected = selectedTrack == track,
+                        accentColor = StrideLabVisualPalette.disciplineColor(track),
+                        onClick = { onTrackSelected(track) }
+                    )
+                }
+            }
+            val weekMonday = tracksideCalendarMonday(selectedDate)
+            val distribution = HybridTrainingInsights.weeklyDistribution(approvedPlans, weekMonday)
+            val interference = HybridTrainingInsights.detectInterference(approvedPlans, weekMonday)
+            HybridWeeklyDistributionStrip(
+                slices = distribution,
+                insights = interference
+            )
+        }
         StrideLabHairline()
     }
 

@@ -155,106 +155,142 @@ internal fun TracksideDisciplineScreen(
     onToggle: (String) -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit,
-    extraResistance: Set<String> = emptySet()
+    extraResistance: Set<String> = emptySet(),
+    onOpenWorkoutHub: (() -> Unit)? = null
 ) {
     val entries = listOf(
         Triple("run", "Running", "Endurance and speed"),
         Triple("str", "Strength", "Power & runner durability"),
-        Triple("cal", "Calisthenics", "Bodyweight and control"),
-        Triple("cond", "Conditioning", "Work and recovery"),
-        Triple("plyo", "Plyometrics", "Ground contacts"),
-        Triple("iso", "Isometrics", "Timed holds")
+        Triple("cal", "Calisthenics", "Bodyweight and control")
     )
     TracksideBuilderFrame(
         eyebrow = "BUILD YOUR PLAN",
         headline = "Choose your focus",
-        description = "Choose up to six tracks. Review their shared schedule before activating.",
+        description = "Choose up to three tracks. Select two or more to build a Hybrid plan.",
         onBack = onBack,
         onContinue = onContinue,
         continueEnabled = request.runDays + request.strengthDays +
             request.calDays + request.conditioningDays > 0,
         progressStep = 1
     ) {
-        entries.chunked(2).forEach { pair ->
-            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).height(IntrinsicSize.Max),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            pair.forEach { (discipline, name, desc) ->
-                    val selected = when (discipline) {
-                        "run" -> request.runDays > 0
-                        "str", "plyo", "iso" -> discipline in extraResistance ||
-                            request.strengthDays > 0 && strengthTrack(request) == discipline
-                        "cal" -> request.calDays > 0
-                        else -> request.conditioningDays > 0
-                    }
-                    val discColor = StrideLabVisualPalette.disciplineColor(if (discipline in setOf("plyo", "iso")) "str" else discipline)
-                    val cardBg by animateColorAsState(
-                        if (selected) discColor.copy(alpha = 0.16f) else surfaceCard,
-                        animationSpec = tween(180),
-                        label = "disc-$discipline"
-                    )
-                    Surface(
-                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 96.dp)
-                            .testTag("discipline-$discipline")
-                            .semantics { this.selected = selected },
-                        onClick = { onToggle(discipline) },
-                        shape = RoundedCornerShape(16.dp),
-                        color = cardBg,
-                        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) discColor else outline)
+        entries.forEach { (discipline, name, desc) ->
+            val selected = when (discipline) {
+                "run" -> request.runDays > 0
+                "str" -> discipline in extraResistance ||
+                    request.strengthDays > 0 && strengthTrack(request) == discipline
+                else -> request.calDays > 0
+            }
+            val discColor = StrideLabVisualPalette.disciplineColor(discipline)
+            val cardBg by animateColorAsState(
+                if (selected) discColor.copy(alpha = 0.16f) else surfaceCard,
+                animationSpec = tween(180),
+                label = "disc-$discipline"
+            )
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).heightIn(min = 84.dp)
+                    .testTag("discipline-$discipline")
+                    .semantics { this.selected = selected },
+                onClick = { onToggle(discipline) },
+                shape = RoundedCornerShape(16.dp),
+                color = cardBg,
+                border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) discColor else outline)
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Box(
+                        Modifier.size(36.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (selected) discColor else discColor.copy(alpha = 0.16f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            Modifier.padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(
-                                Modifier.size(28.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (selected) discColor else discColor.copy(alpha = 0.16f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painterResource(when (discipline) {
-                                        "run" -> R.drawable.trackside_discipline_running
-                                        "str", "plyo", "iso" -> R.drawable.trackside_discipline_strength
-                                        "cal" -> R.drawable.trackside_discipline_calisthenics
-                                        else -> R.drawable.trackside_discipline_conditioning
-                                    }),
-                                    tint = if (selected) PlanBuilderPalette.accentOn else discColor,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(22.dp).testTag("discipline-icon-$discipline")
-                                )
-                            }
-                            Column(verticalArrangement = Arrangement.spacedBy(3.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    name, textAlign = TextAlign.Center,
-                                    color = if (selected) discColor else white,
-                                    fontSize = 15.5.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                                Text(
-                                    desc, textAlign = TextAlign.Center,
-                                    color = if (selected) white.copy(alpha = 0.85f) else muted,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
+                        Icon(
+                            painterResource(when (discipline) {
+                                "run" -> R.drawable.trackside_discipline_running
+                                "str" -> R.drawable.trackside_discipline_strength
+                                else -> R.drawable.trackside_discipline_calisthenics
+                            }),
+                            tint = if (selected) PlanBuilderPalette.accentOn else discColor,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp).testTag("discipline-icon-$discipline")
+                        )
                     }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            name,
+                            color = if (selected) discColor else white,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            desc,
+                            color = if (selected) white.copy(alpha = 0.85f) else muted,
+                            fontSize = 12.5.sp
+                        )
+                    }
+                    Text(
+                        if (selected) "Selected" else "Add",
+                        color = if (selected) discColor else muted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
         val chosen = listOf(request.runDays, request.strengthDays,
             request.calDays, request.conditioningDays).count { it > 0 }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(10.dp))
         Text(
-            if (chosen > 1) "$chosen disciplines selected · Smart hybrid scheduling enabled"
+            if (chosen > 1) "$chosen disciplines selected · Hybrid plan enabled"
             else "$chosen selected",
             Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
             color = if (chosen > 1) limeAccent else muted,
-            fontSize = 11.5.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold
         )
+        Spacer(Modifier.height(14.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth().testTag("discipline-workout-hub-card"),
+            onClick = { onOpenWorkoutHub?.invoke() },
+            enabled = onOpenWorkoutHub != null,
+            shape = RoundedCornerShape(14.dp),
+            color = surfaceCard,
+            border = BorderStroke(1.dp, outline)
+        ) {
+            Row(
+                Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        "Conditioning, Plyometrics, Isometrics & Mobility",
+                        color = white,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Available anytime as ready-to-run sessions in Workout Hub.",
+                        color = muted,
+                        fontSize = 11.5.sp
+                    )
+                }
+                if (onOpenWorkoutHub != null) {
+                    Text(
+                        "Workout Hub ›",
+                        color = limeAccent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
     }
 }
 

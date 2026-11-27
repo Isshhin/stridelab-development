@@ -415,6 +415,7 @@ internal fun TodayDisciplineDashboard(
     allHistory: List<ActivityRecord> = emptyList(),
     details: Map<String, ActivityDetail> = emptyMap(),
     ownerId: String? = null,
+    freeformWorkouts: List<FreeformWorkout> = emptyList(),
     reduceMotion: Boolean,
     onOpenActivity: (String) -> Unit,
     onOpenWorkout: (String, String) -> Unit
@@ -627,6 +628,157 @@ internal fun TodayDisciplineDashboard(
                             )
                         }
                     }
+                }
+            }
+
+            if (discipline == TodayDiscipline.STRENGTH) {
+                val catalog = rememberAugmentedExerciseCatalog()
+                val strengthAnalytics = remember(plans, freeformWorkouts, ownerId, week.start, today, catalog) {
+                    StrengthAnalyticsProjector.summarize(
+                        plans = plans,
+                        freeformWorkouts = freeformWorkouts,
+                        catalog = catalog,
+                        ownerId = ownerId,
+                        weekStart = week.start,
+                        today = today
+                    )
+                }
+                if (strengthAnalytics.weeklyVolume.isNotEmpty() || strengthAnalytics.topPrs.isNotEmpty()) {
+                    DisciplinePanel(accent = tint) {
+                        Text(
+                            "MUSCLE VOLUME & PERSONAL RECORDS",
+                            color = DisciplineLook.muted,
+                            fontSize = 10.sp,
+                            letterSpacing = 1.3.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (strengthAnalytics.weeklyVolume.isNotEmpty()) {
+                            val maxSets = strengthAnalytics.weeklyVolume.maxOf { it.completedSets }.coerceAtLeast(1)
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                strengthAnalytics.weeklyVolume.take(5).forEach { entry ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            text = entry.label,
+                                            color = DisciplineLook.ink,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.width(104.dp),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(7.dp)
+                                                .clip(RoundedCornerShape(999.dp))
+                                                .background(DisciplineLook.panelRaised)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth((entry.completedSets.toFloat() / maxSets.toFloat()).coerceIn(0.08f, 1f))
+                                                    .fillMaxHeight()
+                                                    .background(tint)
+                                            )
+                                        }
+                                        Text(
+                                            text = "${entry.completedSets} sets",
+                                            color = tint,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (strengthAnalytics.topPrs.isNotEmpty()) {
+                            HorizontalDivider(color = DisciplineLook.border)
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                strengthAnalytics.topPrs.forEach { pr ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = pr.exerciseName,
+                                            color = DisciplineLook.ink,
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.weight(1f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "${freeformNumber(pr.bestWeightKg)} kg × ${pr.repsAtBestWeight} (1RM ${pr.estimatedOneRmKg.roundToInt()} kg)",
+                                            color = tint,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (discipline == TodayDiscipline.CALISTHENICS) {
+                val journeys = remember(plans, freeformWorkouts, ownerId) {
+                    CalisthenicsSkillJourneyProjector.buildJourneys(
+                        plans = plans,
+                        freeformWorkouts = freeformWorkouts,
+                        ownerId = ownerId
+                    )
+                }
+                var showSkillSheet by rememberSaveable(ownerId) { mutableStateOf(false) }
+                val totalMastered = journeys.sumOf { it.masteredCount }
+                val totalNodes = journeys.sumOf { it.nodes.size }
+                val featuredNext = journeys.firstOrNull { it.nextMilestone != null }?.nextMilestone
+
+                DisciplinePanel(accent = tint) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                "SKILL JOURNEYS",
+                                color = DisciplineLook.muted,
+                                fontSize = 10.sp,
+                                letterSpacing = 1.3.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "$totalMastered / $totalNodes milestones mastered",
+                                color = DisciplineLook.ink,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            featuredNext?.let { next ->
+                                Text(
+                                    "Next milestone: ${next.node.exercise.name}",
+                                    color = DisciplineLook.subdued,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                        TextButton(
+                            onClick = { showSkillSheet = true },
+                            modifier = Modifier.testTag("calisthenics-open-skill-tree")
+                        ) {
+                            Text("Skill Tree ›", color = tint, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                        }
+                    }
+                }
+                if (showSkillSheet) {
+                    CalisthenicsSkillJourneySheet(
+                        journeys = journeys,
+                        onDismiss = { showSkillSheet = false }
+                    )
                 }
             }
         }

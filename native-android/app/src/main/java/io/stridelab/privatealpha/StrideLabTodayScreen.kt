@@ -204,7 +204,9 @@ internal fun StrideLabTodayScreen(
     freeformBoard: FreeformBoard? = null,
     garminConnected: Boolean = false,
     onConnectGarmin: () -> Unit = onOpenMore,
-    onRefreshWellness: (() -> Unit)? = null
+    onRefreshWellness: (() -> Unit)? = null,
+    onOpenWorkoutHub: (() -> Unit)? = null,
+    onOpenGuidedWorkout: ((String) -> Unit)? = null
 ) {
     var reviewedProposal by rememberSaveable { mutableStateOf(false) }
     val adaptationProposal = state.activeAdaptationProposal
@@ -534,6 +536,105 @@ internal fun StrideLabTodayScreen(
                     }
                 }
             }
+            if (selectedPage == "all" && onOpenWorkoutHub != null) {
+                item(key = "today-workout-hub-suggestion") {
+                    val hubOwner = state.account ?: state.localPlanOwner
+                    val tomorrowDate = remember(todayDate) { todayDate.plusDays(1) }
+                    val readiness = remember(state.wellness, todayDate) {
+                        if (state.wellness.isEmpty()) null
+                        else BiometricReadinessEvaluator.evaluate(state.wellness, todayDate)
+                    }
+                    val activeOwnerPlans = remember(safePlans, hubOwner) {
+                        safePlans.filter { it.owner == hubOwner && it.status == "approved" }
+                    }
+                    val plannedToday = remember(activeOwnerPlans, todayDate) {
+                        activeOwnerPlans.flatMap { it.sessions }.filter { it.date == todayDate }
+                    }
+                    val plannedTomorrow = remember(activeOwnerPlans, tomorrowDate) {
+                        activeOwnerPlans.flatMap { it.sessions }.filter { it.date == tomorrowDate }
+                    }
+                    val recentFreeform = remember(freeformBoard) {
+                        freeformBoard?.workouts.orEmpty().filter { it.completedAt != null }.sortedByDescending { it.modifiedAt }.take(5)
+                    }
+                    val topRec = remember(readiness, plannedToday, plannedTomorrow, recentFreeform, state.savedEquipment) {
+                        WorkoutHubRecommender.recommend(
+                            library = CuratedWorkoutLibrary.all,
+                            readiness = readiness,
+                            plannedSessionsToday = plannedToday,
+                            plannedSessionsTomorrow = plannedTomorrow,
+                            recentFreeform = recentFreeform,
+                            savedEquipment = state.savedEquipment?.keys.orEmpty(),
+                            limit = 1
+                        ).firstOrNull()
+                    }
+                    if (topRec != null) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().testTag("today-workout-hub-suggestion"),
+                            shape = RoundedCornerShape(16.dp),
+                            color = StrideLabSurfaceTokens.surfaceElevated,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                WorkoutHubVisualThumbnail(
+                                    category = topRec.workout.category,
+                                    accentColor = topRec.workout.category.accentColor,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Text(
+                                        text = "OPTIONAL FROM WORKOUT HUB",
+                                        color = topRec.workout.category.accentColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.8.sp
+                                    )
+                                    Text(
+                                        text = topRec.workout.title,
+                                        color = StrideLabSurfaceTokens.ink,
+                                        fontSize = 14.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "${topRec.workout.durationMinutes} min · ${topRec.reason}",
+                                        color = StrideLabSurfaceTokens.inkMuted,
+                                        fontSize = 11.5.sp,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    if (onOpenGuidedWorkout != null) {
+                                        TextButton(
+                                            onClick = { onOpenGuidedWorkout(topRec.workout.id) },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text("Start", color = StrideLabSurfaceTokens.lime, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                                        }
+                                    }
+                                    TextButton(
+                                        onClick = onOpenWorkoutHub,
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("Hub ›", color = StrideLabSurfaceTokens.inkMuted, fontSize = 11.5.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             if (selectedPage != "all") {
             item(key = "today-discipline-visuals") {
                 var dragSum by remember(selectedPage) { mutableFloatStateOf(0f) }
@@ -662,6 +763,7 @@ internal fun StrideLabTodayScreen(
                             allHistory = safeHistory,
                             details = state.details,
                             ownerId = state.account ?: state.localGarminOwner ?: state.localPlanOwner,
+                            freeformWorkouts = freeformBoard?.workouts.orEmpty(),
                             reduceMotion = reduceMotion,
                             onOpenActivity = onOpenActivityDetail,
                             onOpenWorkout = onOpenWorkout

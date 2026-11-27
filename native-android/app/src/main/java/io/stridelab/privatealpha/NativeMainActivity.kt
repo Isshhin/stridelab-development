@@ -471,23 +471,56 @@ private fun NavHostController.openActivity(id: String) {
                 composable("freeform/add") {
                     if (freeformOwner != null && freeformAccess != null) {
                         key(freeformOwner, state.loginGeneration) {
-                            FreeformHub(
-                                owner = freeformOwner, board = freeformBoard, readError = freeformReadError,
-                                access = freeformAccess, back = { nav.popOrOpenHome() }, retry = { freeformReload++ },
-                                update = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
+                            WorkoutHubScreen(
+                                owner = freeformOwner,
+                                board = freeformBoard,
+                                readError = freeformReadError,
+                                access = freeformAccess,
+                                trainingState = state,
+                                back = { nav.popOrOpenHome() },
+                                retry = { freeformReload++ },
+                                updateDraft = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
                                 removeDraft = { id -> freeformBoard = freeformBoard?.without(id) },
-                                restored = { freeformBoard = it },
+                                onTemplateAdded = { template ->
+                                    freeformBoard = (freeformBoard ?: FreeformBoard()).withTemplate(template)
+                                },
                                 openTemplates = { nav.navigate("freeform/templates") },
                                 startEmpty = {
                                     nav.navigate("freeform/new/${ManualDiscipline.STRENGTH.name}") { launchSingleTop = true }
                                 },
                                 openDraft = { id ->
                                     nav.navigate("freeform/edit/${android.net.Uri.encode(id)}") { launchSingleTop = true }
+                                },
+                                openGuided = { id ->
+                                    nav.navigate("freeform/guided/${android.net.Uri.encode(id)}") { launchSingleTop = true }
+                                },
+                                scheduleTemplate = { templateId ->
+                                    nav.navigate("freeform/schedule/template/${android.net.Uri.encode(templateId)}") { launchSingleTop = true }
                                 }
                             )
                         }
                     } else {
                         FreeformHistoryDetail(null, null, state.initializing) { nav.popOrOpenHome() }
+                    }
+                }
+                composable("freeform/guided/{workoutId}") { destination ->
+                    val workoutId = destination.arguments?.getString("workoutId")
+                    val curated = workoutId?.let { CuratedWorkoutLibrary.byId(it) }
+                    if (freeformOwner != null && freeformAccess != null && curated != null) {
+                        key(freeformOwner, state.loginGeneration, curated.id) {
+                            WorkoutHubGuidedPlayer(
+                                workout = curated,
+                                owner = freeformOwner,
+                                access = freeformAccess,
+                                onCompleted = { completed ->
+                                    freeformBoard = (freeformBoard ?: FreeformBoard()).updated(completed)
+                                    nav.popBackStack()
+                                },
+                                onBack = { nav.popBackStack() }
+                            )
+                        }
+                    } else {
+                        FreeformHistoryDetail(null, null, state.initializing) { nav.popBackStack() }
                     }
                 }
                 composable("freeform/templates") {
@@ -713,6 +746,9 @@ private fun NavHostController.openActivity(id: String) {
                             historySuggestion = remember(evidence, evidenceDate) {
                                 evidence?.let { suggestedHistoryBaseline(it, evidenceDate) }
                             },
+                            onOpenWorkoutHub = {
+                                nav.navigate("freeform/add") { launchSingleTop = true }
+                            },
                             onPreview = { planId, sessionId ->
                                 state.blueprintDraft(planId)?.let { draft ->
                                     val plan = android.net.Uri.encode(planId)
@@ -923,7 +959,11 @@ private fun NavHostController.openActivity(id: String) {
                         freeformBoard = freeformBoard,
                         garminConnected = garminConnected,
                         onConnectGarmin = { garminSheetOpen = true },
-                        onRefreshWellness = actions.refreshWellness
+                        onRefreshWellness = actions.refreshWellness,
+                        onOpenWorkoutHub = { nav.navigate("freeform/add") { launchSingleTop = true } },
+                        onOpenGuidedWorkout = { id ->
+                            nav.navigate("freeform/guided/${android.net.Uri.encode(id)}") { launchSingleTop = true }
+                        }
                     )
                 }
             }

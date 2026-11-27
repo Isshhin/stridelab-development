@@ -203,8 +203,8 @@ internal fun QuickLogBottomSheet(
                     modifier = Modifier.testTag("quick-log-templates")
                 )
                 StrideLabFlatRow(
-                    title = "Workouts hub & custom schedule",
-                    subtitle = "Recurring workouts and manual schedule",
+                    title = "Workout Hub",
+                    subtitle = "Curated library, guided sessions & custom workouts",
                     accentColor = StrideLabSurfaceTokens.inkMuted,
                     showBottomHairline = false,
                     onClick = {

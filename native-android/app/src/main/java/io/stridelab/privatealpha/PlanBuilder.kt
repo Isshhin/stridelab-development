@@ -32,6 +32,7 @@ internal fun PlanBuilder(
     onDone: () -> Unit,
     onSignIn: () -> Unit,
     historySuggestion: HistoryBaselineSuggestion? = null,
+    onOpenWorkoutHub: (() -> Unit)? = null,
     onPreview: (String, String) -> Unit
 ) {
     // Signed-out plans are persisted under an isolated on-device owner.
@@ -394,6 +395,7 @@ internal fun PlanBuilder(
             },
             onBack = onDone,
             extraResistance = extraResistance.toSet(),
+            onOpenWorkoutHub = onOpenWorkoutHub,
             onContinue = {
                 step=1
                 runningSubPage=0

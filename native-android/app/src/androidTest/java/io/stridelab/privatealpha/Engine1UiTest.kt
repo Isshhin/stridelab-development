@@ -61,7 +61,7 @@ class Engine1UiTest {
         field.assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText,AnnotatedString(value)))
     }
 
-    @Test fun plyometricsAndIsometricsAreVisibleInDisciplineSelector() {
+    @Test fun consolidatedTracksAndWorkoutHubNoteAreVisibleInDisciplineSelector() {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
@@ -69,8 +69,13 @@ class Engine1UiTest {
                 }
             }
         }
-        compose.onNodeWithTag("discipline-plyo").assertExists()
-        compose.onNodeWithTag("discipline-iso").assertExists()
+        compose.onNodeWithTag("discipline-run").assertExists()
+        compose.onNodeWithTag("discipline-str").assertExists()
+        compose.onNodeWithTag("discipline-cal").assertExists()
+        compose.onNodeWithTag("discipline-plyo").assertDoesNotExist()
+        compose.onNodeWithTag("discipline-iso").assertDoesNotExist()
+        compose.onNodeWithTag("discipline-cond").assertDoesNotExist()
+        compose.onNodeWithTag("discipline-workout-hub-card").assertExists()
         compose.onNodeWithText("Power & runner durability").assertExists()
     }
 

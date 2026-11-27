@@ -72,6 +72,18 @@ internal fun CoachedSetTable(
     var inspectExercise by remember { mutableStateOf<ExercisePrescription?>(null) }
     var showSessionMuscleFocus by rememberSaveable(plan.id, session.id) { mutableStateOf(false) }
 
+    val strengthSummary = remember(plan.owner, allPlans, catalog, session.date) {
+        if (session.discipline == "str") {
+            StrengthAnalyticsProjector.summarize(
+                plans = allPlans,
+                freeformWorkouts = emptyList(),
+                catalog = catalog,
+                ownerId = plan.owner,
+                weekStart = session.date.minusDays((session.date.dayOfWeek.value - 1).toLong()),
+                today = session.date
+            )
+        } else null
+    }
     val groups = remember(execution.sets) {
         val grouped = LinkedHashMap<String, MutableList<IndexedExecutionSet>>()
         execution.sets.forEachIndexed { idx, row ->
@@ -386,8 +398,9 @@ internal fun CoachedSetTable(
                             }
                         }
 
-                        // Phase 1 Strength Guidance Line
-                        if (strengthProjection != null) {
+                        // Phase 1 Strength Guidance Line + PR Badge
+                        val prRecord = strengthSummary?.prsByExerciseId?.get(ex.id.ifBlank { ex.name.lowercase() })
+                        if (strengthProjection != null || prRecord != null) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -397,21 +410,29 @@ internal fun CoachedSetTable(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text(
-                                    text = listOfNotNull(
-                                        strengthProjection.previousSummary,
-                                        strengthProjection.summary
-                                    ).joinToString(" · "),
-                                    color = if (strengthProjection.isSessionOne) {
-                                        StrideLabSurfaceTokens.inkSecondary
-                                    } else {
-                                        StrideLabSurfaceTokens.lime
-                                    },
-                                    fontSize = 12.5.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    style = TabularTextStyle,
-                                    modifier = Modifier.testTag("coached-projection-${ex.id}")
-                                )
+                                if (strengthProjection != null) {
+                                    Text(
+                                        text = listOfNotNull(
+                                            strengthProjection.previousSummary,
+                                            strengthProjection.summary
+                                        ).joinToString(" · "),
+                                        color = if (strengthProjection.isSessionOne) {
+                                            StrideLabSurfaceTokens.inkSecondary
+                                        } else {
+                                            StrideLabSurfaceTokens.lime
+                                        },
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        style = TabularTextStyle,
+                                        modifier = Modifier.weight(1f).testTag("coached-projection-${ex.id}")
+                                    )
+                                }
+                                if (prRecord != null) {
+                                    StrideLabMetricBadge(
+                                        label = "PR ${freeformNumber(prRecord.bestWeightKg)}kg×${prRecord.repsAtBestWeight}",
+                                        accentColor = StrideLabVisualPalette.strengthCoral
+                                    )
+                                }
                             }
                         }
 
