@@ -85,8 +85,7 @@ internal fun TracksideStrengthSetup(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = PlanBuilderPalette.surface,
-            shape = RoundedCornerShape(14.dp),
-            border = BorderStroke(1.dp, PlanBuilderPalette.border)
+            shape = RoundedCornerShape(14.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -119,9 +118,10 @@ internal fun TracksideStrengthSetup(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(18.dp))
         StrengthSectionLabel("PREFERENCES")
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
+        StrideLabHairline()
 
         StrengthPreferenceRow(
             title = "Strength goal",
@@ -135,11 +135,15 @@ internal fun TracksideStrengthSetup(
             onClick = onEditGoal,
             tag = "builder-strength-setup-goal"
         )
-        Spacer(Modifier.height(8.dp))
         if (track == "plyo") {
-            Text("Start with short sets of low jumps. Stop when your landings get loud or your legs feel tired.",
-                color = StrideLabVisualPalette.ink)
-            Spacer(Modifier.height(8.dp))
+            Text(
+                "Start with short sets of low jumps. Stop when your landings get loud or your legs feel tired.",
+                color = StrideLabVisualPalette.ink,
+                fontSize = 12.5.sp,
+                lineHeight = 18.sp,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            StrideLabHairline()
         }
         val equipmentSummary = listOf(
             "db" to "Dumbbells", "bands" to "Bands",
@@ -155,185 +159,178 @@ internal fun TracksideStrengthSetup(
             tag = "builder-strength-setup-equipment"
         )
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(18.dp))
 
-        // Weekly Sessions & Day Grid Card
-        Surface(
+        // Flat Weekly Sessions & Day Grid section
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("builder-strength-weekly"),
-            color = PlanBuilderPalette.surface,
-            shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(1.dp, PlanBuilderPalette.border)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            StrengthSectionLabel("WEEKLY SESSIONS")
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    count.toString(),
+                    color = PlanBuilderPalette.text,
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    style = TabularTextStyle
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    "sessions / week",
+                    color = PlanBuilderPalette.secondary,
+                    fontSize = 12.5.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                listOf(-1, 1).forEach { delta ->
+                    val enabled = count + delta in 1..4
+                    Surface(
+                        onClick = { onCount(count + delta) },
+                        enabled = enabled,
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .size(42.dp)
+                            .testTag(if (delta < 0) "builder-strength-minus" else "builder-strength-plus"),
+                        color = PlanBuilderPalette.surfaceRaised,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, PlanBuilderPalette.borderStrong)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                if (delta < 0) "−" else "+",
+                                color = if (enabled) PlanBuilderPalette.text else PlanBuilderPalette.disabled,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                (1..7).forEach { day ->
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        Text(
+                            DayOfWeek.of(day).name.take(3),
+                            color = PlanBuilderPalette.muted,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            val suggested = request.days.sorted().take(count)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                (1..7).forEach { day ->
+                    val slot = if (manual) explicit.indexOf(day) else suggested.indexOf(day)
+                    val selected = manual && slot == selectedSlot && slot >= 0
+                    Surface(
+                        onClick = {
+                            if (manual) onAssign(selectedSlot.coerceIn(0, count - 1), day)
+                            else {
+                                onChangeMode(true)
+                                onAssign(0, day)
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .testTag("builder-strength-weekday-$day"),
+                        color = when {
+                            selected -> strCoral
+                            slot >= 0 -> strCoral.copy(alpha = 0.15f)
+                            day !in request.days -> PlanBuilderPalette.surfaceRaised.copy(alpha = 0.35f)
+                            else -> PlanBuilderPalette.surfaceRaised
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            when {
+                                selected -> strCoral
+                                slot >= 0 -> strCoral.copy(alpha = 0.65f)
+                                else -> Color.Transparent
+                            }
+                        )
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            val label = if (slot >= 0) when (slot) {
+                                0 -> "UB"
+                                1 -> "LB"
+                                else -> "S${slot + 1}"
+                            } else if (day !in request.days) "–" else "·"
+                            Text(
+                                label,
+                                color = when {
+                                    selected -> PlanBuilderPalette.accentOn
+                                    slot >= 0 -> strCoral
+                                    else -> PlanBuilderPalette.muted
+                                },
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                StrengthSectionLabel("WEEKLY SESSIONS")
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    if (manual) "$placed of $count placed" else "Coach places $count sessions",
+                    modifier = Modifier.weight(1f),
+                    color = PlanBuilderPalette.secondary,
+                    fontSize = 11.5.sp
+                )
+                TextButton(
+                    onClick = { editingDays = !editingDays },
+                    modifier = Modifier.testTag("builder-strength-edit-schedule")
+                ) {
                     Text(
-                        count.toString(),
-                        color = PlanBuilderPalette.text,
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.ExtraBold
+                        if (editingDays) "Done" else "Select session ›",
+                        color = PlanBuilderPalette.accent,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold
                     )
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        "sessions / week",
-                        color = PlanBuilderPalette.secondary,
-                        fontSize = 12.5.sp,
-                        modifier = Modifier.weight(1f)
-                    )
-                    listOf(-1, 1).forEach { delta ->
-                        val enabled = count + delta in 1..4
+                }
+            }
+
+            if (editingDays) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    repeat(count) { i ->
+                        val isChosen = i == selectedSlot
                         Surface(
-                            onClick = { onCount(count + delta) },
-                            enabled = enabled,
+                            onClick = { onSelectedSlot(i) },
                             modifier = Modifier
-                                .padding(start = 8.dp)
-                                .size(42.dp)
-                                .testTag(if (delta < 0) "builder-strength-minus" else "builder-strength-plus"),
-                            color = PlanBuilderPalette.surfaceRaised,
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, PlanBuilderPalette.borderStrong)
+                                .weight(1f)
+                                .height(40.dp)
+                                .testTag("builder-strength-session-$i"),
+                            color = if (isChosen) strCoral else PlanBuilderPalette.surfaceRaised,
+                            shape = RoundedCornerShape(10.dp),
+                            border = BorderStroke(1.dp, if (isChosen) strCoral else PlanBuilderPalette.border)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
-                                    if (delta < 0) "−" else "+",
-                                    color = if (enabled) PlanBuilderPalette.text else PlanBuilderPalette.disabled,
-                                    fontSize = 20.sp,
+                                    "Session ${i + 1}",
+                                    color = if (isChosen) PlanBuilderPalette.accentOn else PlanBuilderPalette.text,
+                                    fontSize = 11.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
                         }
                     }
                 }
-
-                Box(Modifier.fillMaxWidth().height(1.dp).background(PlanBuilderPalette.border))
-
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    (1..7).forEach { day ->
-                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                            Text(
-                                DayOfWeek.of(day).name.take(3),
-                                color = PlanBuilderPalette.muted,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                }
-
-                val suggested = request.days.sorted().take(count)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    (1..7).forEach { day ->
-                        val slot = if (manual) explicit.indexOf(day) else suggested.indexOf(day)
-                        val selected = manual && slot == selectedSlot && slot >= 0
-                        Surface(
-                            onClick = {
-                                if (manual) onAssign(selectedSlot.coerceIn(0, count - 1), day)
-                                else {
-                                    onChangeMode(true)
-                                    onAssign(0, day)
-                                }
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                                .testTag("builder-strength-weekday-$day"),
-                            color = when {
-                                selected -> strCoral
-                                slot >= 0 -> strCoral.copy(alpha = 0.15f)
-                                day !in request.days -> PlanBuilderPalette.input
-                                else -> PlanBuilderPalette.surfaceRaised
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(
-                                1.dp,
-                                when {
-                                    selected -> strCoral
-                                    slot >= 0 -> strCoral.copy(alpha = 0.65f)
-                                    else -> PlanBuilderPalette.border
-                                }
-                            )
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                val label = if (slot >= 0) when (slot) {
-                                    0 -> "UB"
-                                    1 -> "LB"
-                                    else -> "S${slot + 1}"
-                                } else if (day !in request.days) "–" else "·"
-                                Text(
-                                    label,
-                                    color = when {
-                                        selected -> PlanBuilderPalette.accentOn
-                                        slot >= 0 -> strCoral
-                                        else -> PlanBuilderPalette.muted
-                                    },
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        if (manual) "$placed of $count placed" else "Coach places $count sessions",
-                        modifier = Modifier.weight(1f),
-                        color = PlanBuilderPalette.secondary,
-                        fontSize = 11.5.sp
-                    )
-                    TextButton(
-                        onClick = { editingDays = !editingDays },
-                        modifier = Modifier.testTag("builder-strength-edit-schedule")
-                    ) {
-                        Text(
-                            if (editingDays) "Done" else "Select session ›",
-                            color = PlanBuilderPalette.accent,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                if (editingDays) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        repeat(count) { i ->
-                            val isChosen = i == selectedSlot
-                            Surface(
-                                onClick = { onSelectedSlot(i) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(40.dp)
-                                    .testTag("builder-strength-session-$i"),
-                                color = if (isChosen) strCoral else PlanBuilderPalette.surfaceRaised,
-                                shape = RoundedCornerShape(10.dp),
-                                border = BorderStroke(1.dp, if (isChosen) strCoral else PlanBuilderPalette.border)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Text(
-                                        "Session ${i + 1}",
-                                        color = if (isChosen) PlanBuilderPalette.accentOn else PlanBuilderPalette.text,
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    if (manual) {
-                        TextButton(onClick = { onClear(selectedSlot.coerceIn(0, count - 1)) }) {
-                            Text("Clear selected session day", color = StrideLabVisualPalette.highCoral, fontSize = 11.5.sp)
-                        }
+                if (manual) {
+                    TextButton(onClick = { onClear(selectedSlot.coerceIn(0, count - 1)) }) {
+                        Text("Clear selected session day", color = StrideLabVisualPalette.highCoral, fontSize = 11.5.sp)
                     }
                 }
             }
+            StrideLabHairline()
         }
     }
 }
@@ -357,41 +354,42 @@ private fun StrengthPreferenceRow(
     onClick: () -> Unit,
     tag: String
 ) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 62.dp)
-            .testTag(tag),
-        color = PlanBuilderPalette.surface,
-        shape = RoundedCornerShape(15.dp),
-        border = BorderStroke(1.dp, PlanBuilderPalette.border)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 60.dp)
+                .testTag(tag),
+            color = Color.Transparent
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(11.dp))
-                    .background(strCoral.copy(alpha = 0.15f)),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    painter = painterResource(iconRes),
-                    contentDescription = null,
-                    tint = strCoral,
-                    modifier = Modifier.size(21.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(strCoral.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(iconRes),
+                        contentDescription = null,
+                        tint = strCoral,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(title, color = PlanBuilderPalette.text, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                    Text(subtitle, color = PlanBuilderPalette.secondary, fontSize = 11.5.sp, maxLines = 1)
+                }
+                Text("›", color = PlanBuilderPalette.secondary, fontSize = 20.sp)
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, color = PlanBuilderPalette.text, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = PlanBuilderPalette.secondary, fontSize = 11.5.sp, maxLines = 1)
-            }
-            Text("›", color = PlanBuilderPalette.secondary, fontSize = 20.sp)
         }
+        StrideLabHairline()
     }
 }
 

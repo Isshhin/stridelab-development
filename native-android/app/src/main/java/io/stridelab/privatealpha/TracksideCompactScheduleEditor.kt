@@ -72,19 +72,14 @@ internal fun TracksideCompactScheduleEditor(
     val byDay = assignments.filter { it in 1..7 }.groupingBy { it }.eachCount()
     val runSlots = WeeklyPlacement.days(request, "run")
 
-    Spacer(Modifier.height(14.dp))
-    Surface(
+    Spacer(Modifier.height(10.dp))
+    Column(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(vertical = 8.dp)
             .testTag("builder-inline-schedule"),
-        shape = RoundedCornerShape(18.dp),
-        color = PlanBuilderPalette.surface,
-        border = BorderStroke(1.dp, PlanBuilderPalette.border)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -264,7 +259,7 @@ internal fun TracksideCompactScheduleEditor(
                     )
                 }
             }
-        }
+            StrideLabHairline()
     }
 
     if (pendingRemoval in 1..7) {

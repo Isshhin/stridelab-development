@@ -61,7 +61,7 @@ class Engine1UiTest {
         field.assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText,AnnotatedString(value)))
     }
 
-    @Test fun plyometricsAndIsometricsAreVisibleInDisciplineSelector() {
+    @Test fun consolidatedTracksAndWorkoutHubNoteAreVisibleInDisciplineSelector() {
         compose.runOnUiThread {
             compose.activity.setContent {
                 StrideTheme {
@@ -69,8 +69,13 @@ class Engine1UiTest {
                 }
             }
         }
-        compose.onNodeWithTag("discipline-plyo").assertExists()
-        compose.onNodeWithTag("discipline-iso").assertExists()
+        compose.onNodeWithTag("discipline-run").assertExists()
+        compose.onNodeWithTag("discipline-str").assertExists()
+        compose.onNodeWithTag("discipline-cal").assertExists()
+        compose.onNodeWithTag("discipline-plyo").assertDoesNotExist()
+        compose.onNodeWithTag("discipline-iso").assertDoesNotExist()
+        compose.onNodeWithTag("discipline-cond").assertDoesNotExist()
+        compose.onNodeWithTag("discipline-workout-hub-card").assertExists()
         compose.onNodeWithText("Power & runner durability").assertExists()
     }
 
@@ -109,7 +114,7 @@ class Engine1UiTest {
         compose.waitUntil(15000) { state.value.planPreview != null || compose.onAllNodesWithTag("plan-form-error").fetchSemanticsNodes().isNotEmpty() }
         assertTrue("Plan builder failed: "+compose.onRoot().printToString(),state.value.planPreview != null)
         val draft=requireNotNull(state.value.planPreview)
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY,draft.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY,draft.policyId)
         assertEquals(7*draft.request.weeks,draft.sessions.size)
         val firstWeek=draft.sessions.filter { it.date in draft.request.start..draft.request.start.plusDays(6) }
         assertEquals(7,firstWeek.size)
@@ -360,7 +365,7 @@ class Engine1UiTest {
         compose.onNodeWithText("Review your training plan").assertExists()
         compose.onNodeWithText("Activate Plan").assertExists()
         assertEquals("draft",plan.status)
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, plan.policyId)
         assertEquals("Muscle development", plan.request.disciplineGoals["str"])
         assertTrue(plan.sessions.any { it.discipline=="run" });assertTrue(plan.sessions.filter { it.discipline=="str" }.flatMap { it.exercises }.filter { it.reps!=null }.all { it.reps==10 })
         capture("phase1-coordinated-goals-preview")

@@ -354,7 +354,7 @@ class LocalPlanRepositoryTest {
 
     @Test fun opaqueLocalRecordCannotBeOverwrittenByManualRestore() = runBlocking {
         val deviceOwner = requireNotNull(repo.state.value.localPlanOwner)
-        val protected = Engine15IndependentPlanGenerator.generateWithHistory(request(), deviceOwner, emptyList(), "synthetic-opaque-local", exerciseLibrary = library())
+        val protected = Engine15IndependentPlanGenerator.generateWithHistory(request(), deviceOwner, emptyList(), "synthetic-opaque-local", exerciseLibrary = library()).copy(status = "approved")
         val raw = protected.encode().put("schemaVersion", 999).toString()
         TrainingStore(context, databaseName).use { localStore ->
             localStore.applyRemotePage(

@@ -1,12 +1,22 @@
 package io.stridelab.privatealpha
 
 import android.os.Trace
+import androidx.compose.foundation.Image
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
@@ -28,16 +38,19 @@ internal fun mergeActivitySummaries(cloud: List<ActivityRecord>, local: List<Act
 
 private val LocalThumbnailLoader = staticCompositionLocalOf<(suspend (String) -> RecordedGpsRoute?)?> { null }
 private val LocalThumbnailAccount = staticCompositionLocalOf<Pair<String?, Long>?> { null }
+internal val LocalThumbnailCache = staticCompositionLocalOf<ActivityThumbnailCache?> { null }
 
 @Composable
 internal fun ActivityThumbnailProvider(
     loader: (suspend (String) -> RecordedGpsRoute?)?,
     account: String?,
     loginGeneration: Long,
+    cache: ActivityThumbnailCache? = null,
     content: @Composable () -> Unit
 ) = CompositionLocalProvider(
     LocalThumbnailLoader provides loader,
     LocalThumbnailAccount provides (account to loginGeneration),
+    LocalThumbnailCache provides cache,
     content = content
 )
 
@@ -51,6 +64,50 @@ internal fun rememberActivityThumbnail(id: String?, detail: ActivityDetail?): Re
             else id?.let { loader?.invoke(it) }
         }
         route
+    }
+}
+
+/**
+ * Renders a pre-rendered GPS thumbnail bitmap backed synchronously by an in-memory LruCache
+ * and disk PNG cache so tab switches never blank or re-parse GPS coordinates.
+ */
+@Composable
+internal fun TodayCachedGpsThumbnail(
+    activityId: String?,
+    detail: ActivityDetail?,
+    modifier: Modifier = Modifier
+) {
+    if (activityId == null && detail == null) return
+    val context = LocalContext.current
+    val cache = LocalThumbnailCache.current ?: remember(context.applicationContext) {
+        SharedThumbnailCacheHolder.get(context.applicationContext)
+    }
+    val loader = LocalThumbnailLoader.current
+    val owner = LocalThumbnailAccount.current?.first
+    val stableId = activityId ?: detail?.activityId ?: return
+    val keyString = remember(owner, stableId) { cache.cacheKey(owner, stableId) }
+
+    // Synchronous in-memory read avoids blank frames across tab switches or recomposition.
+    var bitmap by remember(keyString) {
+        mutableStateOf<ImageBitmap?>(cache.getMemory(keyString))
+    }
+
+    LaunchedEffect(keyString, detail) {
+        if (bitmap == null) {
+            bitmap = cache.getOrRender(keyString) {
+                detail?.let { withContext(Dispatchers.Default) { it.thumbnailRoute() } }
+                    ?: activityId?.let { loader?.invoke(it) }
+            }
+        }
+    }
+
+    bitmap?.let { img ->
+        Image(
+            bitmap = img,
+            contentDescription = "Recorded GPS route preview, north up",
+            contentScale = ContentScale.Fit,
+            modifier = modifier.testTag("gps-thumb-$stableId")
+        )
     }
 }
 

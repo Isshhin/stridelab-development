@@ -200,7 +200,13 @@ internal fun StrideLabTodayScreen(
     onOpenActivityDetail: (String) -> Unit,
     onOpenMore: () -> Unit,
     onSignIn: () -> Unit,
-    actions: PlanActions = PlanActions()
+    actions: PlanActions = PlanActions(),
+    freeformBoard: FreeformBoard? = null,
+    garminConnected: Boolean = false,
+    onConnectGarmin: () -> Unit = onOpenMore,
+    onRefreshWellness: (() -> Unit)? = null,
+    onOpenWorkoutHub: (() -> Unit)? = null,
+    onOpenGuidedWorkout: ((String) -> Unit)? = null
 ) {
     var reviewedProposal by rememberSaveable { mutableStateOf(false) }
     val adaptationProposal = state.activeAdaptationProposal
@@ -308,6 +314,15 @@ internal fun StrideLabTodayScreen(
             schedule = evidence
         )
     }
+    val consistencyByDate = remember(safeActivities, safeHistory, safePlans, freeformBoard, state.freeformOwner, todayDate) {
+        projectConsistencyDisciplinesByDate(
+            activities = safeActivities + safeHistory,
+            plans = safePlans,
+            freeformBoard = freeformBoard,
+            owner = state.freeformOwner,
+            asOf = todayDate
+        )
+    }
     val recentActivities = remember(state.activitySummariesReady, safeActivities, safeHistory, safePlans) {
         if (!state.activitySummariesReady) return@remember emptyList()
         TodayOverviewCalculator.buildRecentActivities(
@@ -385,13 +400,19 @@ internal fun StrideLabTodayScreen(
                 item(key = "pending-activity-matches") { PendingActivityMatchCards(state, actions) }
             }
             if (selectedPage == TodayDiscipline.RUNNING.key) {
-                item(key = "running-coaching-diagnostics") { AthleteDiagnosticsCard(state.activeAthleteDiagnostic) }
                 if (adaptationProposal?.type == AdaptationType.EASY_PACING_LOCK &&
                     state.activeAthleteDiagnostic?.recalibrationAdvisory != RecalibrationAdvisory.ADDRESS_EASY_PACING_FIRST) {
                     item(key = "running-easy-pacing-lock") { EasyPacingLockBanner() }
                 }
             }
-            if (selectedPage == "all" && adaptationProposal?.status == AdaptationProposalStatus.PENDING) {
+            val proposalMatchesPage = selectedPage == "all" || when (adaptationProposal?.type) {
+                AdaptationType.STRENGTH_PROGRESSION -> selectedPage == TodayDiscipline.STRENGTH.key
+                AdaptationType.CALISTHENICS_PROGRESSION -> selectedPage == TodayDiscipline.CALISTHENICS.key
+                AdaptationType.RUNNER_SUPPORT_DOSE -> selectedPage in setOf(TodayDiscipline.RUNNING.key, TodayDiscipline.STRENGTH.key)
+                null -> false
+                else -> selectedPage == TodayDiscipline.RUNNING.key
+            }
+            if (proposalMatchesPage && adaptationProposal?.status == AdaptationProposalStatus.PENDING) {
                 item(key = "today-adaptation-proposal") {
                     AdaptationProposalBanner(adaptationProposal, onReview = { reviewedProposal = true })
                 }
@@ -404,38 +425,43 @@ internal fun StrideLabTodayScreen(
                     }
                 }
             }
-            item(key = "today-hero") {
-                if (isPastDate && !evidence.hasApprovedPlan && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion && state.todayPlanReady) {
-                    TodayCompactEmptyDay(online = online)
-                } else if (!state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion) {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth().testTag("today-hero"),
-                        shape = RoundedCornerShape(18.dp),
-                        color = TodayAdaptivePalette.card,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, TodayAdaptivePalette.border)
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "Loading training day...",
-                                color = TodayAdaptivePalette.text,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold
+            val showHeroSkeleton = !state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion
+            val hideNoPlanCompanion = state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion
+            if (showHeroSkeleton || !hideNoPlanCompanion) {
+                item(key = "today-hero") {
+                    val delayedSkeleton = rememberDelayedSkeletonVisible(showHeroSkeleton)
+                    if (showHeroSkeleton) {
+                        SkeletonShimmerContainer(reducedMotion = reduceMotion || !delayedSkeleton) {
+                            SkeletonHeroTrainingCard(
+                                modifier = Modifier
+                                    .testTag("today-hero-skeleton")
+                                    .semantics { contentDescription = "Loading training day" },
+                                reducedMotion = reduceMotion || !delayedSkeleton
                             )
                         }
+                    } else {
+                        TodayDailyTrainingCard(
+                            selectedDate = date,
+                            todayDate = todayDate,
+                            dailyState = dailyTrainingState,
+                            cachedDetails = state.details,
+                            hasPrimaryHeroTag = true,
+                            onOpenWorkout = onOpenWorkout,
+                            onOpenActivityDetail = onOpenActivityDetail,
+                            onOpenTraining = onOpenTraining
+                        )
                     }
-                } else {
-                    TodayDailyTrainingCard(
+                }
+            }
+            if (selectedPage == "all") {
+                item(key = "today-biometrics") {
+                    TodayBiometricsSection(
+                        wellness = state.wellness,
                         selectedDate = date,
-                        todayDate = todayDate,
-                        dailyState = dailyTrainingState,
-                        cachedDetails = state.details,
-                        hasPrimaryHeroTag = true,
-                        onOpenWorkout = onOpenWorkout,
-                        onOpenActivityDetail = onOpenActivityDetail,
-                        onOpenTraining = onOpenTraining
+                        garminConnected = garminConnected,
+                        lastWellnessSyncMillis = state.lastWellnessSyncMillis,
+                        onConnectGarmin = onConnectGarmin,
+                        onRefreshWellness = onRefreshWellness
                     )
                 }
             }
@@ -455,14 +481,158 @@ internal fun StrideLabTodayScreen(
                         discipline = filter
                     )
                 }
-                if (selectedPage == "all" && state.activitySummariesReady) item(key = "today-recent-activities") {
-                    TodayRecentActivitiesSection(
-                        rows = recentActivities,
-                        cachedDetails = state.details,
-                        onSeeAll = onOpenActivity,
-                        onOpenActivityDetail = onOpenActivityDetail,
-                        onOpenWorkout = onOpenWorkout
+                if (selectedPage == "all") {
+                    item(key = "today-all-consistency") {
+                        ConsistencyHeatmapStrip(
+                            disciplinesByDate = consistencyByDate,
+                            asOf = todayDate
+                        )
+                    }
+                    if (state.activitySummariesReady) {
+                        item(key = "today-recent-activities") {
+                            TodayRecentActivitiesSection(
+                                rows = recentActivities,
+                                cachedDetails = state.details,
+                                onSeeAll = onOpenActivity,
+                                onOpenActivityDetail = onOpenActivityDetail,
+                                onOpenWorkout = onOpenWorkout
+                            )
+                        }
+                    } else {
+                        item(key = "today-recent-skeleton") {
+                            val showRecentSkeleton = rememberDelayedSkeletonVisible(true)
+                            if (showRecentSkeleton) {
+                                SkeletonShimmerContainer(reducedMotion = reduceMotion) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        SkeletonText(widthFraction = 0.4f, height = 15.dp, reducedMotion = reduceMotion)
+                                        SkeletonActivityRow(reducedMotion = reduceMotion)
+                                        SkeletonActivityRow(reducedMotion = reduceMotion)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (selectedPage == "all" && consistencyByDate.isNotEmpty()) {
+                item(key = "today-all-consistency") {
+                    ConsistencyHeatmapStrip(
+                        disciplinesByDate = consistencyByDate,
+                        asOf = todayDate
                     )
+                }
+            } else if (selectedPage == "all" && !state.activitySummariesReady) {
+                item(key = "today-overview-skeleton") {
+                    val showOverviewSkeleton = rememberDelayedSkeletonVisible(true)
+                    if (showOverviewSkeleton) {
+                        SkeletonShimmerContainer(reducedMotion = reduceMotion) {
+                            Column(
+                                modifier = Modifier.testTag("today-overview-skeleton"),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                SkeletonOverviewMetricsCard(reducedMotion = reduceMotion)
+                                SkeletonConsistencyHeatmap(reducedMotion = reduceMotion)
+                            }
+                        }
+                    }
+                }
+            }
+            if (selectedPage == "all" && onOpenWorkoutHub != null) {
+                item(key = "today-workout-hub-suggestion") {
+                    val hubOwner = state.account ?: state.localPlanOwner
+                    val tomorrowDate = remember(todayDate) { todayDate.plusDays(1) }
+                    val readiness = remember(state.wellness, todayDate) {
+                        if (state.wellness.isEmpty()) null
+                        else BiometricReadinessEvaluator.evaluate(state.wellness, todayDate)
+                    }
+                    val activeOwnerPlans = remember(safePlans, hubOwner) {
+                        safePlans.filter { it.owner == hubOwner && it.status == "approved" }
+                    }
+                    val plannedToday = remember(activeOwnerPlans, todayDate) {
+                        activeOwnerPlans.flatMap { it.sessions }.filter { it.date == todayDate }
+                    }
+                    val plannedTomorrow = remember(activeOwnerPlans, tomorrowDate) {
+                        activeOwnerPlans.flatMap { it.sessions }.filter { it.date == tomorrowDate }
+                    }
+                    val recentFreeform = remember(freeformBoard) {
+                        freeformBoard?.workouts.orEmpty().filter { it.completedAt != null }.sortedByDescending { it.modifiedAt }.take(5)
+                    }
+                    val topRec = remember(readiness, plannedToday, plannedTomorrow, recentFreeform, state.savedEquipment) {
+                        WorkoutHubRecommender.recommend(
+                            library = CuratedWorkoutLibrary.all,
+                            readiness = readiness,
+                            plannedSessionsToday = plannedToday,
+                            plannedSessionsTomorrow = plannedTomorrow,
+                            recentFreeform = recentFreeform,
+                            savedEquipment = state.savedEquipment?.keys.orEmpty(),
+                            limit = 1
+                        ).firstOrNull()
+                    }
+                    if (topRec != null) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth().testTag("today-workout-hub-suggestion"),
+                            shape = RoundedCornerShape(16.dp),
+                            color = StrideLabSurfaceTokens.surfaceElevated,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                WorkoutHubVisualThumbnail(
+                                    category = topRec.workout.category,
+                                    accentColor = topRec.workout.category.accentColor,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Text(
+                                        text = "OPTIONAL FROM WORKOUT HUB",
+                                        color = topRec.workout.category.accentColor,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.8.sp
+                                    )
+                                    Text(
+                                        text = topRec.workout.title,
+                                        color = StrideLabSurfaceTokens.ink,
+                                        fontSize = 14.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "${topRec.workout.durationMinutes} min · ${topRec.reason}",
+                                        color = StrideLabSurfaceTokens.inkMuted,
+                                        fontSize = 11.5.sp,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Column(
+                                    horizontalAlignment = Alignment.End,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    if (onOpenGuidedWorkout != null) {
+                                        TextButton(
+                                            onClick = { onOpenGuidedWorkout(topRec.workout.id) },
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                        ) {
+                                            Text("Start", color = StrideLabSurfaceTokens.lime, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                                        }
+                                    }
+                                    TextButton(
+                                        onClick = onOpenWorkoutHub,
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("Hub ›", color = StrideLabSurfaceTokens.inkMuted, fontSize = 11.5.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
             if (selectedPage != "all") {
@@ -593,6 +763,7 @@ internal fun StrideLabTodayScreen(
                             allHistory = safeHistory,
                             details = state.details,
                             ownerId = state.account ?: state.localGarminOwner ?: state.localPlanOwner,
+                            freeformWorkouts = freeformBoard?.workouts.orEmpty(),
                             reduceMotion = reduceMotion,
                             onOpenActivity = onOpenActivityDetail,
                             onOpenWorkout = onOpenWorkout
@@ -1844,7 +2015,7 @@ private fun TodayRecordedTraining(
                             Text(
                                 distanceM?.let {
                                     String.format(Locale.getDefault(), "%.2f km", it / 1000)
-                                } ?: "—",
+                                } ?: "--",
                                 color = TodayLook.text, fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold, maxLines = 1
                             )
@@ -1853,7 +2024,7 @@ private fun TodayRecordedTraining(
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text("Duration", color = TodayLook.muted, fontSize = 10.sp)
                         Text(
-                            durationS?.let { ActivityRecord.duration(it) } ?: "—",
+                            durationS?.let { ActivityRecord.duration(it) } ?: "--",
                             color = TodayLook.text, fontSize = 16.sp,
                             fontWeight = FontWeight.Bold, maxLines = 1
                         )
@@ -2423,7 +2594,7 @@ private fun TodayWeeklyActivity(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        metrics.totalSeconds?.let(::todayTimeLabel) ?: "—",
+                        metrics.totalSeconds?.let(::todayTimeLabel) ?: "--",
                         color = TodayLook.teal, fontSize = 20.sp,
                         fontWeight = FontWeight.Bold, maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

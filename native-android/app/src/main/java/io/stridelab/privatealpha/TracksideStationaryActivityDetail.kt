@@ -17,6 +17,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,7 +45,8 @@ internal fun TracksideStationaryActivityDetail(
     onEdit: (() -> Unit)?,
     onRefreshSource: (() -> Unit)? = null,
     refreshEnabled: Boolean = false,
-    debrief: SessionDebrief? = null
+    debrief: SessionDebrief? = null,
+    linkedSession: Pair<PlanSnapshot, PlannedSession>? = null
 ) {
     val type = activity.type.lowercase(Locale.ROOT)
     val discipline = when {
@@ -121,6 +123,24 @@ internal fun TracksideStationaryActivityDetail(
             }
         }
         if (debrief != null) item(key = "stationary-debrief") { CoachDebriefCard(debrief) }
+        if (linkedSession != null) {
+            item(key = "stationary-muscle-focus") {
+                val catalog = rememberAugmentedExerciseCatalog()
+                val sessionFocus = remember(linkedSession, catalog) {
+                    val (linkedPlan, sess) = linkedSession
+                    val shown = linkedPlan.cardPresentation(sess)
+                    MuscleFocusProjector.forConfirmedSession(
+                        recordedSets = sess.log?.sets.orEmpty(),
+                        exercises = shown.effectiveExercises,
+                        catalog = catalog
+                    )
+                }
+                SessionMuscleFocusSection(
+                    focus = sessionFocus,
+                    provenance = "Based on ${sessionFocus.setCount} confirmed sets"
+                )
+            }
+        }
         item(key = "stationary-metrics") {
             Surface(
                 modifier = Modifier.fillMaxWidth(),

@@ -75,13 +75,13 @@ import kotlin.math.roundToInt
 private object DisciplineLook {
     val black = Color(0xFF000000)
     val darkOnAccent = Color(0xFF090B09)
-    val panel = StrideLabVisualPalette.surface
-    val panelRaised = StrideLabVisualPalette.surfaceRaised
-    val border = StrideLabVisualPalette.border
-    val ink = StrideLabVisualPalette.ink
-    val subdued = StrideLabVisualPalette.secondary
-    val muted = StrideLabVisualPalette.muted
-    val lime = StrideLabVisualPalette.lime
+    val panel = StrideLabSurfaceTokens.surfaceElevated
+    val panelRaised = StrideLabSurfaceTokens.surfaceSubtle
+    val border = StrideLabSurfaceTokens.hairline
+    val ink = StrideLabSurfaceTokens.ink
+    val subdued = StrideLabSurfaceTokens.inkSecondary
+    val muted = StrideLabSurfaceTokens.inkMuted
+    val lime = StrideLabSurfaceTokens.lime
 
     fun accent(d: TodayDiscipline): Color = when (d) {
         TodayDiscipline.RUNNING -> lime
@@ -384,19 +384,12 @@ private fun DisciplinePanel(
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = DisciplineLook.panel,
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, DisciplineLook.border)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(
-                    if (accent != null) Modifier.background(
-                        Brush.verticalGradient(
-                            listOf(accent.copy(alpha = 0.06f), Color.Transparent)
-                        )
-                    ) else Modifier
-                )
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content
@@ -422,6 +415,7 @@ internal fun TodayDisciplineDashboard(
     allHistory: List<ActivityRecord> = emptyList(),
     details: Map<String, ActivityDetail> = emptyMap(),
     ownerId: String? = null,
+    freeformWorkouts: List<FreeformWorkout> = emptyList(),
     reduceMotion: Boolean,
     onOpenActivity: (String) -> Unit,
     onOpenWorkout: (String, String) -> Unit
@@ -541,18 +535,6 @@ internal fun TodayDisciplineDashboard(
             }
         }
 
-        // 28-Day Consistency Heatmap across recent weeks
-        val completedDates = trend.flatMap { w ->
-            w.sessionsByDay.mapIndexedNotNull { idx, count ->
-                if (count > 0) w.start.plusDays(idx.toLong()) else null
-            }
-        }.toSet()
-        ConsistencyHeatmapStrip(
-            completedDates = completedDates,
-            plannedDates = emptySet(),
-            asOf = week.start.plusDays(6)
-        )
-
         if (discipline == TodayDiscipline.RUNNING) {
             RunningWeekReview(
                 reviews = runningReview,
@@ -646,6 +628,157 @@ internal fun TodayDisciplineDashboard(
                             )
                         }
                     }
+                }
+            }
+
+            if (discipline == TodayDiscipline.STRENGTH) {
+                val catalog = rememberAugmentedExerciseCatalog()
+                val strengthAnalytics = remember(plans, freeformWorkouts, ownerId, week.start, today, catalog) {
+                    StrengthAnalyticsProjector.summarize(
+                        plans = plans,
+                        freeformWorkouts = freeformWorkouts,
+                        catalog = catalog,
+                        ownerId = ownerId,
+                        weekStart = week.start,
+                        today = today
+                    )
+                }
+                if (strengthAnalytics.weeklyVolume.isNotEmpty() || strengthAnalytics.topPrs.isNotEmpty()) {
+                    DisciplinePanel(accent = tint) {
+                        Text(
+                            "MUSCLE VOLUME & PERSONAL RECORDS",
+                            color = DisciplineLook.muted,
+                            fontSize = 10.sp,
+                            letterSpacing = 1.3.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (strengthAnalytics.weeklyVolume.isNotEmpty()) {
+                            val maxSets = strengthAnalytics.weeklyVolume.maxOf { it.completedSets }.coerceAtLeast(1)
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                strengthAnalytics.weeklyVolume.take(5).forEach { entry ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            text = entry.label,
+                                            color = DisciplineLook.ink,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.width(104.dp),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(7.dp)
+                                                .clip(RoundedCornerShape(999.dp))
+                                                .background(DisciplineLook.panelRaised)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth((entry.completedSets.toFloat() / maxSets.toFloat()).coerceIn(0.08f, 1f))
+                                                    .fillMaxHeight()
+                                                    .background(tint)
+                                            )
+                                        }
+                                        Text(
+                                            text = "${entry.completedSets} sets",
+                                            color = tint,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (strengthAnalytics.topPrs.isNotEmpty()) {
+                            HorizontalDivider(color = DisciplineLook.border)
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                strengthAnalytics.topPrs.forEach { pr ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = pr.exerciseName,
+                                            color = DisciplineLook.ink,
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.weight(1f),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "${freeformNumber(pr.bestWeightKg)} kg × ${pr.repsAtBestWeight} (1RM ${pr.estimatedOneRmKg.roundToInt()} kg)",
+                                            color = tint,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (discipline == TodayDiscipline.CALISTHENICS) {
+                val journeys = remember(plans, freeformWorkouts, ownerId) {
+                    CalisthenicsSkillJourneyProjector.buildJourneys(
+                        plans = plans,
+                        freeformWorkouts = freeformWorkouts,
+                        ownerId = ownerId
+                    )
+                }
+                var showSkillSheet by rememberSaveable(ownerId) { mutableStateOf(false) }
+                val totalMastered = journeys.sumOf { it.masteredCount }
+                val totalNodes = journeys.sumOf { it.nodes.size }
+                val featuredNext = journeys.firstOrNull { it.nextMilestone != null }?.nextMilestone
+
+                DisciplinePanel(accent = tint) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                "SKILL JOURNEYS",
+                                color = DisciplineLook.muted,
+                                fontSize = 10.sp,
+                                letterSpacing = 1.3.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "$totalMastered / $totalNodes milestones mastered",
+                                color = DisciplineLook.ink,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            featuredNext?.let { next ->
+                                Text(
+                                    "Next milestone: ${next.node.exercise.name}",
+                                    color = DisciplineLook.subdued,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                        TextButton(
+                            onClick = { showSkillSheet = true },
+                            modifier = Modifier.testTag("calisthenics-open-skill-tree")
+                        ) {
+                            Text("Skill Tree ›", color = tint, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                        }
+                    }
+                }
+                if (showSkillSheet) {
+                    CalisthenicsSkillJourneySheet(
+                        journeys = journeys,
+                        onDismiss = { showSkillSheet = false }
+                    )
                 }
             }
         }
@@ -790,13 +923,6 @@ private fun RunningWeekOverview(
 
     DisciplinePanel(accent = DisciplineLook.lime) {
         Text(
-            "YOUR WEEK IN RUNNING",
-            color = DisciplineLook.muted,
-            fontSize = 10.sp,
-            letterSpacing = 1.3.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
             "Your week in running",
             color = DisciplineLook.ink,
             fontWeight = FontWeight.ExtraBold,
@@ -813,12 +939,18 @@ private fun RunningWeekOverview(
         Text(
             total?.let(format) ?: if (week.sessions == 0) "No runs yet" else "—",
             color = DisciplineLook.lime,
-            fontSize = 38.sp,
+            fontSize = 36.sp,
             fontWeight = FontWeight.ExtraBold,
-            letterSpacing = (-1).sp,
+            letterSpacing = (-0.8).sp,
+            style = TabularTextStyle,
             modifier = Modifier.testTag("today-discipline-primary")
         )
-        Text("$sessions across $days", color = DisciplineLook.subdued, fontSize = 13.5.sp)
+        Text(
+            "$sessions across $days",
+            color = DisciplineLook.subdued,
+            fontSize = 13.5.sp,
+            style = TabularTextStyle
+        )
         review?.mostPerformed?.let { type ->
             val typeAccent = runTypeColor(type)
             Row(
@@ -945,7 +1077,6 @@ private fun RunningWeekOverview(
         Surface(
             color = DisciplineLook.panelRaised,
             shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, DisciplineLook.border),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -965,6 +1096,7 @@ private fun RunningWeekOverview(
                 Text(
                     dayValue(selectedDay),
                     color = DisciplineLook.lime,
+                    style = TabularTextStyle,
                     modifier = Modifier
                         .weight(1f)
                         .testTag("today-running-day-value"),
@@ -978,7 +1110,8 @@ private fun RunningWeekOverview(
             Text(
                 "Average run heart rate: ${hr.toInt()} bpm across ${week.hrCoverage} of ${week.sessions} runs",
                 color = DisciplineLook.subdued,
-                fontSize = 12.sp
+                fontSize = 12.sp,
+                style = TabularTextStyle
             )
         }
     }
@@ -1520,42 +1653,46 @@ private fun RunningProgressionSparkCard(
     val change = runningPercentChange(latest, earlier)
     val peak = values.maxOrNull()?.coerceAtLeast(1.0) ?: 1.0
 
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(15.dp),
-        color = DisciplineLook.panelRaised,
-        border = BorderStroke(1.dp, DisciplineLook.border),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        Surface(
+            onClick = onClick,
+            shape = RoundedCornerShape(14.dp),
+            color = DisciplineLook.panelRaised,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            Column(
+                Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(label, color = DisciplineLook.ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
-                    Text("${formatAvg(earlier)} → ${formatAvg(latest)}", color = DisciplineLook.subdued, fontSize = 12.5.sp)
-                }
-                change?.let { pct ->
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = Color(0xFF232C16),
-                        border = BorderStroke(1.dp, DisciplineLook.lime.copy(alpha = 0.25f))
-                    ) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(label, color = DisciplineLook.ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
                         Text(
-                            runningPercentLabel(pct),
-                            color = DisciplineLook.lime,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            "${formatAvg(earlier)} → ${formatAvg(latest)}",
+                            color = DisciplineLook.subdued,
+                            fontSize = 12.5.sp,
+                            style = TabularTextStyle
                         )
                     }
+                    change?.let { pct ->
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = Color(0xFF232C16)
+                        ) {
+                            Text(
+                                runningPercentLabel(pct),
+                                color = DisciplineLook.lime,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                style = TabularTextStyle,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
                 }
-            }
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
@@ -1619,17 +1756,16 @@ private fun RunningCoachSummary(current: RunningWeekCoach) {
         else -> "Let effort guide pace on your next easy run."
     }
     Text(summary, color = DisciplineLook.ink, fontSize = 13.5.sp)
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = Color(0xFF1A1F12),
-        border = BorderStroke(1.dp, DisciplineLook.lime.copy(alpha = 0.25f)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("NEXT FOCUS", color = DisciplineLook.lime, fontWeight = FontWeight.Bold, fontSize = 10.sp, letterSpacing = 1.sp)
-            Text(nextCue, color = DisciplineLook.ink, fontSize = 12.5.sp, lineHeight = 17.sp)
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color(0xFF1A1F12),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text("NEXT FOCUS", color = DisciplineLook.lime, fontWeight = FontWeight.Bold, fontSize = 10.sp, letterSpacing = 1.sp)
+                Text(nextCue, color = DisciplineLook.ink, fontSize = 12.5.sp, lineHeight = 17.sp)
+            }
         }
-    }
 }
 
 @Composable
@@ -2010,7 +2146,8 @@ private fun AerobicEfficiencyCard(
                 else if (pct >= 0.0) DisciplineLook.lime else StrideLabVisualPalette.moderateAmber,
                 fontSize = 30.sp,
                 fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.6).sp
+                letterSpacing = (-0.6).sp,
+                style = TabularTextStyle
             )
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (summary.earlyAvgPace != null && summary.lateAvgPace != null &&
@@ -2094,7 +2231,6 @@ private fun AerobicEfficiencyCard(
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = DisciplineLook.panelRaised,
-                    border = BorderStroke(1.dp, DisciplineLook.border),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -2107,7 +2243,8 @@ private fun AerobicEfficiencyCard(
                             "${RunningPersonalBests.formatPace(sel.avgPaceSecPerKm)} @ ${sel.avgHrBpm.roundToInt()} bpm (${sel.runCount} runs)",
                             color = DisciplineLook.lime,
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            style = TabularTextStyle
                         )
                     }
                 }
@@ -2222,15 +2359,17 @@ private fun PersonalBestsCard(
                     else -> "No recorded mark yet"
                 }
 
-                Surface(
-                    onClick = { selectedDistance = entry.distance.key },
-                    shape = RoundedCornerShape(13.dp),
-                    color = DisciplineLook.panelRaised,
-                    border = BorderStroke(1.dp, DisciplineLook.border),
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { selectedDistance = entry.distance.key }
                 ) {
                     Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 10.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 52.dp)
+                            .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -2266,6 +2405,7 @@ private fun PersonalBestsCard(
                                 subText,
                                 color = DisciplineLook.muted,
                                 fontSize = 11.5.sp,
+                                style = TabularTextStyle,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -2274,9 +2414,11 @@ private fun PersonalBestsCard(
                             displayTime,
                             color = if (displayTime == "—") DisciplineLook.muted else DisciplineLook.lime,
                             fontSize = 17.sp,
-                            fontWeight = FontWeight.ExtraBold
+                            fontWeight = FontWeight.ExtraBold,
+                            style = TabularTextStyle
                         )
                     }
+                    StrideLabHairline()
                 }
             }
         }

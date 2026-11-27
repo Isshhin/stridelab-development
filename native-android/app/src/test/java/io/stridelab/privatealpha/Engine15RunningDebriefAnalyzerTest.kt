@@ -57,6 +57,7 @@ class Engine15RunningDebriefAnalyzerTest {
         val result = requireNotNull(Engine15RunningDebriefAnalyzer.analyze(activity, hill, verifiedHrZones = zones))
         val trend = result.insights.single { it.category == DebriefCategory.PACING_AND_HR }
         assertEquals(DebriefTone.NEUTRAL, trend.tone)
+        assertTrue(trend.body.contains("terrain", ignoreCase = true))
     }
 
     @Test fun linkedComplianceRequiresVerifiedBoundariesAndUsableRecordedCoverage() {
@@ -80,9 +81,12 @@ class Engine15RunningDebriefAnalyzerTest {
         val detail = recording(samples(pace = { if (it < 600) 399.0 else 376.0 },
             cadence = { if (it < 600) 177.0 else 182.0 }))
         val result = requireNotNull(Engine15RunningDebriefAnalyzer.analyze(activity, detail))
-        assertEquals(listOf(DebriefCategory.CADENCE), result.insights.map { it.category })
-        assertEquals(DebriefTone.NEUTRAL, result.tone)
-        assertTrue(result.summary.contains("177") && result.summary.contains("182 spm"))
+        assertEquals(listOf(DebriefCategory.TERRAIN_AND_SPLITS, DebriefCategory.CADENCE), result.insights.map { it.category })
+        val cadenceInsight = result.insights.single { it.category == DebriefCategory.CADENCE }
+        assertEquals(DebriefTone.NEUTRAL, cadenceInsight.tone)
+        assertTrue(cadenceInsight.body.contains("177") && cadenceInsight.body.contains("182 spm"))
+        val text = result.insights.joinToString(" ") { it.body }
+        assertFalse(text.contains("bpm") || text.contains("efficiency", ignoreCase = true))
     }
 
     @Test fun completeEvenKilometerLapsSupportComparisonButPartialOrPausedLapsDoNot() {
@@ -112,13 +116,14 @@ class Engine15RunningDebriefAnalyzerTest {
         )
         val result = requireNotNull(Engine15DebriefEngine.running(longRun, detail, null, zones, ActivityWorkoutKind.LONG_RUN))
         assertEquals(DebriefTone.POSITIVE, result.tone)
-        assertEquals(listOf(DebriefCategory.INTENT_AND_ZONES, DebriefCategory.TERRAIN_AND_SPLITS, DebriefCategory.CADENCE),
+        assertEquals(listOf(DebriefCategory.INTENT_AND_ZONES, DebriefCategory.PACING_AND_HR, DebriefCategory.CADENCE),
             result.insights.map { it.category })
         assertTrue(result.summary.contains("89%"))
         assertTrue(result.summary.contains("2:30:25"))
+        assertNotNull(result.nextFocus)
     }
 
-    @Test fun steadyThreeHourZoneTwoRunHasThreeDistinctObservations() {
+    @Test fun steadyThreeHourZoneTwoRunHasDistinctDurabilityObservations() {
         val longRun = activity.copy(distanceM = 28_000.0, durationS = 10_800.0, movingTimeS = 10_800.0)
         val records = (0..10_800 step 5).mapIndexed { index, seconds ->
             ActivitySample(index, seconds.toDouble(), if (seconds < 5400) 390.0 else 395.0,
@@ -128,11 +133,12 @@ class Engine15RunningDebriefAnalyzerTest {
             longRun, recording(records), verifiedHrZones = zones, sessionIntent = ActivityWorkoutKind.LONG_RUN,
             weather = WeatherContext(26.0, 75.0, 21.0)
         ))
-        assertEquals(listOf(DebriefCategory.INTENT_AND_ZONES, DebriefCategory.PACING_AND_HR,
-            DebriefCategory.TERRAIN_AND_SPLITS), result.insights.map { it.category })
+        assertEquals(listOf(DebriefCategory.INTENT_AND_ZONES, DebriefCategory.PACING_AND_HR, DebriefCategory.CADENCE),
+            result.insights.map { it.category })
         assertEquals(DebriefTone.POSITIVE, result.tone)
         assertTrue(result.summary.contains("100%"))
         assertTrue(result.insights[1].body.contains("137 bpm"))
+        assertTrue(result.paragraphs.isEmpty())
     }
 
     @Test fun zoneShareUsesTheFullKnownMovingDuration() {
@@ -141,7 +147,7 @@ class Engine15RunningDebriefAnalyzerTest {
             activity.copy(movingTimeS = 1500.0), partial, verifiedHrZones = zones,
             sessionIntent = ActivityWorkoutKind.EASY_RUN
         ))
-        assertTrue(result.summary.contains("80% of the run"))
+        assertTrue(result.summary.contains("80% of this run"))
     }
 
     @Test fun recordingAndExecutionMustBelongToTheRun() {
@@ -187,22 +193,88 @@ class Engine15RunningDebriefAnalyzerTest {
         val linked = execution().copy(aerobicDecouplingPct = 6.2)
         fun text(profile: ExecutionHrZoneProfile?): String {
             val result = requireNotNull(Engine15RunningDebriefAnalyzer.analyze(activity, recording(), linked, profile))
-            return (result.paragraphs + result.insights.map { it.body }).joinToString(" ")
+            return (result.insights.map { it.body } + listOfNotNull(result.nextFocus)).joinToString(" ")
         }
         assertTrue(text(zones).contains("6.2%"))
         assertFalse(text(null).contains("6.2%"))
     }
 
-    @Test fun richRecordingKeepsContextBeyondTheRankedHighlights() {
+    @Test fun richRecordingSynthesizesCoachingWithoutRepeatingRawDynamicsOrHeader() {
         val run = activity.copy(durationS = 1350.0, elevationM = 82.0, maximumHr = 171.0)
         val detail = recording().copy(runningDynamics = RunningDynamics(248.0, 8.1, 1.05, 7.7, 176.0))
         val result = requireNotNull(Engine15RunningDebriefAnalyzer.analyze(run, detail, verifiedHrZones = zones))
-        val text = (result.insights.map { it.body } + result.paragraphs).joinToString(" ")
-        for (value in listOf("4.00 km", "2:30", "82 m", "171 bpm", "248 ms", "8.1 cm", "1.05 m", "7.7%", "176 steps")) {
-            assertTrue(value, text.contains(value))
-        }
-        assertTrue(result.paragraphs.isNotEmpty())
-        assertTrue(result.paragraphs.none { paragraph -> result.insights.any { it.body == paragraph } })
+        val text = (listOf(result.headline, result.summary) + result.insights.map { it.body } + listOfNotNull(result.nextFocus)).joinToString(" ")
+        assertTrue(result.paragraphs.isEmpty())
+        assertFalse("Should not repeat header distance", text.contains("4.00 km"))
+        assertFalse("Should not repeat RunningDynamicsCard oscillation", text.contains("8.1 cm"))
+        assertFalse("Should not repeat RunningDynamicsCard step length", text.contains("1.05 m"))
+        assertFalse("Should not repeat RunningDynamicsCard vertical ratio", text.contains("7.7%"))
+        assertFalse("Should not use em-dash", text.contains("—") || text.contains("--"))
+        assertFalse(result.nextFocus.isNullOrBlank())
+    }
+
+    @Test fun easyRunGreyZoneCreepSurfacesCautionAndNextFocus() {
+        val detail = recording(samples(hr = { if (it < 600) 150.0 else 164.0 }))
+        val result = requireNotNull(Engine15RunningDebriefAnalyzer.analyze(
+            activity, detail, verifiedHrZones = zones, sessionIntent = ActivityWorkoutKind.EASY_RUN
+        ))
+        val lead = result.insights.first()
+        assertEquals(DebriefCategory.INTENT_AND_ZONES, lead.category)
+        assertEquals(DebriefTone.CAUTION, lead.tone)
+        assertTrue(lead.title.contains("Easy day", ignoreCase = true))
+        assertTrue(result.nextFocus?.contains("full sentences", ignoreCase = true) == true)
+    }
+
+    @Test fun wentOutHotPositiveSplitVsHillExplainedSlowdownAndCadenceDrop() {
+        val hotDetail = recording(samples(
+            pace = { if (it < 600) 360.0 else 410.0 },
+            hr = { 165.0 },
+            cadence = { if (it < 600) 180.0 else 174.0 }
+        ))
+        val hot = requireNotNull(Engine15RunningDebriefAnalyzer.analyze(activity, hotDetail, verifiedHrZones = zones))
+        val pacing = hot.insights.first { it.category == DebriefCategory.PACING_AND_HR }
+        assertEquals(DebriefTone.CAUTION, pacing.tone)
+        assertTrue(pacing.title.contains("Opened too fast", ignoreCase = true))
+
+        val hillDetail = recording(samples(
+            pace = { if (it < 600) 360.0 else 410.0 },
+            hr = { 165.0 }
+        ).map { it.copy(altitude = if (it.seconds < 600) 10.0 else 55.0) })
+        val hill = requireNotNull(Engine15RunningDebriefAnalyzer.analyze(activity, hillDetail, verifiedHrZones = zones))
+        val hillPacing = hill.insights.first { it.category == DebriefCategory.TERRAIN_AND_SPLITS }
+        assertEquals(DebriefTone.POSITIVE, hillPacing.tone)
+        assertTrue(hillPacing.title.contains("hills", ignoreCase = true))
+
+        val steadyPaceDropCadence = recording(samples(
+            pace = { 390.0 },
+            cadence = { if (it < 600) 182.0 else 174.0 }
+        ))
+        val cad = requireNotNull(Engine15RunningDebriefAnalyzer.analyze(activity, steadyPaceDropCadence))
+        assertEquals(DebriefTone.CAUTION, cad.insights.first { it.category == DebriefCategory.CADENCE }.tone)
+    }
+
+    @Test fun multiRepIntervalsIdentifyFrontLoadedFadeAndThirtyDayDistanceJump() {
+        val fadeDetail = recording(emptyList(), listOf(
+            ActivityLap(0, 400.0, 92.0, 230.0, null, workoutStepIndex = 1),
+            ActivityLap(1, 200.0, 120.0, 600.0, null, workoutStepIndex = 2),
+            ActivityLap(2, 400.0, 100.0, 250.0, null, workoutStepIndex = 1),
+            ActivityLap(3, 200.0, 120.0, 600.0, null, workoutStepIndex = 2),
+            ActivityLap(4, 400.0, 108.0, 270.0, null, workoutStepIndex = 1)
+        )).copy(workoutSteps = listOf(ActivityWorkoutStep(1, null, "active", null, null, null)))
+        val fade = requireNotNull(Engine15RunningDebriefAnalyzer.analyze(activity, fadeDetail))
+        assertEquals(DebriefTone.CAUTION, fade.insights.first { it.category == DebriefCategory.EXECUTION }.tone)
+        assertTrue(fade.headline.contains("Front-loaded", ignoreCase = true))
+
+        val bigRun = activity.copy(distanceM = 18_000.0, startedAt = Instant.parse("2026-11-26T06:00:00Z"))
+        val prior1 = activity.copy(id = "p1", distanceM = 10_000.0, startedAt = Instant.parse("2026-11-12T06:00:00Z"))
+        val prior2 = activity.copy(id = "p2", distanceM = 12_000.0, startedAt = Instant.parse("2026-11-19T06:00:00Z"))
+        val jump = requireNotNull(Engine15RunningDebriefAnalyzer.analyze(
+            bigRun, recording(samples(pace = { 390.0 })), history = listOf(prior1, prior2)
+        ))
+        val load = jump.insights.first { it.category == DebriefCategory.LOAD_AND_RECOVERY }
+        assertEquals(DebriefTone.CAUTION, load.tone)
+        assertTrue(load.body.contains("50%"))
+        assertFalse(listOfNotNull(jump.headline, jump.summary, jump.nextFocus).joinToString(" ").contains("—"))
     }
 
     @Test fun paceOnlyDebriefDoesNotMentionUnmeasuredEffortOrMechanics() {

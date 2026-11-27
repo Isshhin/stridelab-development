@@ -54,6 +54,8 @@ internal data class Engine15ProvisionalPaceZones(
         maxOf(steady.fastSecondsPerKm + 12.0, intervals.slowSecondsPerKm + 20.0),
         maxOf(steady.fastSecondsPerKm + 20.0, intervals.slowSecondsPerKm + 30.0, easy.slowSecondsPerKm + 5.0)
     ),
+    val coachingGuidanceBandFactor: Double = Engine15RunningPolicyRegistry.POL_021_GUIDANCE_BAND_FRESH,
+    val effortFirstRecommended: Boolean = false,
     val provisional: Boolean = true,
     val sourceEvidenceVerified: Boolean = false
 ) {
@@ -86,7 +88,70 @@ internal data class Engine15ProvisionalPaceZones(
  */
 internal object Engine15PaceZoneEstimator {
     const val POLICY_ID = "stridelab.engine15.provisional-pace-zones-v1"
-    private const val RIEGEL_EXPONENT = 1.06
+    private const val RIEGEL_EXPONENT = Engine15RunningPolicyRegistry.POL_017_RIEGEL_EXPONENT
+
+    internal fun estimateMarathonVickersModel1(
+        distanceMeters: Double,
+        durationSeconds: Double,
+        weeklyMeters: Double,
+        courseDifficulty: VickersCourseDifficulty = VickersCourseDifficulty.AVERAGE
+    ): M2AModelResult<VickersModel1Output> {
+        if (!distanceMeters.isFinite() || !durationSeconds.isFinite() || !weeklyMeters.isFinite() ||
+            distanceMeters <= 0.0 || durationSeconds <= 0.0 || weeklyMeters <= 0.0
+        ) {
+            return M2AModelResult.InvalidInput("MOD-04", "NON_FINITE_OR_NON_POSITIVE", "MOD-04 inputs must be finite and > 0")
+        }
+        return Engine15M2AVickersModel1.predictMarathon(
+            raceDistance = Meters.of(distanceMeters),
+            raceDuration = Seconds.of(durationSeconds),
+            weeklyVolumePerWeek = Meters.of(weeklyMeters),
+            courseDifficulty = courseDifficulty
+        )
+    }
+
+    internal fun estimateMarathonVickersModel2(
+        shorterDistanceMeters: Double,
+        shorterDurationSeconds: Double,
+        longerDistanceMeters: Double,
+        longerDurationSeconds: Double,
+        weeklyMeters: Double,
+        shorterCourseDifficulty: VickersCourseDifficulty = VickersCourseDifficulty.AVERAGE,
+        longerCourseDifficulty: VickersCourseDifficulty = VickersCourseDifficulty.AVERAGE
+    ): M2AModelResult<VickersModel2Output> {
+        if (!shorterDistanceMeters.isFinite() || !shorterDurationSeconds.isFinite() ||
+            !longerDistanceMeters.isFinite() || !longerDurationSeconds.isFinite() || !weeklyMeters.isFinite() ||
+            shorterDistanceMeters <= 0.0 || shorterDurationSeconds <= 0.0 ||
+            longerDistanceMeters <= 0.0 || longerDurationSeconds <= 0.0 || weeklyMeters <= 0.0
+        ) {
+            return M2AModelResult.InvalidInput("MOD-05", "NON_FINITE_OR_NON_POSITIVE", "MOD-05 inputs must be finite and > 0")
+        }
+        return Engine15M2AVickersModel2.predictMarathon(
+            shorterDistance = Meters.of(shorterDistanceMeters),
+            shorterDuration = Seconds.of(shorterDurationSeconds),
+            longerDistance = Meters.of(longerDistanceMeters),
+            longerDuration = Seconds.of(longerDurationSeconds),
+            weeklyVolumePerWeek = Meters.of(weeklyMeters),
+            shorterCourseDifficulty = shorterCourseDifficulty,
+            longerCourseDifficulty = longerCourseDifficulty
+        )
+    }
+
+    internal fun durationAnchoredThresholdPaceSecPerKm(
+        distanceMeters: Double,
+        durationSeconds: Double
+    ): Double? {
+        if (!distanceMeters.isFinite() || !durationSeconds.isFinite() ||
+            distanceMeters <= 0.0 || durationSeconds !in 720.0..7_200.0
+        ) {
+            return null
+        }
+        val v1 = distanceMeters / durationSeconds
+        val scale = (Engine15RunningPolicyRegistry.POL_020_OPERATIONAL_THRESHOLD_REF_S / durationSeconds)
+            .pow(-Engine15RunningPolicyRegistry.POL_020_DURATION_SCALING_GAMMA)
+        val vThr = v1 * scale
+        if (!vThr.isFinite() || vThr <= 0.0) return null
+        return (1000.0 / vThr).coerceIn(170.0, 650.0)
+    }
 
     private data class HistoricalRunSample(
         val startedAt: Instant,
@@ -160,14 +225,30 @@ internal object Engine15PaceZoneEstimator {
         val benchDist = request.benchmarkDistanceMeters
         val benchSec = request.benchmarkDurationSeconds
         if (benchDist != null && benchSec != null && benchDist in 1000..100000 && benchSec in 120..43200) {
-            val tenKSeconds = benchSec.toDouble() * (10_000.0 / benchDist.toDouble()).pow(RIEGEL_EXPONENT)
+            // MOD-06 duration-anchored operational threshold (54 min reference) + MOD-03 k = 1.07
+            val thresholdPace = durationAnchoredThresholdPaceSecPerKm(benchDist.toDouble(), benchSec.toDouble())
+                ?: ((benchSec.toDouble() * (10_000.0 / benchDist.toDouble()).pow(RIEGEL_EXPONENT)) / 10.0)
+                    .coerceIn(170.0, 600.0)
             val fiveKSeconds = benchSec.toDouble() * (5_000.0 / benchDist.toDouble()).pow(RIEGEL_EXPONENT)
-            val thresholdPace = (tenKSeconds / 10.0).coerceIn(170.0, 600.0)
             val fiveKPace = (fiveKSeconds / 5.0).coerceIn(160.0, 580.0)
+            val vickersMarathonPace = if (request.weeklyKm > 0.0 && benchDist <= 21_100) {
+                (estimateMarathonVickersModel1(
+                    distanceMeters = benchDist.toDouble(),
+                    durationSeconds = benchSec.toDouble(),
+                    weeklyMeters = request.weeklyKm * 1000.0
+                ) as? M2AModelResult.Computed)?.value?.predictedMarathonSpeed?.value?.let { vM ->
+                    if (vM > 0.0 && vM.isFinite()) (1000.0 / vM).coerceIn(180.0, 720.0) else null
+                }
+            } else {
+                null
+            }
             return buildFromThresholdAndFiveK(
                 basis = Engine15PaceBandBasis.RECENT_BENCHMARK_ESTIMATE,
                 thresholdPace = thresholdPace,
-                fiveKPace = fiveKPace
+                fiveKPace = fiveKPace,
+                marathonMidPaceOverride = vickersMarathonPace,
+                guidanceBandFactor = Engine15RunningPolicyRegistry.POL_021_GUIDANCE_BAND_FRESH,
+                effortFirstRecommended = false
             )
         }
 
@@ -207,7 +288,9 @@ internal object Engine15PaceZoneEstimator {
                 basis = Engine15PaceBandBasis.CONFIRMED_EASY_BASELINE_ESTIMATE,
                 thresholdPace = thresholdPace,
                 fiveKPace = fiveKPace,
-                observedEasyAnchor = easyAnchorPace
+                observedEasyAnchor = easyAnchorPace,
+                guidanceBandFactor = Engine15RunningPolicyRegistry.POL_021_GUIDANCE_BAND_PROVISIONAL,
+                effortFirstRecommended = true
             )
         }
 
@@ -219,7 +302,9 @@ internal object Engine15PaceZoneEstimator {
                 basis = Engine15PaceBandBasis.CONFIRMED_EASY_BASELINE_ESTIMATE,
                 thresholdPace = thresholdPace,
                 fiveKPace = fiveKPace,
-                observedEasyAnchor = confirmedEasy
+                observedEasyAnchor = confirmedEasy,
+                guidanceBandFactor = Engine15RunningPolicyRegistry.POL_021_GUIDANCE_BAND_PROVISIONAL,
+                effortFirstRecommended = true
             )
         }
 
@@ -229,7 +314,9 @@ internal object Engine15PaceZoneEstimator {
         return buildFromThresholdAndFiveK(
             basis = Engine15PaceBandBasis.PLANNING_PACE_ESTIMATE,
             thresholdPace = thresholdPace,
-            fiveKPace = fiveKPace
+            fiveKPace = fiveKPace,
+            guidanceBandFactor = Engine15RunningPolicyRegistry.POL_021_GUIDANCE_BAND_PROVISIONAL,
+            effortFirstRecommended = true
         )
     }
 
@@ -237,7 +324,10 @@ internal object Engine15PaceZoneEstimator {
         basis: Engine15PaceBandBasis,
         thresholdPace: Double,
         fiveKPace: Double,
-        observedEasyAnchor: Double? = null
+        observedEasyAnchor: Double? = null,
+        marathonMidPaceOverride: Double? = null,
+        guidanceBandFactor: Double = Engine15RunningPolicyRegistry.POL_021_GUIDANCE_BAND_FRESH,
+        effortFirstRecommended: Boolean = false
     ): Engine15ProvisionalPaceZones {
         val easyFast = if (observedEasyAnchor != null) {
             minOf(thresholdPace * 1.18, observedEasyAnchor * 0.96).coerceAtLeast(thresholdPace * 1.13)
@@ -250,6 +340,15 @@ internal object Engine15PaceZoneEstimator {
         val tempoRange = Engine15PaceRange(thresholdPace * 1.02, thresholdPace * 1.07)
         val thresholdRange = Engine15PaceRange(thresholdPace * 0.98, thresholdPace * 1.02)
         val intervalsRange = Engine15PaceRange(fiveKPace * 0.95, fiveKPace * 1.00)
+        val marathonRange = if (marathonMidPaceOverride != null && marathonMidPaceOverride.isFinite()) {
+            val halfSpan = 0.025 * marathonMidPaceOverride * guidanceBandFactor
+            Engine15PaceRange(
+                (marathonMidPaceOverride - halfSpan).coerceAtLeast(thresholdPace * 1.04),
+                (marathonMidPaceOverride + halfSpan).coerceAtMost(easySlow)
+            )
+        } else {
+            Engine15PaceRange(thresholdPace * 1.09, thresholdPace * 1.15)
+        }
         val recoveryFast = (easySlow + 15.0).coerceAtMost(1150.0)
         val recoverySlow = (easySlow + 30.0).coerceAtLeast(recoveryFast).coerceAtMost(1180.0)
         val hillShortFast = maxOf(tempoRange.fastSecondsPerKm + 12.0, intervalsRange.slowSecondsPerKm + 15.0)
@@ -266,10 +365,12 @@ internal object Engine15PaceZoneEstimator {
             intervals = intervalsRange,
             recovery = Engine15PaceRange(recoveryFast, recoverySlow),
             halfMarathon = Engine15PaceRange(thresholdPace * 1.03, thresholdPace * 1.07),
-            marathon = Engine15PaceRange(thresholdPace * 1.09, thresholdPace * 1.15),
+            marathon = marathonRange,
             fastIntervals = Engine15PaceRange(intervalsRange.fastSecondsPerKm * 0.96, intervalsRange.fastSecondsPerKm * 1.01),
             hillShort = Engine15PaceRange(hillShortFast, hillShortSlow),
-            hillLong = Engine15PaceRange(hillLongFast, hillLongSlow)
+            hillLong = Engine15PaceRange(hillLongFast, hillLongSlow),
+            coachingGuidanceBandFactor = guidanceBandFactor,
+            effortFirstRecommended = effortFirstRecommended
         )
     }
 
@@ -359,6 +460,45 @@ internal object Engine15PaceZoneEstimator {
             RunningStepIntent.VO2_INTERVAL,
             RunningStepIntent.HILL,
             RunningStepIntent.STRIDE -> (z3High + 1) to z5High
+        }
+        val minBpm = rawMin.coerceIn(60, 230)
+        val maxBpm = rawMax.coerceIn(minBpm, 230)
+        return minBpm to maxBpm
+    }
+
+    /**
+     * Derives HR target bounds from an explicit [ExecutionHrZoneProfile].
+     * Returns null when [profile] is absent (never fabricates 220-age).
+     */
+    fun hrBoundsForProfile(
+        profile: ExecutionHrZoneProfile?,
+        intent: RunningStepIntent,
+        goal: String? = null
+    ): Pair<Int, Int>? {
+        if (profile == null) return null
+        val z1Low = profile.z1FloorBpm
+        val z2Low = profile.z2FloorBpm
+        val z3Low = profile.z3FloorBpm
+        val z4Low = profile.z4FloorBpm
+        val z5Low = profile.z5FloorBpm
+        val z5High = (profile.maxHrBpm ?: (z5Low + 12)).coerceAtLeast(z5Low)
+        val (rawMin, rawMax) = when (intent) {
+            RunningStepIntent.RECOVERY -> z1Low to (z2Low - 1).coerceAtLeast(z1Low)
+            RunningStepIntent.WARMUP,
+            RunningStepIntent.COOLDOWN -> z1Low to ((z2Low + z3Low) / 2).coerceAtLeast(z2Low)
+            RunningStepIntent.AEROBIC_EASY -> z2Low to (z3Low - 1).coerceAtLeast(z2Low)
+            RunningStepIntent.STEADY -> ((z2Low + z3Low) / 2) to (z4Low - 1).coerceAtLeast(z3Low)
+            RunningStepIntent.TEMPO -> z3Low to (z4Low - 1).coerceAtLeast(z3Low)
+            RunningStepIntent.RACE_PACE -> when (goal) {
+                "Marathon" -> z3Low to (z4Low - 1).coerceAtLeast(z3Low)
+                "Half marathon" -> ((z3Low + z4Low) / 2) to ((z4Low + z5Low) / 2).coerceAtLeast(z4Low)
+                "Improve 10K" -> z4Low to (z5Low - 1).coerceAtLeast(z4Low)
+                else -> z4Low to z5High
+            }
+            RunningStepIntent.THRESHOLD -> z4Low to (z5Low - 1).coerceAtLeast(z4Low)
+            RunningStepIntent.VO2_INTERVAL,
+            RunningStepIntent.HILL,
+            RunningStepIntent.STRIDE -> z4Low to z5High
         }
         val minBpm = rawMin.coerceIn(60, 230)
         val maxBpm = rawMax.coerceIn(minBpm, 230)

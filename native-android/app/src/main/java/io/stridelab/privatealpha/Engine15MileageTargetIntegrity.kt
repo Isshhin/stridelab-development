@@ -14,12 +14,17 @@ internal data class Engine15MileageTargetReview(
     val estimatedPeakKm:Double?,
     val requiresFoundationDecision:Boolean
 ) {
-    fun explanation():String {
-        val peak=estimatedPeakKm?.let { "%.1f".format(java.util.Locale.US,it) }
-            ?: "unknown (time-only prescriptions)"
-        return "Requested ${"%.1f".format(java.util.Locale.US,requestedKm)} km/week; " +
-            "reported recent ${"%.1f".format(java.util.Locale.US,reportedRecentKm)} km/week; " +
-            "planned peak $peak. The target is not a delivered weekly prescription."
+    fun explanation(): String {
+        val req = "%.1f".format(java.util.Locale.US, requestedKm)
+        val recent = "%.1f".format(java.util.Locale.US, reportedRecentKm)
+        return if (estimatedPeakKm != null) {
+            val peak = "%.1f".format(java.util.Locale.US, estimatedPeakKm)
+            "You're aiming for $req km/week from a recent $recent km/week base. " +
+                "To keep your buildup safe and sustainable, this block builds up to $peak km/week first as a stepping stone toward your goal."
+        } else {
+            "You're aiming for $req km/week from a recent $recent km/week base. " +
+                "Because these runs are time-based, we'll focus on building your foundation safely before targeting that weekly distance."
+        }
     }
 }
 

@@ -231,6 +231,13 @@ class AmoledWorkoutPlayerTest {
         }
         fixtures.forEach { fixture ->
             compose.runOnIdle { plan.value = fixture }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithTag("coached-open-player").fetchSemanticsNodes().isNotEmpty() ||
+                    compose.onAllNodesWithTag("player-done-set").fetchSemanticsNodes().isNotEmpty()
+            }
+            if (compose.onAllNodesWithTag("coached-open-player").fetchSemanticsNodes().isNotEmpty()) {
+                compose.onNodeWithTag("coached-open-player").performClick()
+            }
             compose.waitUntil(5_000) { compose.onAllNodesWithTag("player-done-set").fetchSemanticsNodes().isNotEmpty() }
             if (fixture.sessions.single().exercises.single().seconds != null) {
                 compose.onNodeWithTag("player-done-set").performClick()

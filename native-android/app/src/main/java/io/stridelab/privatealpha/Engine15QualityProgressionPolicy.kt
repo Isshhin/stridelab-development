@@ -386,15 +386,17 @@ internal object Engine15QualityProgressionPolicy {
             IndependentQualityFamily.THRESHOLD,
             IndependentQualityFamily.PROGRESSION -> when {
                 request.experience == 0 -> if (effectiveWeeklyKm < 25.0) 10 * 60 else 12 * 60
-                effectiveWeeklyKm >= 55.0 -> if (sessionsPerWeek == 2) 16 * 60 else 24 * 60
-                effectiveWeeklyKm >= 35.0 -> if (sessionsPerWeek == 2) 12 * 60 else 18 * 60
+                effectiveWeeklyKm >= 55.0 -> if (sessionsPerWeek == 2) 18 * 60 else 26 * 60
+                effectiveWeeklyKm >= 40.0 -> if (sessionsPerWeek == 2) 14 * 60 else 20 * 60
+                effectiveWeeklyKm >= 30.0 -> if (sessionsPerWeek == 2) 12 * 60 else 16 * 60
                 else -> if (sessionsPerWeek == 2) 10 * 60 else 12 * 60
             }
             IndependentQualityFamily.INTERVALS,
             IndependentQualityFamily.FARTLEK -> when {
                 request.experience == 0 -> 8 * 60
-                effectiveWeeklyKm >= 55.0 -> if (sessionsPerWeek == 2) 12 * 60 else 18 * 60
-                effectiveWeeklyKm >= 35.0 -> if (sessionsPerWeek == 2) 10 * 60 else 14 * 60
+                effectiveWeeklyKm >= 55.0 -> if (sessionsPerWeek == 2) 14 * 60 else 18 * 60
+                effectiveWeeklyKm >= 40.0 -> if (sessionsPerWeek == 2) 12 * 60 else 15 * 60
+                effectiveWeeklyKm >= 30.0 -> if (sessionsPerWeek == 2) 10 * 60 else 12 * 60
                 else -> 8 * 60
             }
             IndependentQualityFamily.HILLS -> when {
@@ -770,9 +772,9 @@ internal object Engine15QualityProgressionPolicy {
             pyramidStep(
                 1, "PEAK_1",
                 listOf(
-                    PyramidLeg(1000, WorkoutTarget.THRESHOLD, recoverySeconds = 90),
-                    PyramidLeg(2000, WorkoutTarget.THRESHOLD, recoverySeconds = 120),
-                    PyramidLeg(1000, WorkoutTarget.INTERVALS, recoverySeconds = 90),
+                    PyramidLeg(1000, WorkoutTarget.THRESHOLD, recoveryMeters = 400),
+                    PyramidLeg(1600, WorkoutTarget.THRESHOLD, recoveryMeters = 600),
+                    PyramidLeg(1000, WorkoutTarget.INTERVALS, recoveryMeters = 400),
                     PyramidLeg(800, WorkoutTarget.INTERVALS)
                 ),
                 zones
@@ -793,25 +795,25 @@ internal object Engine15QualityProgressionPolicy {
             Engine15WorkoutArchetype.SHORT_TRACK_REPEATS,
             Engine15WorkoutArchetype.CLASSIC_VO2MAX_INTERVALS,
             Engine15WorkoutArchetype.SPEED_ENDURANCE_PYRAMID -> Triple(
-                if (exp >= 2) 0.08 else 0.07,
-                if (qualityCount >= 2) 18 * 60 else if (exp >= 2) 24 * 60 else 20 * 60,
+                when { exp >= 2 -> 0.09; exp == 1 -> 0.08; else -> 0.07 },
+                if (qualityCount >= 2) 18 * 60 else if (exp >= 2) 26 * 60 else 22 * 60,
                 3200
             )
             Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS -> Triple(
-                if (exp >= 2) 0.10 else 0.09,
-                if (exp >= 2) 36 * 60 else 28 * 60,
-                3000
+                when { exp >= 2 -> 0.13; exp == 1 -> 0.11; else -> 0.09 },
+                if (exp >= 2) 40 * 60 else 32 * 60,
+                if (exp >= 1) 4000 else 3000
             )
             Engine15WorkoutArchetype.CONTINUOUS_TEMPO,
             Engine15WorkoutArchetype.BROKEN_TEMPO,
             Engine15WorkoutArchetype.AEROBIC_FARTLEK -> Triple(
-                if (exp >= 2) 0.12 else 0.11,
-                when (exp) { 0 -> 20 * 60; 1 -> 36 * 60; else -> 45 * 60 },
+                when { exp >= 2 -> 0.15; exp == 1 -> 0.13; else -> 0.11 },
+                when (exp) { 0 -> 20 * 60; 1 -> 38 * 60; else -> 45 * 60 },
                 2500
             )
             Engine15WorkoutArchetype.SHORT_HILL_SPRINTS -> Triple(0.06, 8 * 60, 1200)
             Engine15WorkoutArchetype.LONG_AEROBIC_HILLS -> Triple(0.07, if (qualityCount >= 2) 10 * 60 else 12 * 60, 1500)
-            else -> Triple(0.10, 30 * 60, 2500)
+            else -> Triple(0.11, 32 * 60, 2500)
         }
         val cappedMeters = maxOf(floorMeters, kotlin.math.round(weeklyKm * 1000.0 * pct * perSessionShareFactor).toInt())
         return cappedMeters to maxSec
@@ -835,16 +837,60 @@ internal object Engine15QualityProgressionPolicy {
         IndependentQualityFamily.FARTLEK -> WorkoutTarget.FARTLEK
     }
 
+    internal fun recommendedMaxQualitySlotKm(
+        request: PlanRequest,
+        selectedFamily: IndependentQualityFamily,
+        zones: Engine15ProvisionalPaceZones,
+        adaptiveExposureSec: Int? = null
+    ): Double {
+        val anchorSec = adaptiveExposureSec
+            ?: computeAdaptiveExposureAnchorSeconds(request, selectedFamily)
+        val ceilingSec = maxOf(anchorSec + MAX_EXPOSURE_INCREMENT_SECONDS, (anchorSec * 1.35).roundToInt())
+        val archPool = (adaptiveArchetypeRotation(request, selectedFamily) +
+            phaseArchetypePool(request, selectedFamily, Engine15MacroPhase.BUILD)).distinct()
+        val easyPace = zones.easy.midpointSecondsPerKm
+        val slotKms = archPool.map { arch ->
+            val fam = arch.family ?: selectedFamily
+            val target = workTargetForFamily(fam)
+            val workPace = zones.forTarget(target, arch).midpointSecondsPerKm
+            val (_, archCeilingSec) = doseCeilingForArchetype(arch, request.weeklyKm.coerceAtLeast(20.0), request.experience, request.qualityCount.coerceIn(1, 2))
+            val steps = adaptiveLadder(arch, request.experience, zones, preferDistanceBased = false)
+            val chosen = steps.lastOrNull { it.workSeconds <= minOf(ceilingSec, archCeilingSec) } ?: steps.first()
+            val workKm = if (chosen.workMeters > 0) chosen.workMeters / 1000.0 else chosen.workSeconds / workPace
+            val recKm = (chosen.recoveryMeters / 1000.0) +
+                (if (chosen.recoveryMeters > 0) 0.0 else chosen.recoverySeconds / easyPace)
+            val bookendMin = if (chosen.workSeconds <= 15 * 60) 16 else 20
+            workKm + recKm + (bookendMin * 60.0 / easyPace)
+        }.sorted()
+        return slotKms[slotKms.size / 2].coerceAtLeast(3.5)
+    }
+
     private fun fitWarmupCooldownToSlotDistance(
         doseStep: Engine15QualityDoseStep,
         workTarget: WorkoutTarget,
         slotDistanceKm: Double,
         zones: Engine15ProvisionalPaceZones,
-        timeBudgetSeconds: Int?
+        timeBudgetSeconds: Int?,
+        experience: Int
     ): Engine15QualityDoseStep {
         val minWarmupMin = 8
         val minCooldownMin = 5
         val minCombinedMin = minWarmupMin + minCooldownMin
+        val isShortTimeCap = timeBudgetSeconds != null && timeBudgetSeconds <= 45 * 60
+        val coreWorkRecMin = (doseStep.workSeconds + doseStep.recoverySeconds) / 60.0
+        val maxWarmupMin = when {
+            isShortTimeCap -> 10
+            experience >= 1 && coreWorkRecMin < 18.0 -> 10
+            coreWorkRecMin < 21.0 -> 12
+            else -> 15
+        }
+        val maxCooldownMin = when {
+            isShortTimeCap -> 6
+            experience >= 1 && coreWorkRecMin < 18.0 -> 7
+            coreWorkRecMin < 21.0 -> 8
+            else -> 10
+        }
+        val hardMaxCombinedMin = maxWarmupMin + maxCooldownMin
         val easyPace = zones.easy.midpointSecondsPerKm
         val workPace = zones.forTarget(workTarget, doseStep.archetype).midpointSecondsPerKm
         val coreWorkMeters = if (doseStep.workMeters > 0) {
@@ -856,14 +902,36 @@ internal object Engine15QualityProgressionPolicy {
         val coreRecMeters = doseStep.recoveryMeters.toDouble() + timedRecSeconds * (1000.0 / easyPace)
         val coreSeconds = doseStep.workSeconds + doseStep.recoverySeconds
         val targetEasyMeters = (slotDistanceKm * 1000.0 - coreWorkMeters - coreRecMeters).coerceAtLeast(0.0)
+        val workRange = zones.forTarget(workTarget, doseStep.archetype)
+        val maxAbsorbableWorkMeters = if (doseStep.workMeters > 0) {
+            doseStep.workMeters.toDouble()
+        } else {
+            doseStep.workSeconds * (1000.0 / (workRange.fastSecondsPerKm * 0.83))
+        }
+        val maxAbsorbableRecMeters = doseStep.recoveryMeters.toDouble() +
+            timedRecSeconds * (1000.0 / (zones.easy.fastSecondsPerKm * 0.83))
+        val maxAbsorbableEasyMeters = (hardMaxCombinedMin * 60.0) * (1000.0 / (zones.easy.fastSecondsPerKm * 0.83))
+        val maxTotalReachableMeters = maxAbsorbableWorkMeters + maxAbsorbableRecMeters + maxAbsorbableEasyMeters
+        val slotMeters = slotDistanceKm * 1000.0
+        val upperCombinedMin = if (slotMeters > maxTotalReachableMeters) {
+            val remainingForEasy = (slotMeters - maxAbsorbableWorkMeters - maxAbsorbableRecMeters).coerceAtLeast(0.0)
+            val overflowNeededMin = kotlin.math.ceil(
+                remainingForEasy * (zones.easy.fastSecondsPerKm * 0.83) / 60_000.0
+            ).toInt()
+            maxOf(hardMaxCombinedMin, overflowNeededMin)
+        } else {
+            hardMaxCombinedMin
+        }
         val maxCombinedMin = timeBudgetSeconds?.let {
-            minOf(90, maxOf(minCombinedMin, (it - coreSeconds) / 60))
-        } ?: 90
+            minOf(upperCombinedMin, maxOf(minCombinedMin, (it - coreSeconds) / 60))
+        } ?: upperCombinedMin
         val desiredEasyMin = (targetEasyMeters * easyPace / 60_000.0).roundToInt()
             .coerceIn(minCombinedMin, maxCombinedMin)
-        val wuMin = (desiredEasyMin * 0.52).roundToInt()
-            .coerceIn(minWarmupMin, minOf(45, desiredEasyMin - minCooldownMin).coerceAtLeast(minWarmupMin))
-        val cdMin = (desiredEasyMin - wuMin).coerceIn(minCooldownMin, 45)
+        val wuCap = if (desiredEasyMin > hardMaxCombinedMin) (desiredEasyMin * 0.60).roundToInt().coerceAtLeast(maxWarmupMin) else maxWarmupMin
+        val cdCap = if (desiredEasyMin > hardMaxCombinedMin) (desiredEasyMin - wuCap).coerceAtLeast(maxCooldownMin) else maxCooldownMin
+        val wuMin = (desiredEasyMin * 0.60).roundToInt()
+            .coerceIn(minWarmupMin, minOf(wuCap, desiredEasyMin - minCooldownMin).coerceAtLeast(minWarmupMin))
+        val cdMin = (desiredEasyMin - wuMin).coerceIn(minCooldownMin, cdCap)
         val wuSec = wuMin * 60
         val cdSec = cdMin * 60
         val elements = doseStep.workout.elements
@@ -906,8 +974,9 @@ internal object Engine15QualityProgressionPolicy {
             Engine15MacroPhase.BUILD -> when (request.goal) {
                 "Improve 5K" -> listOf(
                     Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
-                    Engine15WorkoutArchetype.CLASSIC_VO2MAX_INTERVALS,
+                    Engine15WorkoutArchetype.SHORT_TRACK_REPEATS,
                     Engine15WorkoutArchetype.LONG_AEROBIC_HILLS,
+                    Engine15WorkoutArchetype.CLASSIC_VO2MAX_INTERVALS,
                     Engine15WorkoutArchetype.BROKEN_TEMPO
                 )
                 "Improve 10K" -> listOf(
@@ -944,8 +1013,8 @@ internal object Engine15QualityProgressionPolicy {
             }
             Engine15MacroPhase.PEAK -> when (request.goal) {
                 "Improve 5K" -> if (request.experience >= 2) listOf(
-                    Engine15WorkoutArchetype.SHORT_TRACK_REPEATS,
                     Engine15WorkoutArchetype.SPEED_ENDURANCE_PYRAMID,
+                    Engine15WorkoutArchetype.SHORT_TRACK_REPEATS,
                     Engine15WorkoutArchetype.CLASSIC_VO2MAX_INTERVALS
                 ) else listOf(
                     Engine15WorkoutArchetype.SHORT_TRACK_REPEATS,
@@ -1061,6 +1130,7 @@ internal object Engine15QualityProgressionPolicy {
             val ordinalByWeek = distinctLoadingWeeks.withIndex().associate { (i, w) -> w to i }
             val archCounts = mutableMapOf<Engine15WorkoutArchetype, Int>()
             val phaseSlotCounts = mutableMapOf<Engine15MacroPhase, Int>()
+            val usedFamiliesByWeek = mutableMapOf<Int, MutableSet<IndependentQualityFamily>>()
 
             return slots.mapIndexed { slotIndex, slot ->
                 val weekOrdinal = ordinalByWeek[slot.weekNumber] ?: slotIndex
@@ -1077,7 +1147,7 @@ internal object Engine15QualityProgressionPolicy {
                 val phaseSlotIdx = phaseSlotCounts[weekPhase] ?: 0
                 phaseSlotCounts[weekPhase] = phaseSlotIdx + 1
 
-                val primaryArch = when {
+                val rawPrimaryArch = when {
                     phasePool.size == 1 -> phasePool.first()
                     isRaceTaperWeek -> phasePool.first()
                     isConservativeAthlete && weekOrdinal < 2 -> phasePool.first()
@@ -1085,6 +1155,15 @@ internal object Engine15QualityProgressionPolicy {
                     phasesByWeek.isNotEmpty() -> phasePool[phaseSlotIdx % phasePool.size]
                     slotIndex == 0 -> phasePool.first()
                     else -> phasePool[slotIndex % phasePool.size]
+                }
+                val usedInWeek = usedFamiliesByWeek.getOrPut(slot.weekNumber) { mutableSetOf() }
+                val rawFam = rawPrimaryArch.family ?: family
+                val primaryArch = if (rawFam in usedInWeek) {
+                    (phasePool + archRotation).distinct().firstOrNull { cand ->
+                        (cand.family ?: family) !in usedInWeek
+                    } ?: rawPrimaryArch
+                } else {
+                    rawPrimaryArch
                 }
                 val occurrenceIdx = archCounts[primaryArch] ?: 0
                 archCounts[primaryArch] = occurrenceIdx + 1
@@ -1103,6 +1182,25 @@ internal object Engine15QualityProgressionPolicy {
                         return false
                     }
                     return true
+                }
+
+                fun canReachSlot(cand: Engine15QualityDoseStep, arch: Engine15WorkoutArchetype): Boolean {
+                    val target = workTargetForFamily(arch.family ?: family)
+                    val easyFastPace = deterministicZones.easy.fastSecondsPerKm
+                    val easyMidPace = deterministicZones.easy.midpointSecondsPerKm
+                    val workFastPace = deterministicZones.forTarget(target, arch).fastSecondsPerKm
+                    val coreMin = (cand.workSeconds + cand.recoverySeconds) / 60.0
+                    val maxBookendSec = when {
+                        timeBudgetSeconds != null && timeBudgetSeconds <= 45 * 60 -> 16 * 60.0
+                        coreMin < 21.0 -> 20 * 60.0
+                        else -> 25 * 60.0
+                    }
+                    val maxEasyMeters = maxBookendSec * (1000.0 / (easyFastPace * 0.86))
+                    val workM = if (cand.workMeters > 0) cand.workMeters.toDouble() else cand.workSeconds * (1000.0 / (workFastPace * 0.96))
+                    val recM = cand.recoveryMeters.toDouble() +
+                        (if (cand.recoveryMeters > 0) 0 else cand.recoverySeconds) * (1000.0 / easyMidPace)
+                    val slotMeters = slot.originalEasyDistanceKm * 1000.0
+                    return workM + recM + maxEasyMeters >= slotMeters * 0.96
                 }
 
                 val preferDist = occurrenceIdx % 2 == 0
@@ -1138,17 +1236,66 @@ internal object Engine15QualityProgressionPolicy {
                         }
                     }
                 }
+                val slotWeekKm = weeklyBudgetsByWeek[slot.weekNumber] ?: request.weeklyKm
+                val (_, chosenCeilSec) = doseCeilingForArchetype(
+                    chosenArch, slotWeekKm, request.experience, request.qualityCount
+                )
+                if (archSteps.none { it.workSeconds <= chosenCeilSec && fitsSlot(it, chosenArch) && canReachSlot(it, chosenArch) }) {
+                    val reachPool = (phasePool + archRotation + listOf(
+                        Engine15WorkoutArchetype.THRESHOLD_CRUISE_INTERVALS,
+                        Engine15WorkoutArchetype.CONTINUOUS_TEMPO,
+                        Engine15WorkoutArchetype.BROKEN_TEMPO
+                    )).distinct()
+                    val reachableAlt = reachPool.firstOrNull { candArch ->
+                        val (_, candCeilSec) = doseCeilingForArchetype(
+                            candArch, slotWeekKm, request.experience, request.qualityCount
+                        )
+                        (candArch.family ?: family) !in usedInWeek &&
+                            adaptiveLadder(candArch, request.experience, deterministicZones, false)
+                                .any { it.workSeconds <= candCeilSec && fitsSlot(it, candArch) && canReachSlot(it, candArch) }
+                    } ?: reachPool.firstOrNull { candArch ->
+                        val (_, candCeilSec) = doseCeilingForArchetype(
+                            candArch, slotWeekKm, request.experience, request.qualityCount
+                        )
+                        adaptiveLadder(candArch, request.experience, deterministicZones, false)
+                            .any { it.workSeconds <= candCeilSec && fitsSlot(it, candArch) && canReachSlot(it, candArch) }
+                    }
+                    if (reachableAlt != null) {
+                        chosenArch = reachableAlt
+                        archSteps = adaptiveLadder(chosenArch, request.experience, deterministicZones, false)
+                    }
+                }
 
                 val weekFamily = chosenArch.family ?: family
+                usedInWeek.add(weekFamily)
                 val weekIntro = archSteps.first()
                 val weekAnchorIdx = (anchorRatio * archSteps.lastIndex).roundToInt().coerceIn(0, archSteps.lastIndex)
                 val blockIndex = (slot.weekNumber - 1) / 4
                 val weekInBlock = (slot.weekNumber - 1) % 4
+                val minReachIdx = archSteps.indexOfFirst { fitsSlot(it, chosenArch) && canReachSlot(it, chosenArch) }
+                    .takeIf { it >= 0 } ?: 0
+                val minNonNoviceIdx = if (request.experience >= 1 && !isRaceTaperWeek &&
+                    weekFamily in setOf(
+                        IndependentQualityFamily.TEMPO,
+                        IndependentQualityFamily.THRESHOLD,
+                        IndependentQualityFamily.FARTLEK,
+                        IndependentQualityFamily.INTERVALS
+                    )
+                ) {
+                    maxOf(
+                        minReachIdx,
+                        archSteps.indexOfFirst { (it.workSeconds + it.recoverySeconds) >= 18 * 60 }
+                            .takeIf { it >= 0 } ?: 0
+                    )
+                } else {
+                    minReachIdx
+                }
                 val desiredIndex = when {
-                    isRaceTaperWeek -> minOf(weekAnchorIdx, 1).coerceAtLeast(0)
-                    isConservativeAthlete && weekOrdinal < 2 -> 0
-                    isConservativeAthlete -> ((weekOrdinal - 1) / 2).coerceIn(1, archSteps.lastIndex)
-                    else -> (weekAnchorIdx + blockIndex + weekInBlock).coerceAtMost(archSteps.lastIndex)
+                    isRaceTaperWeek -> maxOf(minReachIdx, minOf(weekAnchorIdx, 1).coerceAtLeast(0))
+                        .coerceAtMost(archSteps.lastIndex)
+                    isConservativeAthlete && weekOrdinal < 2 -> minReachIdx
+                    isConservativeAthlete -> ((weekOrdinal - 1) / 2).coerceIn(maxOf(1, minReachIdx), archSteps.lastIndex)
+                    else -> (weekAnchorIdx + blockIndex + weekInBlock).coerceIn(minNonNoviceIdx, archSteps.lastIndex)
                 }
 
                 val weekKm = weeklyBudgetsByWeek[slot.weekNumber] ?: request.weeklyKm
@@ -1169,20 +1316,40 @@ internal object Engine15QualityProgressionPolicy {
                     val candMeters = if (cand.workMeters > 0) cand.workMeters else kotlin.math.round(cand.workSeconds * 1000.0 / workPace).toInt()
                     cand.stepIndex == 0 || (cand.workSeconds <= exposureCapSec && candMeters <= ceilingMeters)
                 }.ifEmpty { listOf(weekIntro) }
+                val reachableCandidates = if (candidatesInWindow.none { canReachSlot(it, chosenArch) }) {
+                    archSteps.firstOrNull { it.workSeconds <= ceilingSeconds && fitsSlot(it, chosenArch) && canReachSlot(it, chosenArch) }
+                        ?.let { listOf(it) } ?: candidatesInWindow
+                } else {
+                    candidatesInWindow
+                }
 
                 val timeBounded = if (timeBudgetSeconds != null) {
-                    candidatesInWindow.filter { cand ->
+                    reachableCandidates.filter { cand ->
                         780 + cand.workSeconds + cand.recoverySeconds <= timeBudgetSeconds
                     }.ifEmpty { listOf(weekIntro) }
-                } else candidatesInWindow
+                } else reachableCandidates
 
-                val distanceFitted = timeBounded.lastOrNull { cand -> fitsSlot(cand, chosenArch) } ?: weekIntro
+                val distanceFitted = timeBounded.lastOrNull { cand ->
+                    val minCoreSec = if (request.experience >= 1 && !isRaceTaperWeek &&
+                        weekFamily in setOf(
+                            IndependentQualityFamily.TEMPO,
+                            IndependentQualityFamily.THRESHOLD,
+                            IndependentQualityFamily.FARTLEK,
+                            IndependentQualityFamily.INTERVALS
+                        )
+                    ) 18 * 60 else 0
+                    (cand.workSeconds + cand.recoverySeconds) >= minCoreSec &&
+                        fitsSlot(cand, chosenArch) && canReachSlot(cand, chosenArch)
+                } ?: timeBounded.lastOrNull { cand ->
+                    fitsSlot(cand, chosenArch) && canReachSlot(cand, chosenArch)
+                } ?: timeBounded.lastOrNull { cand -> fitsSlot(cand, chosenArch) } ?: weekIntro
                 val finalStep = fitWarmupCooldownToSlotDistance(
                     doseStep = distanceFitted,
                     workTarget = workTarget,
                     slotDistanceKm = slot.originalEasyDistanceKm,
                     zones = deterministicZones,
-                    timeBudgetSeconds = timeBudgetSeconds
+                    timeBudgetSeconds = timeBudgetSeconds,
+                    experience = request.experience
                 )
                 val timeCapped = timeBounded.last().stepIndex < candidatesInWindow.last().stepIndex
                 val basis = when {

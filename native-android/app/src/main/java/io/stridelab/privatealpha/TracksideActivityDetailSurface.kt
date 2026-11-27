@@ -208,6 +208,17 @@ internal fun TracksideActivityDetailSurface(
                 activityCorrectionOwner(it, state) == owner
             }.toSet()
             val planOwner = state.account ?: state.localPlanOwner
+            val linkedSession = remember(ownedSourceIds, planOwner, state.plans) {
+                if (planOwner == null || ownedSourceIds.isEmpty()) null
+                else state.plans.asSequence()
+                    .filter { it.owner == planOwner && it.engineVersion == ENGINE15_VERSION && it.status != "draft" }
+                    .flatMap { plan -> plan.sessions.asSequence().map { plan to it } }
+                    .filter { (_, sess) ->
+                        sess.discipline != "run" && sess.status == "completed" &&
+                            sess.linkedActivityId in ownedSourceIds && sess.log != null
+                    }
+                    .take(2).toList().singleOrNull()
+            }
             val debrief = remember(ownedSourceIds, planOwner, state.plans, history) {
                 Engine15DebriefEngine.linkedWorkout(ownedSourceIds, planOwner, state.plans, history,
                     java.time.ZoneId.systemDefault())
@@ -222,6 +233,7 @@ internal fun TracksideActivityDetailSurface(
                 recorded = recorded,
                 owner = owner,
                 debrief = debrief,
+                linkedSession = linkedSession,
                 onBack = onBack,
                 onShare = { shareOpen = true },
                 onEdit = onEdit,

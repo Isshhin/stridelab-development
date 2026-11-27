@@ -1,6 +1,8 @@
 package io.stridelab.privatealpha
 
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 internal enum class GarminIssueKind {
     AUTHENTICATION, NETWORK, RATE_LIMIT, SERVICE, ACTIVITY_DATA, SECURE_STORAGE, OTHER
@@ -228,10 +230,69 @@ internal class GarminPersonalSource(
         }
     }
 
-    override fun wellness(accountId:String,cursor:String?,limit:Int):WearablePage<WearableWellnessInput> {
-        require(accountId==this.accountId)
+    override fun wellness(accountId: String, cursor: String?, limit: Int): WearablePage<WearableWellnessInput> {
+        require(accountId == this.accountId)
         require(limit in 1..100)
-        // Official health endpoints are intentionally not guessed into this foundation.
-        return WearablePage(accountId,emptyList(),null)
+        val zone = ZoneId.systemDefault()
+        val endDate = clock().atZone(zone).toLocalDate()
+        val startDate = endDate.minusDays(27)
+        val bundle = fetchWellnessBundle(accountId, startDate, endDate, emptySet())
+        val inputs = GarminWellnessParser.toWearableInputs(accountId, bundle, zone).take(limit)
+        return WearablePage(accountId, inputs, null)
+    }
+
+    fun fetchWellnessRecords(
+        accountId: String,
+        startDate: LocalDate,
+        endDate: LocalDate,
+        cachedRhrDates: Set<LocalDate> = emptySet(),
+        zone: ZoneId = ZoneId.systemDefault()
+    ): List<WellnessRecord> {
+        require(accountId == this.accountId)
+        require(!endDate.isBefore(startDate))
+        val bundle = fetchWellnessBundle(accountId, startDate, endDate, cachedRhrDates)
+        return GarminWellnessParser.toWellnessRecords(bundle, zone)
+    }
+
+    private fun fetchWellnessBundle(
+        accountId: String,
+        startDate: LocalDate,
+        endDate: LocalDate,
+        cachedRhrDates: Set<LocalDate>
+    ): GarminWellnessBundle {
+        return withBearer(accountId) { token ->
+            val hrv = try {
+                api.hrvDaily(token, startDate, endDate)
+            } catch (e: GarminAuthenticationException) {
+                throw e
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val sleep = try {
+                api.sleepSummaries(token, startDate, endDate)
+            } catch (e: GarminAuthenticationException) {
+                throw e
+            } catch (_: Exception) {
+                emptyList()
+            }
+            val dailyHr = mutableListOf<GarminDailyHrSummary>()
+            var day = endDate
+            while (!day.isBefore(startDate)) {
+                val mustRefresh = day == endDate || day == endDate.minusDays(1) || day !in cachedRhrDates
+                if (mustRefresh) {
+                    try {
+                        api.dailyHeartRate(token, day)?.let { dailyHr += it }
+                    } catch (e: GarminAuthenticationException) {
+                        throw e
+                    } catch (_: GarminRateLimitException) {
+                        break
+                    } catch (_: Exception) {
+                        // Non-fatal: continue remaining dates
+                    }
+                }
+                day = day.minusDays(1)
+            }
+            GarminWellnessBundle(hrv = hrv, sleep = sleep, dailyHr = dailyHr)
+        }
     }
 }

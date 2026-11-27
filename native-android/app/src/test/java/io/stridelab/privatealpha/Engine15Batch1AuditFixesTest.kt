@@ -351,7 +351,7 @@ class Engine15Batch1AuditFixesTest {
         val plan = Engine15IndependentPlanGenerator.generateWithHistory(
             req, owner, emptyList(), "batch1-zero-str", now, exerciseLibrary = library
         )
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, plan.policyId)
         val runSessions = plan.sessions.filter { it.discipline == "run" }
         assertEquals(12, runSessions.size)
         assertTrue(runSessions.all { it.distanceKm == null && !it.quality })

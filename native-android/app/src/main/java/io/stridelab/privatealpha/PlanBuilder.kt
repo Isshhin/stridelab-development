@@ -24,7 +24,17 @@ import java.time.LocalDate
 import java.time.ZoneId
 import org.json.JSONObject
 
-@Composable internal fun PlanBuilder(state:TrainingState,actions:PlanActions,discipline:String="all",onDone:()->Unit,onSignIn:()->Unit,onPreview:(String,String)->Unit) {
+@Composable
+internal fun PlanBuilder(
+    state: TrainingState,
+    actions: PlanActions,
+    discipline: String = "all",
+    onDone: () -> Unit,
+    onSignIn: () -> Unit,
+    historySuggestion: HistoryBaselineSuggestion? = null,
+    onOpenWorkoutHub: (() -> Unit)? = null,
+    onPreview: (String, String) -> Unit
+) {
     // Signed-out plans are persisted under an isolated on-device owner.
     // Cloud sign-in remains optional for backup; generating does not need it.
     val athletePlans = remember(state.plans, state.account, state.localPlanOwner) {
@@ -236,9 +246,10 @@ import org.json.JSONObject
             0 -> 10
             1 -> 11
             5 -> 12
-            3 -> if (runningRoute == "custom") 14 else 13
-            2 -> if (runningRoute == "custom") 13 else 14
-            else -> 15
+            2 -> 13
+            4 -> if (runningRoute == "custom") 14 else 15
+            3 -> if (runningRoute == "custom") 15 else 14
+            else -> 16
         }
         step == 1 && (input.runDays == 0 || crossTrainingGoals) -> when {
             input.strengthDays > 0 && !strengthGoalSaved && strengthTrack(input) == "str" -> 20
@@ -384,6 +395,7 @@ import org.json.JSONObject
             },
             onBack = onDone,
             extraResistance = extraResistance.toSet(),
+            onOpenWorkoutHub = onOpenWorkoutHub,
             onContinue = {
                 step=1
                 runningSubPage=0
@@ -476,21 +488,48 @@ import org.json.JSONObject
                     10_000 -> "10K"
                     else -> "5K"
                 }
+                val setWeeklyKm: (Double) -> Unit = { value ->
+                    edit(input.copy(
+                        weeklyKm = kotlin.math.round(value * 10) / 10,
+                        recentMileageBasis = if (value >= 0.05) "SELF_REPORTED_AVERAGE" else "UNKNOWN",
+                        foundationAcknowledged = false
+                    ))
+                }
+                val setLongestKm: (Double) -> Unit = { value ->
+                    longestOverride = kotlin.math.round(value * 10) / 10
+                }
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                val ownerScope = state.account ?: state.localGarminOwner
+                val hrPrefs = remember(ctx) { AthleteHeartRatePreferences(ctx) }
+                val garminZoneStore = remember(ctx) { GarminZonePreferenceStore(ctx) }
+                var hrSettings by remember(ownerScope) { mutableStateOf(hrPrefs.settings(ownerScope)) }
+                val garminHrProfile = remember(ownerScope, state.account, state.localGarminOwner) {
+                    listOfNotNull(state.account, state.localGarminOwner).distinct().firstNotNullOfOrNull { acc ->
+                        garminZoneStore.load(acc)?.profile?.let { GarminHeartRateZones.forRunning(listOf(it)) }
+                    }?.let { ExecutionHrZoneProfile.fromGarmin(it) }
+                }
+                val activityHrProfile = remember(state.details) {
+                    state.details.values.firstNotNullOfOrNull {
+                        ExecutionHrZoneProfile.fromActivitySourceZones(it.sourceHeartRateZones)
+                    }
+                }
+                val manualHrProfile = remember(hrSettings) {
+                    HeartRateZoneAnalysis.toExecutionZoneProfile(hrSettings)
+                }
+                val activeHrProfile = manualHrProfile ?: garminHrProfile ?: activityHrProfile
+                val hrSourceLabel = when {
+                    manualHrProfile != null -> HeartRateZoneAnalysis.methodSummary(hrSettings)
+                    garminHrProfile != null -> "Synced Garmin Running HR Zones"
+                    activityHrProfile != null -> "Detected from Recent Activity Zones"
+                    else -> null
+                }
                 TracksideRunningAbilityScreen(
                     experience = input.experience,
                     weeklyKm = input.weeklyKm.takeIf { input.recentMileageBasis != "UNKNOWN" },
                     longestKm = input.longestKm.takeIf { it > 0.0 || longestOverride != null },
                     onExperience = { experienceOverride = it },
-                    onWeeklyKm = { value ->
-                        edit(input.copy(
-                            weeklyKm = kotlin.math.round(value * 10) / 10,
-                            recentMileageBasis = if (value >= 0.05) "SELF_REPORTED_AVERAGE" else "UNKNOWN",
-                            foundationAcknowledged = false
-                        ))
-                    },
-                    onLongestKm = { value ->
-                        longestOverride = kotlin.math.round(value * 10) / 10
-                    },
+                    onWeeklyKm = setWeeklyKm,
+                    onLongestKm = setLongestKm,
                     weeklySource = when (input.recentMileageBasis) {
                         "RECORDED_PARTIAL" -> "From recent runs"
                         "SELF_REPORTED_AVERAGE" -> "Entered by you"
@@ -517,11 +556,7 @@ import org.json.JSONObject
                         }
                     },
                     onContinue = {
-                        runningSubPage = when {
-                            runningRoute == "custom" -> 3
-                            editingAbilityFromGuided -> 5
-                            else -> 4
-                        }
+                        runningSubPage = if (editingAbilityFromGuided) 5 else 4
                         editingAbilityFromGuided = false
                     },
                     onAdvanced = {
@@ -546,7 +581,33 @@ import org.json.JSONObject
                         Engine15PaceZoneEstimator.estimate(input, activities = state.activities)
                     },
                     progressStep = if (runningRoute == "custom") 2 else 3,
-                    autoDetectedExperience = detectedExperience != null && experienceOverride == null
+                    autoDetectedExperience = detectedExperience != null && experienceOverride == null,
+                    runningTargetMode = input.runningTargetMode,
+                    onRunningTargetMode = { mode ->
+                        if (mode == "HR") {
+                            val floors = activeHrProfile?.let {
+                                listOf(it.z1FloorBpm, it.z2FloorBpm, it.z3FloorBpm, it.z4FloorBpm, it.z5FloorBpm)
+                            } ?: emptyList()
+                            edit(input.copy(runningTargetMode = "HR", hrZoneFloors = floors, hrMaxBpm = activeHrProfile?.maxHrBpm))
+                        } else {
+                            edit(input.copy(runningTargetMode = "PACE", hrZoneFloors = emptyList(), hrMaxBpm = null))
+                        }
+                    },
+                    hrZoneProfile = activeHrProfile,
+                    hrZoneSourceLabel = hrSourceLabel,
+                    hrSettings = hrSettings,
+                    onSaveHrSettings = { newSettings ->
+                        hrPrefs.save(ownerScope, newSettings)
+                        hrSettings = newSettings
+                        val p = HeartRateZoneAnalysis.toExecutionZoneProfile(newSettings)
+                        if (p != null) {
+                            edit(input.copy(
+                                runningTargetMode = "HR",
+                                hrZoneFloors = listOf(p.z1FloorBpm, p.z2FloorBpm, p.z3FloorBpm, p.z4FloorBpm, p.z5FloorBpm),
+                                hrMaxBpm = p.maxHrBpm
+                            ))
+                        }
+                    }
                 )
             }
             3 -> TracksideAdvancedRunning(
@@ -567,7 +628,15 @@ import org.json.JSONObject
                     desiredQualityCount = n
                     val allowed = (input.runDays - 2).coerceIn(0, 2)
                     val q = n.coerceAtMost(allowed)
-                    edit(sanitizeRunningScheduleDays(input.copy(qualityCount = q)))
+                    val updated = sanitizeRunningScheduleDays(input.copy(qualityCount = q))
+                    edit(
+                        if ("run" in updated.weeklySlots) {
+                            val slots = WeeklyPlacement.days(updated, "run")
+                            updated.copy(
+                                qualityDays = slots.drop(1).take(q).filter { it in 1..7 }.toSet()
+                            )
+                        } else updated
+                    )
                 },
                 onToggleQuality = { quality ->
                     val updated =
@@ -582,12 +651,20 @@ import org.json.JSONObject
                 onRemoveQualityWorkout = { key ->
                     edit(input.copy(userDefinedQualityWorkouts=input.userDefinedQualityWorkouts-key))
                 },
-                onBack = { runningSubPage = if (runningRoute == "custom") 2 else advancedBackPage },
+                onBack = { runningSubPage = if (runningRoute == "custom") 4 else advancedBackPage },
                 onContinue = {
-                    runningSubPage = when {
-                        runningRoute == "custom" -> 4
-                        advancedBackPage == 5 -> 5
-                        else -> 2
+                    when {
+                        runningRoute == "custom" -> {
+                            if (input.strengthDays + input.calDays + input.conditioningDays > 0) {
+                                crossTrainingGoals = true
+                                strengthGoalSaved = false
+                            } else {
+                                step = 2
+                                scheduleSubPage = 0
+                            }
+                        }
+                        advancedBackPage == 5 -> runningSubPage = 5
+                        else -> runningSubPage = 2
                     }
                 }
             )
@@ -705,7 +782,8 @@ import org.json.JSONObject
                     edit(WeeklyPlacement.clear(input,"run",
                         runningSelectedSlot.coerceIn(0,input.runDays-1)))
                 },
-                onBack = { runningSubPage = if (runningRoute == "custom") 3 else 2 },
+                onBack = { runningSubPage = 2 },
+                progressStep = if (runningRoute == "custom") 3 else 4,
                 onContinue = {
                     // Save even an unchanged default once the user chose
                     // manual placement, so the engine must honor those days.
@@ -715,7 +793,9 @@ import org.json.JSONObject
                                 ("run" to WeeklyPlacement.days(input,"run"))
                         ))
                     }
-                    if(input.strengthDays+input.calDays+input.conditioningDays>0) {
+                    if (runningRoute == "custom") {
+                        runningSubPage = 3
+                    } else if (input.strengthDays+input.calDays+input.conditioningDays>0) {
                         crossTrainingGoals=true
                         strengthGoalSaved=false
                     } else {
@@ -732,7 +812,7 @@ import org.json.JSONObject
                 onBack={
                     if(input.runDays>0) {
                         crossTrainingGoals=false
-                        runningSubPage=4
+                        runningSubPage = if (runningRoute == "custom") 3 else 4
                     } else step=0
                 },
                 onContinue={
@@ -823,7 +903,7 @@ import org.json.JSONObject
                     if(input.strengthDays>0) strengthSetupSaved=false
                     else if(input.runDays>0) {
                         crossTrainingGoals=false
-                        runningSubPage=4
+                        runningSubPage = if (runningRoute == "custom") 3 else 4
                     } else step=0
                 },
                 onContinue={
@@ -970,7 +1050,7 @@ import org.json.JSONObject
                         crossTrainingGoals=true
                         strengthGoalSaved=true
                         strengthSetupSaved=true
-                    } else runningSubPage=4
+                    } else runningSubPage = if (runningRoute == "custom") 3 else 4
                 }
                 crossGoalsSaved=input.calDays>0
             },

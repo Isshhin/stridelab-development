@@ -25,15 +25,18 @@ class StrideApplication: Application() {
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "native-history-refresh-v1", ExistingPeriodicWorkPolicy.KEEP, request)
-        // Separate from backend refresh; 6-hour periodic Garmin/backup checks
+        // Separate from backend refresh; 2-hour periodic Garmin/backup checks
         // also work for a signed-out local Garmin profile; cloud backup stays gated.
         val garminWork = PeriodicWorkRequestBuilder<GarminAutoSyncWorker>(
-            6, TimeUnit.HOURS
+            2, TimeUnit.HOURS
         ).setConstraints(
-            Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+            Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiresBatteryNotLow(true)
+                .build()
         ).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "garmin-auto-sync-v1", ExistingPeriodicWorkPolicy.KEEP, garminWork)
+            "garmin-auto-sync-v1", ExistingPeriodicWorkPolicy.UPDATE, garminWork)
     }
 }
 class HistoryRefreshWorker(context: Context, params: WorkerParameters): CoroutineWorker(context, params) {
@@ -61,6 +64,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     private val repo = (application as StrideApplication).repository
     internal val state = repo.state
     internal val online = (application as StrideApplication).connectivity.online
+    internal val thumbnailCache = repo.thumbnailCache
     fun signIn(email: String, password: String) { viewModelScope.launch { repo.signIn(email, password) } }
     fun signUp(name: String, email: String, password: String) {
         viewModelScope.launch { repo.signUp(name, email, password) }
@@ -69,6 +73,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         viewModelScope.launch { repo.requestPasswordReset(email) }
     }
     fun refresh() { viewModelScope.launch { repo.refresh() } }
+    fun pullToRefresh() { viewModelScope.launch { repo.pullToRefreshSync() } }
     fun onAppResumed() {
         viewModelScope.launch { repo.automaticGarminAndBackup(foreground = true) }
     }
@@ -82,7 +87,13 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     /** UI-triggered foreground Garmin history import; completed pages remain offline. */
     internal suspend fun syncGarmin(source:GarminPersonalSource):GarminConnectionStatus =
         repo.syncGarmin(source)
-    fun refreshWellness() { viewModelScope.launch { repo.refreshWellness() } }
+    fun refreshWellness() {
+        viewModelScope.launch {
+            if (!repo.syncGarminWellnessNow()) {
+                runCatching { repo.refreshWellness() }
+            }
+        }
+    }
     fun loadDetail(id: String) { viewModelScope.launch { repo.loadDetail(id) } }
     internal suspend fun renameActivity(id:String,title:String):Boolean = repo.renameActivity(id,title)
     internal suspend fun loadCachedDetail(id:String):Boolean = repo.loadCachedDetail(id)
@@ -91,6 +102,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     internal fun loadGarminGps(id:String,source:GarminPersonalSource) {
         viewModelScope.launch { repo.loadGarminGps(id,source) }
     }
+    internal val freeform = repo.freeformAccess()
     internal fun planActions()=PlanActions(
         generateHybrid = { requests ->
             viewModelScope.launch { repo.generateHybridPlan(requests) }

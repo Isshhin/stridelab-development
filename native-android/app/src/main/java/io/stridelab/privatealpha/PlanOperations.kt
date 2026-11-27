@@ -253,7 +253,7 @@ internal object PlanOperations {
         val adjusted=Engine15WorkoutDifficultyAdjuster.adjust(session,plan.request,targetStep).copy(suggestion=null)
         session.log?.let { WorkoutLogValidation.validate(adjusted,it) }
         if(PlanScheduleValidation.isMultiPolicy(plan.policyId) &&
-            (plan.policyId!=ENGINE15_INDEPENDENT_COMBINED_POLICY || plan.request.timeBudgetEnabled)) {
+            ((plan.policyId!=ENGINE15_INDEPENDENT_COMBINED_POLICY && plan.policyId!=ENGINE18_HYBRID_POLICY) || plan.request.timeBudgetEnabled)) {
             val sameDayOther=plan.sessions.filter {
                 it.id!=sessionId && it.date==adjusted.date && it.status !in setOf("missed","skipped","unassigned")
             }.sumOf { it.effectiveMinutes }
@@ -261,7 +261,7 @@ internal object PlanOperations {
                 throw PlanConstraint("Making this workout harder would exceed your ${plan.request.dailyMinutes}-minute daily time budget.")
         }
         val updated=plan.copy(sessions=plan.sessions.map { if(it.id==sessionId) adjusted else it })
-        if(plan.engineVersion==ENGINE15_VERSION && plan.status=="approved")
+        if(plan.engineVersion in setOf(ENGINE15_VERSION, ENGINE16_VERSION, ENGINE17_VERSION, ENGINE18_VERSION) && plan.status=="approved")
             PlanScheduleValidation.validatePlan(updated)
         return updated
     }

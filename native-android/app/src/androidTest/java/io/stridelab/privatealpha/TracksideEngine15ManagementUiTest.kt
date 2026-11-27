@@ -101,16 +101,23 @@ class TracksideEngine15ManagementUiTest {
                 Column(Modifier.verticalScroll(rememberScrollState())) { Engine15ScheduleReview(saved.value, actions, false) }
             } }
         }
-        val weekday = dayName(target.date.dayOfWeek.value)
-        compose.onNodeWithText("Edit").performClick()
-        compose.onNodeWithText(weekday).performScrollTo().performClick()
+        val targetDay = target.date.dayOfWeek.value
+        val dayInitial = dayName(targetDay).take(1)
+        val initialNodeIndex = (1 until targetDay).count { dayName(it).take(1) == dayInitial }
+        fun clickAvailabilityDay() {
+            compose.onAllNodes(hasClickAction() and hasText(dayInitial))[initialNodeIndex]
+                .performScrollTo()
+                .performClick()
+        }
+        compose.onNodeWithText("Edit", substring = true).performClick()
+        clickAvailabilityDay()
         compose.onNodeWithText("Preview availability change").performScrollTo().performClick()
         compose.onNodeWithText("A locked workout falls", substring = true).assertExists()
         compose.runOnIdle { assertEquals(locked, saved.value) }
         compose.onNodeWithText("Unlock Easy run", substring = true).performScrollTo().performClick()
-        compose.onNodeWithText(weekday).performScrollTo().performClick()
+        clickAvailabilityDay()
         compose.onNodeWithText("Preview availability change").performScrollTo().performClick()
-        compose.onNodeWithText("Safe moves · 1   Unresolved · 0").assertExists()
+        compose.onNodeWithText("Moves 1 · Unresolved 0").assertExists()
         compose.runOnIdle { assertEquals(target.date, saved.value.sessions.single().date) }
         compose.onNodeWithText("Apply reviewed availability").performScrollTo().performClick()
         compose.runOnIdle {

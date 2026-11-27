@@ -21,18 +21,18 @@ import androidx.compose.ui.unit.dp
  * tokens must never affect training, persistence, or recorded metrics.
  */
 internal object TracksidePalette {
-    val backgroundTop = Color(0xFF080B0A)
+    val backgroundTop = Color(0xFF000000)
     val backgroundBottom = Color(0xFF000000)
-    val surface = Color(0xFF111315)
-    val surfaceRaised = Color(0xFF202324)
-    val surfaceLow = Color(0xFF080B0A)
-    val surfaceVariant = Color(0xFF181B1A)
-    val text = Color(0xFFF7F7F5)
-    val textMuted = Color(0xFF9FA4AA)
+    val surface = Color(0xFF121212)
+    val surfaceRaised = Color(0xFF1A1D21)
+    val surfaceLow = Color(0xFF000000)
+    val surfaceVariant = Color(0xFF181A1D)
+    val text = Color(0xFFF5F7FA)
+    val textMuted = Color(0xFFA0A8B3)
     val lime = Color(0xFFD8FB70)
     // Compatibility alias for callers not yet renamed; its rendered color is lime.
     val red = lime
-    val outline = Color(0xFF303438)
+    val outline = Color(0xFF1F242B)
     val running = lime
     val strength = Color(0xFFFF8A77)
     val calisthenics = Color(0xFFC8A8FF)

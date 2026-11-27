@@ -31,13 +31,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val moreBlack = Color(0xFF080B0A)
-private val moreSurface = Color(0xFF151A18)
-private val moreBorder = Color(0xFF364039)
-private val moreDivider = Color(0xFF303833)
-private val moreWhite = Color(0xFFF1F4F1)
-private val moreMuted = Color(0xFFAAB4AD)
-private val moreSecondary = Color(0xFF82918A)
+private val moreBlack = Color(0xFF000000)
+private val moreSurface = Color(0xFF121212)
+private val moreBorder = Color(0xFF1F242B)
+private val moreDivider = Color(0xFF1F242B)
+private val moreWhite = Color(0xFFF5F7FA)
+private val moreMuted = Color(0xFFA0A8B3)
+private val moreSecondary = Color(0xFF6B737E)
 private val moreLime = Color(0xFFD8FB70)
 
 internal enum class MorePage { Preferences, About }
@@ -94,13 +94,30 @@ internal fun TracksideMoreScreen(
                             MoreIcon(MoreSymbol.Person, moreLime, Modifier.size(24.dp))
                         }
                     }
+                    val (profileTitle, profileSubtitle) = if (signedIn) {
+                        AccountProfilePresentation.resolve(
+                            state.account,
+                            state.accountDisplayName,
+                            state.accountEmail
+                        )
+                    } else {
+                        "Local Mode" to "Not signed in · Saved on this device"
+                    }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(if (signedIn) state.account.orEmpty() else "Local Mode", color = moreWhite,
-                            fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 2,
-                            overflow = TextOverflow.Ellipsis)
                         Text(
-                            if (signedIn) "Signed in" else "Not signed in · Saved on this device",
-                            color = moreMuted, fontSize = 12.sp
+                            profileTitle,
+                            color = moreWhite,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            profileSubtitle,
+                            color = moreMuted,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     if (!signedIn) {

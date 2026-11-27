@@ -49,7 +49,7 @@ class TracksideCoachingIntegrationTest {
         assertEquals("engine15", selected.policyChoice)
         assertTrue(selected.allowDoubleDays)
         val saved = generate(selected)
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, saved.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, saved.policyId)
         val decoded = PlanSnapshot.decode(saved.encode(), saved.owner)
         assertTrue(decoded.request.allowDoubleDays)
         val nextSetup = TracksideCoaching.setupFor(decoded)
@@ -65,7 +65,7 @@ class TracksideCoachingIntegrationTest {
             weeklySlots=mapOf("run" to listOf(7,2,5), "str" to listOf(3,5)),
             disciplineGoals=mapOf("run" to "Improve 5K", "str" to "Muscle development"))
         val plan = generate(TracksideCoaching.request(setup))
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, plan.policyId)
         assertEquals(10, plan.sessions.size)
         plan.sessions.filter { it.discipline=="run" }.forEach { s ->
             assertEquals(WeeklyPlacement.fixedDay(setup,s), s.date.dayOfWeek.value)
@@ -83,7 +83,7 @@ class TracksideCoachingIntegrationTest {
             weeklySlots=mapOf("run" to listOf(6,2), "cal" to listOf(4)))
         val plan = generate(TracksideCoaching.request(setup))
         val cal = plan.sessions.single { it.discipline=="cal" }
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, plan.policyId)
         assertEquals(4, cal.date.dayOfWeek.value)
         assertEquals(3, plan.sessions.size)
     }
@@ -114,7 +114,7 @@ class TracksideCoachingIntegrationTest {
                 calDays=1, disciplineGoals=mapOf("cal" to "Push"), weeklySlots=mapOf("cal" to listOf(2))
             )), "athlete", listOf(strength), "mixed", now, library
         )
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, mixed.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, mixed.policyId)
         assertEquals("approved", PlanOperations.approve(mixed, listOf(strength)).status)
     }
 }

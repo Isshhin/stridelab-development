@@ -414,22 +414,41 @@ internal fun TracksideActivityContinuousSections(
         }
     }
     var pendingSection by remember(activity.id) { mutableStateOf<Int?>(null) }
+    var pinnedTapSection by remember(activity.id) { mutableStateOf<Int?>(null) }
+    var pinnedScrollPos by remember(activity.id) { mutableStateOf<Pair<Int, Int>?>(null) }
     LaunchedEffect(activity.id) {
+        pinnedTapSection = null
+        pinnedScrollPos = null
         listState.scrollToItem(0)
         if (selectedTab != 0) onTab(0)
     }
-    LaunchedEffect(currentSection, pendingSection) {
-        if (pendingSection == null && selectedTab != currentSection) onTab(currentSection)
+    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset, pendingSection) {
+        if (pendingSection == null && pinnedTapSection != null) {
+            val pos = listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+            if (pinnedScrollPos != null && pos != pinnedScrollPos) {
+                pinnedTapSection = null
+                pinnedScrollPos = null
+            }
+        }
     }
-    val visibleSection = pendingSection ?: currentSection
+    val settledSection = pinnedTapSection ?: currentSection
+    LaunchedEffect(settledSection, pendingSection) {
+        if (pendingSection == null && selectedTab != settledSection) onTab(settledSection)
+    }
+    val visibleSection = pendingSection ?: settledSection
     val sectionOffset = listOf(0, analysisStartIndex, splitStartIndex, chartsStartIndex)
     Column(Modifier.fillMaxSize()) {
         TracksideActivitySectionPill(visibleSection) { index ->
             pendingSection = index
+            pinnedTapSection = index
+            pinnedScrollPos = null
             onTab(index)
             scope.launch {
                 try { listState.animateScrollToItem(sectionOffset[index]) }
-                finally { pendingSection = null }
+                finally {
+                    pinnedScrollPos = listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset
+                    pendingSection = null
+                }
             }
         }
         BoxWithConstraints(Modifier.weight(1f)) {
@@ -677,10 +696,10 @@ private fun TracksideActivityAnalysisBody(
             )
             return@Column
         }
-        key(source, recorded, execution, zones, runIntent) {
+        key(source, recorded, execution, zones, runIntent, history) {
             val report by produceState<RunningAnalysisReport?>(null) {
                 value = withContext(Dispatchers.Default) {
-                    Engine15DebriefEngine.runningReport(source, recorded, execution, zones, runIntent)
+                    Engine15DebriefEngine.runningReport(source, recorded, execution, zones, runIntent, history)
                 }
             }
             report?.let { analysis ->
@@ -785,6 +804,12 @@ private fun TracksideActivityOverviewBody(
         TracksideActivitySummary(activity)
         if (activity.source == "garmin" && detailSource.id == activity.id &&
             (recorded == null || uncheckedDynamics || missingSavedCadence || garminLoad != null)) {
+            if (loadingGarmin) {
+                Spacer(Modifier.height(12.dp))
+                SkeletonShimmerContainer {
+                    SkeletonActivityDetailStreams(modifier = Modifier.testTag("activity-detail-loading-skeleton"))
+                }
+            }
             Spacer(Modifier.height(12.dp))
             Text(
                 if (loadingGarmin) "Downloading Garmin recording for offline analysis."

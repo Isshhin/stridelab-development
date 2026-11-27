@@ -3,8 +3,12 @@ package io.stridelab.privatealpha
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.*
@@ -15,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import java.util.Locale
 import kotlinx.coroutines.launch
 
 @Composable
@@ -27,90 +32,210 @@ internal fun Engine15ScheduleReview(plan: PlanSnapshot, actions: PlanActions, bu
     var loading by remember(plan, days) { mutableStateOf(false) }
     val unresolved = plan.sessions.filter { it.status == "unassigned" }
     Surface(
-        modifier=Modifier.fillMaxWidth().testTag("manage-training-availability"),
-        shape=RoundedCornerShape(14.dp),
-        color=Color(0xFF1B211D),
-        border=BorderStroke(1.dp,Color(0xFF343E34))
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("manage-training-availability"),
+        shape = RoundedCornerShape(18.dp),
+        color = StrideLabSurfaceTokens.surfaceElevated,
+        border = BorderStroke(1.dp, if (open) StrideLabSurfaceTokens.lime.copy(alpha = 0.45f) else StrideLabSurfaceTokens.hairline)
     ) {
-        Column(Modifier.padding(13.dp),
-            verticalArrangement=Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Training availability",
-                        color=Color(0xFFF1F5EF),
-                        style=MaterialTheme.typography.titleSmall)
-                    Text("${plan.request.days.size} available days · Edit preferences",
-                        color=Color(0xFFAAB6A7),
-                        style=MaterialTheme.typography.bodySmall)
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .strideLabPressFeedback(
+                        shape = RoundedCornerShape(12.dp),
+                        onClick = { open = !open }
+                    )
+                    .padding(vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = "WEEKLY AVAILABILITY",
+                        color = StrideLabSurfaceTokens.inkMuted,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.2.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Training availability",
+                        color = StrideLabSurfaceTokens.ink,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                TextButton(onClick={open=!open}) {
-                    Text(if(open)"Hide" else "Edit",color=Color(0xFFD8FB70))
+                Surface(
+                    color = if (open) StrideLabSurfaceTokens.limeMuted else StrideLabSurfaceTokens.surfaceMuted,
+                    shape = RoundedCornerShape(100.dp),
+                    border = BorderStroke(1.dp, if (open) StrideLabSurfaceTokens.lime.copy(alpha = 0.4f) else StrideLabSurfaceTokens.hairline)
+                ) {
+                    Text(
+                        text = if (open) "Hide" else "${plan.request.days.size}d · Edit",
+                        color = StrideLabSurfaceTokens.lime,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
                 }
             }
-            if (unresolved.isNotEmpty()) Text(
-                "${unresolved.size} workouts require placement",
-                color=Color(0xFFFF9DA7))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                (1..7).forEach { day ->
+                    val enabled = day in plan.request.days
+                    val isLong = enabled && plan.request.runDays > 0 && day == plan.request.longDay
+                    val isQuality = enabled && plan.request.qualityCount > 0 && day in plan.request.qualityDays && !isLong
+                    val indicator = when {
+                        isLong -> StrideLabSurfaceTokens.lime
+                        isQuality -> StrideLabSurfaceTokens.amber
+                        enabled -> StrideLabSurfaceTokens.inkSecondary
+                        else -> StrideLabSurfaceTokens.inkMuted.copy(alpha = 0.45f)
+                    }
+                    Surface(
+                        color = if (enabled) StrideLabSurfaceTokens.surfaceMuted else StrideLabSurfaceTokens.background,
+                        shape = RoundedCornerShape(9.dp),
+                        border = BorderStroke(1.dp, if (isLong) StrideLabSurfaceTokens.lime.copy(alpha = 0.55f) else StrideLabSurfaceTokens.hairline),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = dayName(day).take(1),
+                                color = if (enabled) StrideLabSurfaceTokens.ink else StrideLabSurfaceTokens.inkMuted,
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isLong || isQuality) 6.dp else 5.dp)
+                                    .clip(CircleShape)
+                                    .background(indicator)
+                            )
+                        }
+                    }
+                }
+            }
+            if (unresolved.isNotEmpty()) {
+                Surface(
+                    color = StrideLabSurfaceTokens.coral.copy(alpha = 0.14f),
+                    shape = RoundedCornerShape(10.dp),
+                    border = BorderStroke(1.dp, StrideLabSurfaceTokens.coral.copy(alpha = 0.4f))
+                ) {
+                    Text(
+                        text = "${unresolved.size} workouts require placement",
+                        color = StrideLabSurfaceTokens.coral,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
             if (open) {
-            Text("Available training days", style = MaterialTheme.typography.titleMedium)
-            ReviewWeekdays(days) { days = if (it in days) days - it else days + it }
-            OutlinedButton(onClick = {
-                loading = true
-                error = null
-                scope.launch {
-                    try {
-                        impact = actions.previewAvailability(plan.id, days)
-                        if (impact == null) error = "This plan is unavailable for this account."
-                    } catch (e: PlanConstraint) {
-                        error = e.message
-                    } finally { loading = false }
+                Text(
+                    text = "AVAILABLE DAYS",
+                    color = StrideLabSurfaceTokens.inkMuted,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.0.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                ReviewWeekdays(days) { days = if (it in days) days - it else days + it }
+                OutlinedButton(
+                    onClick = {
+                        loading = true
+                        error = null
+                        scope.launch {
+                            try {
+                                impact = actions.previewAvailability(plan.id, days)
+                                if (impact == null) error = "This plan is unavailable for this account."
+                            } catch (e: PlanConstraint) {
+                                error = e.message
+                            } finally { loading = false }
+                        }
+                    },
+                    enabled = !busy && !loading && days.isNotEmpty() && days != plan.request.days
+                ) {
+                    Text(if (loading) "Checking schedule…" else "Preview availability change")
                 }
-            }, enabled = !busy && !loading && days.isNotEmpty() && days != plan.request.days) {
-                Text(if (loading) "Checking schedule…" else "Preview availability change")
-            }
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            impact?.let { reviewed ->
-                Text("Proposed schedule", style = MaterialTheme.typography.titleMedium)
-                Text("Safe moves · ${reviewed.relocations.size}   Unresolved · ${reviewed.unresolvedSessionIds.size}")
-                for ((id, date) in reviewed.relocations) {
-                    val session = plan.sessions.single { it.id == id }
-                    Text("${session.title} · ${session.date} → $date")
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                impact?.let { reviewed ->
+                    Surface(
+                        color = StrideLabSurfaceTokens.surfaceMuted,
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, StrideLabSurfaceTokens.hairline)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("Proposed schedule", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = StrideLabSurfaceTokens.ink)
+                            Text("Moves ${reviewed.relocations.size} · Unresolved ${reviewed.unresolvedSessionIds.size}", color = StrideLabSurfaceTokens.lime, fontSize = 12.sp, style = TabularTextStyle)
+                            for ((id, date) in reviewed.relocations) {
+                                val session = plan.sessions.single { it.id == id }
+                                Text("${session.title} · ${session.date} → $date", color = StrideLabSurfaceTokens.inkSecondary, fontSize = 12.sp)
+                            }
+                            for (id in reviewed.unresolvedSessionIds) Text("Needs placement · " + plan.sessions.single { it.id == id }.title, color = StrideLabSurfaceTokens.coral, fontSize = 12.sp)
+                            SignalButton("Apply reviewed availability", { actions.applyAvailability(plan.id, plan.revision, days, reviewed) }, !busy)
+                        }
+                    }
                 }
-                for (id in reviewed.unresolvedSessionIds) Text("Needs placement · " + plan.sessions.single { it.id == id }.title)
-                Text("Changes affecting scheduled workouts pause an approved plan for review.")
-                SignalButton("Apply reviewed availability", { actions.applyAvailability(plan.id, plan.revision, days, reviewed) }, !busy)
-            }
-            if (plan.request.runDays > 0) {
-                Text("Preferred long-run day")
-                ReviewWeekdays(setOf(plan.request.longDay), plan.request.days) {
-                    actions.longDay(plan.id, plan.revision, it)
+                if (plan.request.runDays > 0) {
+                    Text(
+                        text = "LONG-RUN DAY",
+                        color = StrideLabSurfaceTokens.inkMuted,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.0.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    ReviewWeekdays(setOf(plan.request.longDay), plan.request.days) {
+                        actions.longDay(plan.id, plan.revision, it)
+                    }
+                }
+                if (plan.request.qualityCount > 0) {
+                    var quality by remember(plan) { mutableStateOf(plan.request.qualityDays intersect (plan.request.days - plan.request.longDay)) }
+                    Text(
+                        text = "QUALITY DAYS",
+                        color = StrideLabSurfaceTokens.inkMuted,
+                        fontSize = 10.sp,
+                        letterSpacing = 1.0.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    ReviewWeekdays(quality, plan.request.days - plan.request.longDay) {
+                        quality = if (it in quality) quality - it else quality + it
+                    }
+                    OutlinedButton(
+                        onClick = { actions.qualityDays(plan.id, plan.revision, quality) },
+                        enabled = !busy && quality != plan.request.qualityDays && quality.size >= plan.request.qualityCount
+                    ) { Text("Save quality days") }
+                }
+                for ((id, date) in plan.request.lockedSessionDays) {
+                    val session = plan.sessions.firstOrNull { it.id == id } ?: continue
+                    if (session.status == "planned") OutlinedButton(onClick = { actions.lockWorkout(plan.id, plan.revision, id, false) }, enabled = !busy) {
+                        Text("Unlock ${session.title} · $date")
+                    }
+                }
+                for (session in unresolved) key(session.id) {
+                    var date by remember(session) { mutableStateOf(session.date.coerceAtLeast(LocalDate.now()).toString()) }
+                    Text("Needs placement · ${session.title}", style = MaterialTheme.typography.titleMedium)
+                    NativeDateField("Proposed workout date", date, { date = it })
+                    val destination = runCatching { LocalDate.parse(date) }.getOrNull()
+                    OutlinedButton(
+                        onClick = { destination?.let { actions.move(plan.id, plan.revision, session.id, it) } },
+                        enabled = !busy && destination != null && destination >= LocalDate.now() && destination.dayOfWeek.value in plan.request.days
+                    ) {
+                        Text("Place workout on $date")
+                    }
                 }
             }
-            if (plan.request.qualityCount > 0) {
-                var quality by remember(plan) { mutableStateOf(plan.request.qualityDays intersect (plan.request.days - plan.request.longDay)) }
-                Text("Preferred quality days")
-                ReviewWeekdays(quality, plan.request.days - plan.request.longDay) {
-                    quality = if (it in quality) quality - it else quality + it
-                }
-                OutlinedButton(onClick = { actions.qualityDays(plan.id, plan.revision, quality) },
-                    enabled = !busy && quality != plan.request.qualityDays && quality.size >= plan.request.qualityCount) { Text("Save quality days") }
-            }
-            for ((id, date) in plan.request.lockedSessionDays) {
-                val session = plan.sessions.firstOrNull { it.id == id } ?: continue
-                if (session.status == "planned") OutlinedButton(onClick = { actions.lockWorkout(plan.id, plan.revision, id, false) }, enabled = !busy) {
-                    Text("Unlock ${session.title} · $date")
-                }
-            }
-            for (session in unresolved) key(session.id) {
-                var date by remember(session) { mutableStateOf(session.date.coerceAtLeast(LocalDate.now()).toString()) }
-                Text("Needs placement · ${session.title}", style = MaterialTheme.typography.titleMedium)
-                NativeDateField("Proposed workout date", date, { date = it })
-                val destination = runCatching { LocalDate.parse(date) }.getOrNull()
-                OutlinedButton(onClick = { destination?.let { actions.move(plan.id, plan.revision, session.id, it) } },
-                    enabled = !busy && destination != null && destination >= LocalDate.now() && destination.dayOfWeek.value in plan.request.days) {
-                    Text("Place workout on $date")
-                }
-            }
-        }
         }
     }
 }
@@ -278,8 +403,48 @@ internal fun RunnerSupportPreviewCard(review: RunnerSupportSchedule.Review, week
 
 @Composable
 private fun ReviewWeekdays(selected: Set<Int>, options: Set<Int> = (1..7).toSet(), toggle: (Int) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        for (day in options.sorted()) FilterChip(selected = day in selected, onClick = { toggle(day) }, label = { Text(dayName(day)) })
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        for (day in 1..7) {
+            val allowed = day in options
+            val active = day in selected
+            Surface(
+                color = when {
+                    !allowed -> StrideLabSurfaceTokens.background
+                    active -> StrideLabSurfaceTokens.limeMuted
+                    else -> StrideLabSurfaceTokens.surfaceMuted
+                },
+                shape = RoundedCornerShape(10.dp),
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = when {
+                        !allowed -> StrideLabSurfaceTokens.hairline.copy(alpha = 0.45f)
+                        active -> StrideLabSurfaceTokens.lime
+                        else -> StrideLabSurfaceTokens.hairline
+                    }
+                ),
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable(enabled = allowed) { toggle(day) }
+            ) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 8.dp)) {
+                    Text(
+                        text = dayName(day).take(1),
+                        color = when {
+                            !allowed -> StrideLabSurfaceTokens.inkMuted.copy(alpha = 0.4f)
+                            active -> StrideLabSurfaceTokens.lime
+                            else -> StrideLabSurfaceTokens.inkSecondary
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = if (active) FontWeight.ExtraBold else FontWeight.SemiBold
+                    )
+                }
+            }
+        }
     }
 }
 

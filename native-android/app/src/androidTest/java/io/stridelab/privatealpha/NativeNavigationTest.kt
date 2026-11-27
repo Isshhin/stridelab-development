@@ -43,8 +43,9 @@ class NativeNavigationTest {
     @Test fun todayTrainingAndMoreNavigationSurvivesRecreation() {
         compose.onAllNodesWithTag("nav-home").assertCountEquals(1)
         compose.onAllNodesWithTag("nav-training").assertCountEquals(1)
+        compose.onAllNodesWithTag("nav-quick-log").assertCountEquals(1)
+        compose.onAllNodesWithTag("nav-activities").assertCountEquals(1)
         compose.onAllNodesWithTag("nav-settings").assertCountEquals(1)
-        compose.onNodeWithTag("nav-activities").assertDoesNotExist()
         capture("home")
         compose.onNodeWithTag("nav-training").performClick()
         compose.onNodeWithTag("training-unified-timeline").assertExists()

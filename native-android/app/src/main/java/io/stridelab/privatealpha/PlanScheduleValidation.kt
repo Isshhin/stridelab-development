@@ -5,7 +5,8 @@ internal object PlanScheduleValidation {
     private val independentPolicies = setOf(
         ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY,
         ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY,
-        ENGINE15_INDEPENDENT_COMBINED_POLICY
+        ENGINE15_INDEPENDENT_COMBINED_POLICY, ENGINE16_STRENGTH_POLICY, ENGINE17_CALISTHENICS_POLICY,
+        ENGINE18_HYBRID_POLICY, ENGINE18_CONDITIONING_POLICY
     )
 
     fun isIndependent(policy: String): Boolean = policy in independentPolicies
@@ -37,6 +38,7 @@ internal object PlanScheduleValidation {
 
     fun isMultiPolicy(policy:String) =
         policy==ENGINE15_INDEPENDENT_COMBINED_POLICY ||
+            policy==ENGINE18_HYBRID_POLICY ||
             policy==MULTI_SESSION_POLICY || policy==ENGINE15_MULTI_POLICY ||
             policy==ENGINE15_INTERFERENCE_POLICY
 
@@ -55,18 +57,18 @@ internal object PlanScheduleValidation {
 
     fun validatePlan(plan:PlanSnapshot) {
         if(plan.status!="approved" || !Engine1Engines.canManage(plan))return
-        if(plan.policyId in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY, ENGINE15_INDEPENDENT_COMBINED_POLICY))
+        if(plan.policyId in setOf(ENGINE15_INDEPENDENT_RUNNING_POLICY, ENGINE15_INDEPENDENT_STRENGTH_POLICY, ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, ENGINE15_INDEPENDENT_CONDITIONING_POLICY, ENGINE15_INDEPENDENT_COMBINED_POLICY, ENGINE16_STRENGTH_POLICY, ENGINE17_CALISTHENICS_POLICY, ENGINE18_HYBRID_POLICY, ENGINE18_CONDITIONING_POLICY))
             Engine15IndependentPlanGenerator.validateSaved(plan)
         Engine15SessionLocks.validateSaved(plan)
         Engine15Availability.requireReady(plan)
         val sessions=scheduled(plan)
         for(i in sessions.indices)for(k in i+1 until sessions.size) {
-            val conflict = if(plan.policyId==ENGINE15_INDEPENDENT_COMBINED_POLICY)
+            val conflict = if(plan.policyId==ENGINE15_INDEPENDENT_COMBINED_POLICY || plan.policyId==ENGINE18_HYBRID_POLICY)
                 Engine15StaticMultiDisciplinePlanner.conflict(sessions[i],sessions[k],plan.request)
             else conflict(sessions[i],sessions[k],plan.policyId,plan.policyId)
             if(conflict)throw PlanConstraint("The backup contains conflicting sessions inside an approved plan. No records were changed.")
         }
-        val enforceDailyBudget = plan.policyId != ENGINE15_INDEPENDENT_COMBINED_POLICY || plan.request.timeBudgetEnabled
+        val enforceDailyBudget = (plan.policyId != ENGINE15_INDEPENDENT_COMBINED_POLICY && plan.policyId != ENGINE18_HYBRID_POLICY) || plan.request.timeBudgetEnabled
         if(isMultiPolicy(plan.policyId) && sessions.groupBy { it.date }.values.any { day -> day.size>2 || (enforceDailyBudget && day.sumOf { it.effectiveMinutes }>plan.request.dailyMinutes) })throw PlanConstraint("The backup exceeds an approved plan's daily time budget. No records were changed.")
     }
 
@@ -77,7 +79,7 @@ internal object PlanScheduleValidation {
             val a=active[i];val b=active[k]
             if(scheduled(a).any { x -> scheduled(b).any { y -> acrossPlansConflict(x,y,a.policyId,b.policyId) } })throw PlanConstraint("The backup's approved calendar conflicts with another approved plan. No records were changed.")
         }
-        val multi=active.filter { Engine1Engines.canManage(it) && isMultiPolicy(it.policyId) && (it.policyId != ENGINE15_INDEPENDENT_COMBINED_POLICY || it.request.timeBudgetEnabled) }
+        val multi=active.filter { Engine1Engines.canManage(it) && isMultiPolicy(it.policyId) && ((it.policyId != ENGINE15_INDEPENDENT_COMBINED_POLICY && it.policyId != ENGINE18_HYBRID_POLICY) || it.request.timeBudgetEnabled) }
         val days=multi.flatMap { p -> scheduled(p).map { p to it } }.groupBy { it.second.date }
         for(day in days.values) {
             if(day.sumOf { it.second.effectiveMinutes }>day.minOf { it.first.request.dailyMinutes })throw PlanConstraint("The backup exceeds an approved plan's shared daily time budget. No records were changed.")

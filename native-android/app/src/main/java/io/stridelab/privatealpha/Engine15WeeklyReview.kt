@@ -46,7 +46,7 @@ internal object Engine15WeeklyReview {
     }
 
     fun preview(plan:PlanSnapshot,asOf:LocalDate,input:Input=Input(),allPlans:List<PlanSnapshot> = listOf(plan),now:Instant=Instant.now(),activities:List<ActivityRecord> = emptyList()):Review {
-        if(plan.engineVersion!=ENGINE15_VERSION || plan.policyId !in ENGINE15_COACHING_POLICIES || !Engine1Engines.canManage(plan) || plan.status!="approved")
+        if(!Engine1Engines.supportsCoachingLoop(plan) || !Engine1Engines.canManage(plan) || plan.status!="approved")
             throw PlanConstraint("Weekly review requires an approved Engine 1.5 plan.")
         if(input.unavailableDays.any { it<=asOf || it>asOf.plusDays(7) })
             throw PlanConstraint("Availability changes must be within the next seven days.")

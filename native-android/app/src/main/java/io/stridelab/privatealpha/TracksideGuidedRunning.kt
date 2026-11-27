@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -111,13 +112,13 @@ internal fun TracksideGuidedRunning(
             fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(10.dp))
+        StrideLabHairline()
         TracksideEditableInfo(
             title = "Current weekly distance",
             value = String.format(Locale.getDefault(), "%.0f km / week", weeklyKm),
             tag = "builder-guided-mileage",
             onClick = onEditAbility
         )
-        Spacer(Modifier.height(10.dp))
         TracksideEditableInfo(
             title = "Running experience",
             value = listOf("Beginner", "Intermediate", "Advanced")
@@ -135,6 +136,7 @@ internal fun TracksideGuidedRunning(
             fontWeight = FontWeight.Bold
         )
         Spacer(Modifier.height(10.dp))
+        StrideLabHairline()
         TracksideEditableInfo(
             title = "Workout styles & target volume",
             value = "Customize allowed workouts and weekly km",
@@ -151,33 +153,34 @@ private fun TracksideEditableInfo(
     tag: String,
     onClick: () -> Unit
 ) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 66.dp)
-            .testTag(tag),
-        color = PlanBuilderPalette.surface,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, PlanBuilderPalette.border)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 15.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Surface(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 64.dp)
+                .testTag(tag),
+            color = Color.Transparent
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp)
+            Row(
+                modifier = Modifier.padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(title, fontSize = 11.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Medium)
-                Text(
-                    value,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = PlanBuilderPalette.text
-                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(title, fontSize = 11.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Medium)
+                    Text(
+                        value,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PlanBuilderPalette.text
+                    )
+                }
+                Text("›", fontSize = 20.sp, color = PlanBuilderPalette.secondary)
             }
-            Text("›", fontSize = 20.sp, color = PlanBuilderPalette.secondary)
         }
+        StrideLabHairline()
     }
 }

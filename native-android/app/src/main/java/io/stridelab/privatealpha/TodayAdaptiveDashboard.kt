@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -42,17 +43,17 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 internal object TodayAdaptivePalette {
-    val bg = Color(0xFF0B0D0F)
+    val bg = Color(0xFF000000)
     val bgTop = bg
     val bgBottom = bg
-    val card = Color(0xFF14181C)
-    val cardElevated = Color(0xFF1A1F26)
-    val border = Color(0xFF232A31)
-    val divider = Color(0xFF1E242B)
-    val track = Color(0xFF232A31)
+    val card = Color(0xFF121212)
+    val cardElevated = Color(0xFF181A1D)
+    val border = Color(0xFF1F242B)
+    val divider = Color(0xFF1F242B)
+    val track = Color(0xFF1F242B)
     val text = Color(0xFFF5F7FA)
-    val textSecondary = Color(0xFF9BA4B0)
-    val textMuted = Color(0xFF8B9298)
+    val textSecondary = Color(0xFFA0A8B3)
+    val textMuted = Color(0xFF6B737E)
 
     val runningLime = Color(0xFFD8FB70)
     val strengthPurple = Color(0xFFA855F7)
@@ -562,13 +563,31 @@ internal fun TodayDailyTrainingCard(
     val onlyItem = (dailyState as? TodayDailyTrainingState.Sessions)?.items?.singleOrNull()
     val onlyActivity = onlyItem?.recordedActivity()
     if (onlyItem != null && onlyActivity != null) {
-        Surface(cardModifier, shape = RoundedCornerShape(18.dp), color = TodayAdaptivePalette.card,
-            border = BorderStroke(1.dp, TodayAdaptivePalette.border)) {
-            RecordedDailySessionRow(
-                TodayDailySessionItem.Recorded(onlyActivity, onlyItem.discipline),
-                cachedDetails[onlyActivity.id], hasPrimaryHeroTag, onOpenActivityDetail,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
-            )
+        Surface(
+            cardModifier,
+            shape = RoundedCornerShape(18.dp),
+            color = TodayAdaptivePalette.card,
+            border = BorderStroke(1.dp, TodayAdaptivePalette.border)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = cardTitle,
+                    color = TodayAdaptivePalette.textSecondary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                RecordedDailySessionRow(
+                    TodayDailySessionItem.Recorded(onlyActivity, onlyItem.discipline),
+                    cachedDetails[onlyActivity.id],
+                    hasPrimaryHeroTag,
+                    onOpenActivityDetail
+                )
+            }
         }
         return
     }
@@ -745,7 +764,15 @@ private fun PlannedDailySessionRow(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
+            .strideLabPressFeedback(
+                shape = RoundedCornerShape(14.dp),
+                highlightBorderColor = accent,
+                onClick = { onOpenWorkout(item.planId, session.id) }
+            )
+            .padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
@@ -806,22 +833,6 @@ private fun PlannedDailySessionRow(
             }
         }
 
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterEnd
-        ) {
-            Text(
-                text = "View Workout",
-                color = TodayAdaptivePalette.runningLime,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { onOpenWorkout(item.planId, session.id) }
-                    .padding(horizontal = 4.dp, vertical = 4.dp)
-            )
-        }
     }
 }
 
@@ -852,12 +863,15 @@ private fun RecordedDailySessionRow(
     val hr = act.averageHr?.takeIf { it.isFinite() && it > 0.0 }?.let { "${it.roundToInt()} bpm" }
     val subtitle = listOfNotNull(dur, pace, hr).joinToString(" • ")
 
-    val route = if (isRun) rememberActivityThumbnail(act.id, cachedDetail) else null
-
     Row(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
             .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
-            .clickable { onOpenActivityDetail(act.id) }
+            .strideLabPressFeedback(
+                shape = RoundedCornerShape(14.dp),
+                highlightBorderColor = TodayAdaptivePalette.runningLime,
+                onClick = { onOpenActivityDetail(act.id) }
+            )
             .padding(contentPadding),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -884,21 +898,23 @@ private fun RecordedDailySessionRow(
                 color = TodayAdaptivePalette.text,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
+                style = TabularTextStyle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             if (subtitle.isNotBlank()) {
                 Text(
                     text = subtitle,
-                    style = androidx.compose.ui.text.TextStyle(fontFeatureSettings = "tnum"),
+                    style = TabularTextStyle,
                     color = TodayAdaptivePalette.textSecondary,
                     fontSize = 13.sp
                 )
             }
         }
-        if (route != null) {
-            TodayCompactGpsThumbnail(
-                route = route,
+        if (isRun) {
+            TodayCachedGpsThumbnail(
+                activityId = act.id,
+                detail = cachedDetail,
                 modifier = Modifier.size(width = 84.dp, height = 64.dp)
             )
         }
@@ -923,7 +939,15 @@ private fun ConfirmedLogDailySessionRow(
     val subtitle = listOfNotNull(dist, dur, item.discipline.title).joinToString(" • ")
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
+            .strideLabPressFeedback(
+                shape = RoundedCornerShape(14.dp),
+                highlightBorderColor = accent,
+                onClick = { onOpenWorkout(workout.planId, workout.sessionId) }
+            )
+            .padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Surface(
@@ -954,22 +978,6 @@ private fun ConfirmedLogDailySessionRow(
                 fontSize = 13.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
-            )
-        }
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.CenterEnd
-        ) {
-            Text(
-                text = "View Workout",
-                color = TodayAdaptivePalette.runningLime,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .then(if (useHeroActionTag) Modifier.testTag("today-workout-action") else Modifier)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { onOpenWorkout(workout.planId, workout.sessionId) }
-                    .padding(horizontal = 4.dp, vertical = 4.dp)
             )
         }
     }
@@ -1036,45 +1044,41 @@ internal fun TodayTrainingOverviewCard(
     modifier: Modifier = Modifier,
     discipline: TodayDiscipline? = null
 ) {
-    Surface(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .testTag("today-training-overview"),
-        shape = RoundedCornerShape(18.dp),
-        color = TodayAdaptivePalette.card,
-        border = BorderStroke(1.dp, TodayAdaptivePalette.border)
+            .testTag("today-training-overview")
+            .padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+        StrideLabHairline()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = "Training Overview",
-                    color = TodayAdaptivePalette.text,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "•",
-                    color = TodayAdaptivePalette.textMuted,
-                    fontSize = 13.sp
-                )
-                Text(
-                    text = weekLabel,
-                    color = TodayAdaptivePalette.textMuted,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.8.sp
-                )
-            }
+            Text(
+                text = "Training Overview",
+                color = TodayAdaptivePalette.text,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "•",
+                color = TodayAdaptivePalette.textMuted,
+                fontSize = 13.sp
+            )
+            Text(
+                text = weekLabel,
+                color = TodayAdaptivePalette.textMuted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.8.sp,
+                style = TabularTextStyle
+            )
+        }
 
-            if (discipline == null || discipline == TodayDiscipline.RUNNING) Row(
+        if (discipline == null || discipline == TodayDiscipline.RUNNING) {
+            Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -1094,62 +1098,62 @@ internal fun TodayTrainingOverviewCard(
                     modifier = Modifier.weight(1f)
                 )
             }
+        }
 
-            if (overview.nonRunningChips.isNotEmpty()) {
-                NonRunningChipsRow(chips = overview.nonRunningChips)
-            }
+        if (overview.nonRunningChips.isNotEmpty()) {
+            NonRunningChipsRow(chips = overview.nonRunningChips)
+        }
 
-            overview.adherence?.let { adherence ->
-                HorizontalDivider(
-                    color = TodayAdaptivePalette.divider,
-                    thickness = 1.dp
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Adherence",
-                            color = TodayAdaptivePalette.textMuted,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        val kmPart = if (adherence.plannedRunKm > 0.05) {
-                            " • ${formatCompactKm(adherence.completedPlannedRunKm)} / ${formatCompactKm(adherence.plannedRunKm)} km planned"
-                        } else {
-                            ""
-                        }
-                        Text(
-                            text = "${adherence.completedSessions}/${adherence.plannedSessions} Sessions$kmPart",
-                            color = TodayAdaptivePalette.textSecondary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+        overview.adherence?.let { adherence ->
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Adherence",
+                        color = TodayAdaptivePalette.textMuted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    val kmPart = if (adherence.plannedRunKm > 0.05) {
+                        " • ${formatCompactKm(adherence.completedPlannedRunKm)} / ${formatCompactKm(adherence.plannedRunKm)} km planned"
+                    } else {
+                        ""
                     }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(TodayAdaptivePalette.track)
-                    ) {
-                        if (adherence.progress > 0f) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth(adherence.progress)
-                                    .fillMaxHeight()
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .background(TodayAdaptivePalette.runningLime)
-                            )
-                        }
+                    Text(
+                        text = "${adherence.completedSessions}/${adherence.plannedSessions} Sessions$kmPart",
+                        color = TodayAdaptivePalette.textSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        style = TabularTextStyle,
+                        textAlign = TextAlign.End,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(TodayAdaptivePalette.track)
+                ) {
+                    if (adherence.progress > 0f) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(adherence.progress)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(TodayAdaptivePalette.runningLime)
+                        )
                     }
                 }
             }
         }
+        StrideLabHairline()
     }
 }
 
@@ -1161,6 +1165,7 @@ private fun OverviewMetricColumn(
 ) {
     Column(
         modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(
@@ -1168,6 +1173,8 @@ private fun OverviewMetricColumn(
             color = TodayAdaptivePalette.text,
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
+            style = TabularTextStyle,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Ellipsis
@@ -1176,6 +1183,7 @@ private fun OverviewMetricColumn(
             text = label,
             color = TodayAdaptivePalette.textMuted,
             fontSize = 12.sp,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Ellipsis
@@ -1234,69 +1242,38 @@ internal fun TodayRecentActivitiesSection(
         modifier = modifier
             .fillMaxWidth()
             .testTag("today-recent-activities"),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Recent Activities",
-                color = TodayAdaptivePalette.text,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = "See all",
-                color = TodayAdaptivePalette.runningLime,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(onClick = onSeeAll)
-                    .padding(horizontal = 4.dp, vertical = 2.dp)
-                    .testTag("today-recent-see-all")
-            )
-        }
+        StrideLabSectionHeader(
+            title = "Recent Activities",
+            actionLabel = "See all",
+            actionTag = "today-recent-see-all",
+            onAction = onSeeAll
+        )
 
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(18.dp),
-            color = TodayAdaptivePalette.card,
-            border = BorderStroke(1.dp, TodayAdaptivePalette.border)
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                if (rows.isEmpty()) {
-                    Text(
-                        text = "No recent activities recorded yet.",
-                        color = TodayAdaptivePalette.textSecondary,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(16.dp)
-                    )
-                } else {
-                    rows.forEachIndexed { index, row ->
-                        if (index > 0) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = TodayAdaptivePalette.divider,
-                                thickness = 1.dp
-                            )
+        if (rows.isEmpty()) {
+            Text(
+                text = "No recent activities recorded yet.",
+                color = TodayAdaptivePalette.textSecondary,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(vertical = 12.dp)
+            )
+            StrideLabHairline()
+        } else {
+            rows.forEach { row ->
+                val detail = row.activityId?.let { cachedDetails[it] }
+                TodayRecentActivityListRow(
+                    row = row,
+                    cachedDetail = detail,
+                    onClick = {
+                        when {
+                            row.activityId != null -> onOpenActivityDetail(row.activityId)
+                            row.planId != null && row.sessionId != null ->
+                                onOpenWorkout(row.planId, row.sessionId)
                         }
-                        val detail = row.activityId?.let { cachedDetails[it] }
-                        TodayRecentActivityListRow(
-                            row = row,
-                            cachedDetail = detail,
-                            onClick = {
-                                when {
-                                    row.activityId != null -> onOpenActivityDetail(row.activityId)
-                                    row.planId != null && row.sessionId != null ->
-                                        onOpenWorkout(row.planId, row.sessionId)
-                                }
-                            }
-                        )
                     }
-                }
+                )
+                StrideLabHairline()
             }
         }
     }
@@ -1308,22 +1285,19 @@ private fun TodayRecentActivityListRow(
     cachedDetail: ActivityDetail?,
     onClick: () -> Unit
 ) {
-    val accent = TodayAdaptivePalette.accentFor(row.discipline)
-    val route = if (row.isRun) rememberActivityThumbnail(row.activityId, cachedDetail) else null
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .heightIn(min = 56.dp)
+            .strideLabPressFeedback(
+                shape = RoundedCornerShape(12.dp),
+                highlightBorderColor = TodayAdaptivePalette.runningLime,
+                onClick = onClick
+            )
+            .padding(horizontal = 4.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        TodayDisciplineGlyphBadge(
-            discipline = row.discipline,
-            accent = accent
-        )
-
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(3.dp)
@@ -1331,8 +1305,9 @@ private fun TodayRecentActivityListRow(
             Text(
                 text = "${row.typeLabel} • ${row.detailTitle}",
                 color = TodayAdaptivePalette.text,
-                fontSize = 14.sp,
+                fontSize = 14.5.sp,
                 fontWeight = FontWeight.SemiBold,
+                style = TabularTextStyle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1340,17 +1315,19 @@ private fun TodayRecentActivityListRow(
                 Text(
                     text = row.subtitle,
                     color = TodayAdaptivePalette.textMuted,
-                    fontSize = 12.sp,
+                    fontSize = 12.5.sp,
+                    style = TabularTextStyle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
         }
 
-        if (route != null) {
-            TodayCompactGpsThumbnail(
-                route = route,
-                modifier = Modifier.size(width = 48.dp, height = 32.dp)
+        if (row.isRun) {
+            TodayCachedGpsThumbnail(
+                activityId = row.activityId,
+                detail = cachedDetail,
+                modifier = Modifier.size(width = 52.dp, height = 36.dp)
             )
         }
     }

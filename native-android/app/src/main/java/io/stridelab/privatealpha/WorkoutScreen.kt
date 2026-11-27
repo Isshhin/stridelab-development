@@ -47,7 +47,7 @@ import kotlinx.coroutines.flow.drop
         session.status in setOf("planned", "in_progress", "completed")
     ) {
         rememberRunningWorkoutFitExport(plan.owner, listOfNotNull(state.account, state.localGarminOwner).distinct(),
-            shown.effectiveTitle, session, current)
+            shown.effectiveTitle, session, current, hrFallbackProfile = plan.request.resolvedHrZoneProfile())
     } else null
     val crossDebrief = remember(plan, session, state.plans, state.activities) {
         if (done && session.discipline != "run") Engine15DebriefEngine.workout(
@@ -56,7 +56,6 @@ import kotlinx.coroutines.flow.drop
     }
     val plannedRun=session.discipline=="run" && session.status in setOf("planned","in_progress")
     var recordingOpen by rememberSaveable(plan.owner,session.id) { mutableStateOf(!plannedRun) }
-    var recommendationsOpen by rememberSaveable(plan.owner,session.id) { mutableStateOf(false) }
     var selectedStepIndex by rememberSaveable(plan.owner,session.id) { mutableStateOf<Int?>(null) }
     LaunchedEffect(session.id, session.difficultyStep) { selectedStepIndex = null }
     var minutes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.minutes ?: session.log?.minutes?.toString() ?: "") };var distance by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.distance ?: session.log?.distanceKm?.toString() ?: "") };var effort by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.effort ?: session.coachingLog()?.effort?.toString() ?: "") };var notes by rememberSaveable(plan.owner,session.id) { mutableStateOf(entryDraft?.notes ?: session.log?.notes ?: "") }
@@ -189,6 +188,10 @@ import kotlinx.coroutines.flow.drop
         !(session.suggestion?.accepted == true && session.suggestion.minutes == 0)
     val durableExecution = executeWorkout != null && supportsExecution
     var showPrescription by rememberSaveable(plan.owner, plan.id, session.id) { mutableStateOf(false) }
+    val playerMode = session.playerMode()
+    val defaultSetTable = playerMode in setOf(PlayerMode.Strength, PlayerMode.Calisthenics)
+    var showFullPlayer by rememberSaveable(plan.owner, plan.id, session.id) { mutableStateOf(!defaultSetTable) }
+    var scopedTimer by rememberSaveable(plan.owner, plan.id, session.id) { mutableStateOf(false) }
     if (executeWorkout != null && supportsExecution && !showPrescription && (active || done)) {
         var execution by remember(plan.owner, plan.id, session.id) { mutableStateOf<WorkoutExecution?>(null) }
         var executionError by remember(plan.owner, plan.id, session.id) { mutableStateOf<String?>(null) }
@@ -211,22 +214,86 @@ import kotlinx.coroutines.flow.drop
             }
         }
         LaunchedEffect(plan.owner, plan.id, session.id) { applyEvent(null) }
+        LaunchedEffect(session.swaps) {
+            if (execution != null && session.swaps.isNotEmpty()) applyEvent(null)
+        }
         if (active) {
             val currentExecution = execution
             if (currentExecution == null) {
                 Screen(shown.effectiveTitle, "WORKOUT") {
                     item {
-                        Text(executionError ?: "Opening guided workout…")
+                        Text(executionError ?: "Opening workout…")
                         if (!saving) TextButton(onClick = { saving = true; scope.launch { applyEvent(null) } }) { Text("Retry") }
                         TextButton(onClick = onBack) { Text("Back to Training") }
                     }
                 }
+            } else if (
+                !showFullPlayer &&
+                !scopedTimer &&
+                currentExecution.phase != PlayerPhase.Reviewing &&
+                currentExecution.phase != PlayerPhase.Completed
+            ) {
+                CoachedSetTable(
+                    plan = plan,
+                    session = session,
+                    execution = currentExecution,
+                    allPlans = state.plans,
+                    entries = entries,
+                    onEntries = { entries = it },
+                    busy = saving || state.busy,
+                    error = executionError,
+                    onBack = onBack,
+                    onOpenFullPlayer = { showFullPlayer = true },
+                    onOpenScopedTimer = { setIdx ->
+                        val row = currentExecution.sets.getOrNull(setIdx)
+                        if (row != null) {
+                            val updated = runCatching { JSONObject(entries) }.getOrDefault(JSONObject())
+                            updated.remove("${row.target.id}|${row.number}|seconds")
+                            entries = updated.toString()
+                        }
+                        scopedTimer = true
+                    },
+                    onSwapHarder = { exId ->
+                        actions.swapHarder(plan.id, plan.revision, session.id, exId)
+                    },
+                    onSwapEasier = { exId ->
+                        actions.swap(plan.id, plan.revision, session.id, exId)
+                    }
+                ) { event ->
+                    if (!saving && !state.busy) {
+                        saving = true
+                        scope.launch { applyEvent(event) }
+                    }
+                }
             } else {
-                WorkoutPlayer(currentExecution, entries, { entries = it }, effort, { effort = it },
-                    notes, { notes = it }, performedOn, { performedOn = it }, minutes, { minutes = it },
-                    distance.takeIf { session.discipline == "cond" }, { distance = it },
-                    saving || state.busy, executionError, onBack, { showPrescription = true },
-                    session.playerMode(), session.title in setOf("Strength for Runners", "Lower / Runner Durability")) { event ->
+                WorkoutPlayer(
+                    execution = currentExecution,
+                    entries = entries,
+                    onEntries = { entries = it },
+                    effort = effort,
+                    onEffort = { effort = it },
+                    notes = notes,
+                    onNotes = { notes = it },
+                    date = performedOn,
+                    onDate = { performedOn = it },
+                    minutes = minutes,
+                    onMinutes = { minutes = it },
+                    distance = distance.takeIf { session.discipline == "cond" },
+                    onDistance = { distance = it },
+                    busy = saving || state.busy,
+                    saveError = executionError,
+                    onBack = onBack,
+                    onPrescription = { showPrescription = true },
+                    mode = playerMode,
+                    runnerDurability = session.title in setOf("Strength for Runners", "Lower / Runner Durability"),
+                    scopedToTable = scopedTimer,
+                    onBackToTable = if (scopedTimer) {
+                        {
+                            scopedTimer = false
+                            showFullPlayer = false
+                        }
+                    } else null
+                ) { event ->
                     if (!saving && !state.busy) {
                         saving = true
                         scope.launch { applyEvent(event) }
@@ -334,19 +401,6 @@ import kotlinx.coroutines.flow.drop
                 session.linkedActivityId?.let { activityId ->
                     item { LinkedSourceRunCard(activityId) }
                 }
-                if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan) && (plan.status == "approved" || current.disclosure != null)) {
-                    item {
-                        TracksideWorkoutAccordion(
-                            title = "Workout recommendations",
-                            subtitle = "Optional coaching adjustments and guidance",
-                            expanded = recommendationsOpen,
-                            onToggle = { recommendationsOpen = !recommendationsOpen },
-                            tag = "workout-recommendations-accordion"
-                        ) {
-                            Engine15RecommendationReview(plan, actions, state.busy, session.id, embedded = true)
-                        }
-                    }
-                }
                 session.suggestion?.takeUnless { current.disclosure != null }?.let { suggestion ->
                     item { PendingSuggestionCard(suggestion) }
                 }
@@ -396,10 +450,31 @@ import kotlinx.coroutines.flow.drop
             Text(shown.reason,style=MaterialTheme.typography.bodyLarge,
                 color=TracksidePalette.textMuted)
         }
-        session.linkedActivityId?.let { activityId -> item { LinkedSourceRunCard(activityId) } }
-        if (plan.engineVersion == ENGINE15_VERSION && Engine1Engines.canManage(plan) && (plan.status == "approved" || current.disclosure != null)) item {
-            Engine15RecommendationReview(plan, actions, state.busy, session.id)
+        item {
+            val workoutCatalog = rememberAugmentedExerciseCatalog()
+            val nonRunningFocus = remember(done, session.log, exercises, workoutCatalog, rest) {
+                when {
+                    session.discipline == "run" || rest -> MuscleFocusMap.EMPTY
+                    done && session.log != null ->
+                        MuscleFocusProjector.forConfirmedSession(session.log.sets, exercises, workoutCatalog)
+                    exercises.isNotEmpty() ->
+                        MuscleFocusProjector.forPlannedSession(exercises, workoutCatalog)
+                    else -> MuscleFocusMap.EMPTY
+                }
+            }
+            if (!nonRunningFocus.isEmpty) {
+                val provenance = if (done && session.log != null) {
+                    "Based on ${nonRunningFocus.setCount} confirmed sets"
+                } else {
+                    "Planned session focus"
+                }
+                SessionMuscleFocusSection(
+                    focus = nonRunningFocus,
+                    provenance = provenance
+                )
+            }
         }
+        session.linkedActivityId?.let { activityId -> item { LinkedSourceRunCard(activityId) } }
         session.suggestion?.takeUnless { current.disclosure != null }?.let { suggestion -> item { PendingSuggestionCard(suggestion) } }
         if(!rest && Engine1Engines.canManage(plan) &&
             plan.status in setOf("approved","paused") &&

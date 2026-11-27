@@ -39,6 +39,8 @@ class CrossTrainingDebriefAnalyzerTest {
         val result = requireNotNull(review(workout, listOf(hardRun())))
         assertEquals(DebriefTone.CAUTION, result.tone)
         assertEquals(DebriefCategory.LOAD_AND_RECOVERY, result.insights.first().category)
+        assertFalse(result.nextFocus.isNullOrBlank())
+        assertFalse((result.insights.map { it.title + it.body } + listOfNotNull(result.nextFocus)).joinToString(" ").contains("—"))
         val dose = result.insights.single { it.category == DebriefCategory.EXECUTION }
         assertEquals(DebriefTone.POSITIVE, dose.tone)
         assertTrue(dose.body.contains("12 sets"))

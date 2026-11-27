@@ -5,6 +5,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -154,163 +155,216 @@ internal fun TracksideDisciplineScreen(
     onToggle: (String) -> Unit,
     onBack: () -> Unit,
     onContinue: () -> Unit,
-    extraResistance: Set<String> = emptySet()
+    extraResistance: Set<String> = emptySet(),
+    onOpenWorkoutHub: (() -> Unit)? = null
 ) {
     val entries = listOf(
         Triple("run", "Running", "Endurance and speed"),
         Triple("str", "Strength", "Power & runner durability"),
-        Triple("cal", "Calisthenics", "Bodyweight and control"),
-        Triple("cond", "Conditioning", "Work and recovery"),
-        Triple("plyo", "Plyometrics", "Ground contacts"),
-        Triple("iso", "Isometrics", "Timed holds")
+        Triple("cal", "Calisthenics", "Bodyweight and control")
     )
     TracksideBuilderFrame(
         eyebrow = "BUILD YOUR PLAN",
         headline = "Choose your focus",
-        description = "Choose up to six tracks. Review their shared schedule before activating.",
+        description = "Choose up to three tracks. Select two or more to build a Hybrid plan.",
         onBack = onBack,
         onContinue = onContinue,
         continueEnabled = request.runDays + request.strengthDays +
             request.calDays + request.conditioningDays > 0,
         progressStep = 1
     ) {
-        entries.chunked(2).forEach { pair ->
-            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).height(IntrinsicSize.Max),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            pair.forEach { (discipline, name, desc) ->
-                    val selected = when (discipline) {
-                        "run" -> request.runDays > 0
-                        "str", "plyo", "iso" -> discipline in extraResistance ||
-                            request.strengthDays > 0 && strengthTrack(request) == discipline
-                        "cal" -> request.calDays > 0
-                        else -> request.conditioningDays > 0
-                    }
-                    val discColor = StrideLabVisualPalette.disciplineColor(if (discipline in setOf("plyo", "iso")) "str" else discipline)
-                    val cardBg by animateColorAsState(
-                        if (selected) discColor.copy(alpha = 0.16f) else surfaceCard,
-                        animationSpec = tween(180),
-                        label = "disc-$discipline"
-                    )
-                    Surface(
-                        modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 96.dp)
-                            .testTag("discipline-$discipline")
-                            .semantics { this.selected = selected },
-                        onClick = { onToggle(discipline) },
-                        shape = RoundedCornerShape(16.dp),
-                        color = cardBg,
-                        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) discColor else outline)
+        entries.forEach { (discipline, name, desc) ->
+            val selected = when (discipline) {
+                "run" -> request.runDays > 0
+                "str" -> discipline in extraResistance ||
+                    request.strengthDays > 0 && strengthTrack(request) == discipline
+                else -> request.calDays > 0
+            }
+            val discColor = StrideLabVisualPalette.disciplineColor(discipline)
+            val cardBg by animateColorAsState(
+                if (selected) discColor.copy(alpha = 0.16f) else surfaceCard,
+                animationSpec = tween(180),
+                label = "disc-$discipline"
+            )
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).heightIn(min = 84.dp)
+                    .testTag("discipline-$discipline")
+                    .semantics { this.selected = selected },
+                onClick = { onToggle(discipline) },
+                shape = RoundedCornerShape(16.dp),
+                color = cardBg,
+                border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) discColor else outline)
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Box(
+                        Modifier.size(36.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (selected) discColor else discColor.copy(alpha = 0.16f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            Modifier.padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Box(
-                                Modifier.size(28.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(if (selected) discColor else discColor.copy(alpha = 0.16f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painterResource(when (discipline) {
-                                        "run" -> R.drawable.trackside_discipline_running
-                                        "str", "plyo", "iso" -> R.drawable.trackside_discipline_strength
-                                        "cal" -> R.drawable.trackside_discipline_calisthenics
-                                        else -> R.drawable.trackside_discipline_conditioning
-                                    }),
-                                    tint = if (selected) PlanBuilderPalette.accentOn else discColor,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(22.dp).testTag("discipline-icon-$discipline")
-                                )
-                            }
-                            Column(verticalArrangement = Arrangement.spacedBy(3.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    name, textAlign = TextAlign.Center,
-                                    color = if (selected) discColor else white,
-                                    fontSize = 15.5.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                                Text(
-                                    desc, textAlign = TextAlign.Center,
-                                    color = if (selected) white.copy(alpha = 0.85f) else muted,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
+                        Icon(
+                            painterResource(when (discipline) {
+                                "run" -> R.drawable.trackside_discipline_running
+                                "str" -> R.drawable.trackside_discipline_strength
+                                else -> R.drawable.trackside_discipline_calisthenics
+                            }),
+                            tint = if (selected) PlanBuilderPalette.accentOn else discColor,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp).testTag("discipline-icon-$discipline")
+                        )
                     }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        Text(
+                            name,
+                            color = if (selected) discColor else white,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            desc,
+                            color = if (selected) white.copy(alpha = 0.85f) else muted,
+                            fontSize = 12.5.sp
+                        )
+                    }
+                    Text(
+                        if (selected) "Selected" else "Add",
+                        color = if (selected) discColor else muted,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
         val chosen = listOf(request.runDays, request.strengthDays,
             request.calDays, request.conditioningDays).count { it > 0 }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(10.dp))
         Text(
-            if (chosen > 1) "$chosen disciplines selected · Smart hybrid scheduling enabled"
+            if (chosen > 1) "$chosen disciplines selected · Hybrid plan enabled"
             else "$chosen selected",
             Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
             color = if (chosen > 1) limeAccent else muted,
-            fontSize = 11.5.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold
         )
+        Spacer(Modifier.height(14.dp))
+        Surface(
+            modifier = Modifier.fillMaxWidth().testTag("discipline-workout-hub-card"),
+            onClick = { onOpenWorkoutHub?.invoke() },
+            enabled = onOpenWorkoutHub != null,
+            shape = RoundedCornerShape(14.dp),
+            color = surfaceCard,
+            border = BorderStroke(1.dp, outline)
+        ) {
+            Row(
+                Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        "Conditioning, Plyometrics, Isometrics & Mobility",
+                        color = white,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Available anytime as ready-to-run sessions in Workout Hub.",
+                        color = muted,
+                        fontSize = 11.5.sp
+                    )
+                }
+                if (onOpenWorkoutHub != null) {
+                    Text(
+                        "Workout Hub ›",
+                        color = limeAccent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
 private fun TracksideOption(
     label: String, description: String, selected: Boolean,
-    icon: Int, onClick: () -> Unit, height: Int = 82,
+    icon: Int, onClick: () -> Unit, height: Int = 78,
     tag: String = label, runningGoal: Boolean = false
 ) {
     val bg by animateColorAsState(
-        if (selected) limeAccent.copy(alpha = 0.16f) else surfaceCard,
+        if (selected) limeAccent.copy(alpha = 0.09f) else Color.Transparent,
         animationSpec = tween(180),
         label = "opt-$tag"
     )
-    Surface(
-        modifier = Modifier.fillMaxWidth().heightIn(min = height.dp)
-            .testTag("builder-option-$tag"),
-        onClick = onClick,
-        color = bg,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) limeAccent else outline)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = height.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(bg)
+                .clickable(onClick = onClick)
+                .height(IntrinsicSize.Min)
+                .testTag("builder-option-$tag"),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                Modifier.size(44.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (selected) limeAccent else PlanBuilderPalette.surfaceRaised),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painterResource(icon), contentDescription = null,
-                    tint = if (selected) PlanBuilderPalette.accentOn else PlanBuilderPalette.secondary,
-                    modifier = Modifier.size(23.dp).testTag("builder-goal-icon-$tag")
+            if (selected) {
+                Box(
+                    Modifier
+                        .width(3.dp)
+                        .fillMaxHeight()
+                        .background(limeAccent)
                 )
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    label,
-                    fontSize = 15.5.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = if (selected) limeAccent else white,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    description,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp,
-                    color = if (selected) white.copy(alpha = 0.85f) else muted,
-                    maxLines = 2
-                )
+            Row(
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Box(
+                    Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(11.dp))
+                        .background(if (selected) limeAccent else PlanBuilderPalette.surfaceRaised),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painterResource(icon), contentDescription = null,
+                        tint = if (selected) PlanBuilderPalette.accentOn else PlanBuilderPalette.secondary,
+                        modifier = Modifier.size(22.dp).testTag("builder-goal-icon-$tag")
+                    )
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        label,
+                        fontSize = 15.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (selected) limeAccent else white,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        description,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        color = if (selected) white.copy(alpha = 0.85f) else muted,
+                        maxLines = 2
+                    )
+                }
             }
         }
+        StrideLabHairline()
     }
 }
 
@@ -336,7 +390,8 @@ internal fun TracksideRunningGoalScreen(
         onContinue = onContinue,
         progressStep = 2
     ) {
-        entries.forEachIndexed { i, (route, label, desc) ->
+        StrideLabHairline()
+        entries.forEach { (route, label, desc) ->
             TracksideOption(
                 label, desc, selected == route,
                 icon = when (route) {
@@ -348,7 +403,6 @@ internal fun TracksideRunningGoalScreen(
                 },
                 onClick = { onSelect(route) }, tag = route, runningGoal = true
             )
-            if (i < entries.lastIndex) Spacer(Modifier.height(10.dp))
         }
     }
 }
@@ -359,45 +413,62 @@ private fun TracksideRaceOption(
     tag: String, onClick: () -> Unit
 ) {
     val bg by animateColorAsState(
-        if (selected) selectedTint else surfaceCard,
+        if (selected) limeAccent.copy(alpha = 0.09f) else Color.Transparent,
         animationSpec = tween(180),
         label = "race-$tag"
     )
-    Surface(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 66.dp).testTag("builder-option-$tag"),
-        onClick = onClick,
-        color = bg,
-        shape = RoundedCornerShape(15.dp),
-        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) limeAccent else outline)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            Modifier.padding(horizontal = 13.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(13.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 66.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(bg)
+                .clickable(onClick = onClick)
+                .height(IntrinsicSize.Min)
+                .testTag("builder-option-$tag"),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                Modifier.size(40.dp).clip(RoundedCornerShape(11.dp))
-                    .background(if (selected) limeAccent.copy(alpha = 0.18f) else PlanBuilderPalette.surfaceRaised),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painterResource(icon), contentDescription = null,
-                    tint = if (selected) limeAccent else PlanBuilderPalette.secondary,
-                    modifier = Modifier.size(22.dp).testTag("builder-race-icon-$tag")
-                )
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, fontSize = 14.5.sp, color = white, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(description, fontSize = 11.5.sp, lineHeight = 15.sp, color = muted, maxLines = 2)
-            }
             if (selected) {
-                Icon(
-                    painterResource(R.drawable.trackside_race_goal_check),
-                    contentDescription = null, tint = limeAccent,
-                    modifier = Modifier.size(18.dp).testTag("builder-race-selected-check")
+                Box(
+                    Modifier
+                        .width(3.dp)
+                        .fillMaxHeight()
+                        .background(limeAccent)
                 )
+            }
+            Row(
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(13.dp)
+            ) {
+                Box(
+                    Modifier.size(38.dp).clip(RoundedCornerShape(10.dp))
+                        .background(if (selected) limeAccent.copy(alpha = 0.18f) else PlanBuilderPalette.surfaceRaised),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painterResource(icon), contentDescription = null,
+                        tint = if (selected) limeAccent else PlanBuilderPalette.secondary,
+                        modifier = Modifier.size(21.dp).testTag("builder-race-icon-$tag")
+                    )
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(title, fontSize = 14.5.sp, color = if (selected) limeAccent else white, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(description, fontSize = 11.5.sp, lineHeight = 15.sp, color = muted, maxLines = 2)
+                }
+                if (selected) {
+                    Icon(
+                        painterResource(R.drawable.trackside_race_goal_check),
+                        contentDescription = null, tint = limeAccent,
+                        modifier = Modifier.size(18.dp).testTag("builder-race-selected-check")
+                    )
+                }
             }
         }
+        StrideLabHairline()
     }
 }
 
@@ -455,7 +526,8 @@ internal fun TracksideRaceGoalScreen(
             }
         }
         Spacer(Modifier.height(16.dp))
-        intents.forEachIndexed { i, (id, title, desc) ->
+        StrideLabHairline()
+        intents.forEach { (id, title, desc) ->
             TracksideRaceOption(
                 title, desc, intent == id,
                 icon = when (id) {
@@ -466,7 +538,6 @@ internal fun TracksideRaceGoalScreen(
                 },
                 onClick = { onIntent(id) }, tag = id
             )
-            if (i < intents.lastIndex) Spacer(Modifier.height(8.dp))
         }
         if (intent == "pr" || intent == "time") {
             Spacer(Modifier.height(14.dp))
@@ -486,53 +557,55 @@ internal fun TracksideRaceGoalScreen(
         Spacer(Modifier.height(14.dp))
         Text("TARGET RACE DAY", fontSize = 10.sp, letterSpacing = 1.4.sp, color = muted, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-        Surface(
-            onClick = {
-                val init = targetRaceDate ?: LocalDate.now().plusWeeks(12)
-                DatePickerDialog(context, { _, y, m, d ->
-                    onTargetRaceDate?.invoke(LocalDate.of(y, m + 1, d))
-                }, init.year, init.monthValue - 1, init.dayOfMonth).show()
-            },
-            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("builder-race-target-day"),
-            color = surfaceCard,
-            shape = RoundedCornerShape(15.dp),
-            border = BorderStroke(1.dp, if (targetRaceDate != null) limeAccent else outline)
+        StrideLabHairline()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 58.dp)
+                .clickable {
+                    val init = targetRaceDate ?: LocalDate.now().plusWeeks(12)
+                    DatePickerDialog(context, { _, y, m, d ->
+                        onTargetRaceDate?.invoke(LocalDate.of(y, m + 1, d))
+                    }, init.year, init.monthValue - 1, init.dayOfMonth).show()
+                }
+                .padding(vertical = 12.dp)
+                .testTag("builder-race-target-day"),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
-                        .background(if (targetRaceDate != null) limeAccent.copy(alpha = 0.16f) else PlanBuilderPalette.surfaceRaised),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painterResource(R.drawable.trackside_race_goal_calendar),
-                        contentDescription = null, tint = Color.Unspecified,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        targetRaceDate?.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy", Locale.US))
-                            ?: "Choose race date (optional)",
-                        fontSize = 13.5.sp,
-                        fontWeight = if (targetRaceDate != null) FontWeight.Bold else FontWeight.Medium,
-                        color = if (targetRaceDate != null) white else muted
-                    )
-                    if (targetRaceDate != null) {
-                        val wks = ChronoUnit.WEEKS.between(LocalDate.now(), targetRaceDate).coerceIn(4, 16)
-                        Text("$wks-week plan · automatic taper synced", fontSize = 11.sp, color = limeAccent)
-                    }
-                }
-                if (targetRaceDate != null && onTargetRaceDate != null) {
-                    TextButton(onClick = { onTargetRaceDate(null) }, contentPadding = PaddingValues(horizontal = 6.dp)) {
-                        Text("Clear", fontSize = 11.sp, color = muted)
-                    }
-                } else {
-                    Text("›", color = muted, fontSize = 20.sp)
+            Box(
+                Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+                    .background(if (targetRaceDate != null) limeAccent.copy(alpha = 0.16f) else PlanBuilderPalette.surfaceRaised),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painterResource(R.drawable.trackside_race_goal_calendar),
+                    contentDescription = null, tint = Color.Unspecified,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    targetRaceDate?.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy", Locale.US))
+                        ?: "Choose race date (optional)",
+                    fontSize = 13.5.sp,
+                    fontWeight = if (targetRaceDate != null) FontWeight.Bold else FontWeight.Medium,
+                    color = if (targetRaceDate != null) white else muted
+                )
+                if (targetRaceDate != null) {
+                    val wks = ChronoUnit.WEEKS.between(LocalDate.now(), targetRaceDate).coerceIn(4, 16)
+                    Text("$wks-week plan · automatic taper synced", fontSize = 11.sp, color = limeAccent)
                 }
             }
+            if (targetRaceDate != null && onTargetRaceDate != null) {
+                TextButton(onClick = { onTargetRaceDate(null) }, contentPadding = PaddingValues(horizontal = 6.dp)) {
+                    Text("Clear", fontSize = 11.sp, color = muted)
+                }
+            } else {
+                Text("›", color = muted, fontSize = 20.sp)
+            }
         }
+        StrideLabHairline()
     }
     if (benchmarkDialogOpen) {
         BenchmarkTimeDialog(
@@ -557,14 +630,9 @@ private fun BenchmarkEntryCard(
         val h = sec / 3600; val m = (sec % 3600) / 60; val s = sec % 60
         return if (h > 0) "%d:%02d:%02d".format(Locale.US, h, m, s) else "%d:%02d".format(Locale.US, m, s)
     }
-    Surface(
-        modifier = Modifier.fillMaxWidth().testTag(cardTag),
-        color = surfaceCard,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, if (benchmarkSeconds != null) limeAccent.copy(alpha = 0.65f) else outline)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth().testTag(cardTag)) {
         Row(
-            Modifier.padding(14.dp),
+            Modifier.fillMaxWidth().padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -594,6 +662,7 @@ private fun BenchmarkEntryCard(
                 }
             }
         }
+        StrideLabHairline()
     }
 }
 
@@ -668,86 +737,78 @@ private fun TracksideAbilityRange(
     onValue: (Double) -> Unit
 ) {
     val sliderValue = (value ?: 0.0).toFloat().coerceIn(0f, maxValue)
-    Surface(
-        Modifier.fillMaxWidth().testTag("builder-ability-$tag-card"),
-        color = surfaceCard,
-        shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, outline)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .testTag("builder-ability-$tag-card")
+            .padding(vertical = 12.dp)
     ) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(limeAccent.copy(alpha = 0.04f), Color.Transparent)
-                    )
-                )
-                .padding(horizontal = 16.dp, vertical = 14.dp)
-        ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(header, Modifier.weight(1f), fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
-                Text(note, color = muted, fontSize = 10.5.sp)
-            }
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    if (value == null) "—" else String.format(Locale.getDefault(), if (value % 1.0 == 0.0) "%.0f" else "%.1f", value),
-                    fontSize = 38.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = white,
-                    letterSpacing = (-1).sp
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    unit,
-                    color = limeAccent,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 7.dp)
-                )
-            }
-            Spacer(Modifier.height(4.dp))
-            Slider(
-                value = sliderValue,
-                onValueChange = { onValue(it.toDouble()) },
-                valueRange = 0f..maxValue,
-                modifier = Modifier.fillMaxWidth().height(30.dp).testTag("builder-ability-$tag-slider"),
-                thumb = { _ ->
-                    Box(
-                        Modifier.size(20.dp)
-                            .clip(CircleShape)
-                            .background(limeAccent)
-                            .padding(5.dp)
-                            .clip(CircleShape)
-                            .background(PlanBuilderPalette.accentOn)
-                    )
-                },
-                track = { _ ->
-                    Box(
-                        Modifier.fillMaxWidth().height(6.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(PlanBuilderPalette.surfaceRaised)
-                    ) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth(sliderValue / maxValue)
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(
-                                    Brush.horizontalGradient(
-                                        listOf(StrideLabVisualPalette.easyTeal, limeAccent)
-                                    )
-                                )
-                        )
-                    }
-                }
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("0 km", fontSize = 10.sp, color = PlanBuilderPalette.muted)
-                Text(String.format(Locale.getDefault(), "%.0f km", maxValue / 2), fontSize = 10.sp, color = PlanBuilderPalette.muted)
-                Text(String.format(Locale.getDefault(), "%.0f km", maxValue), fontSize = 10.sp, color = PlanBuilderPalette.muted)
-            }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(header, Modifier.weight(1f), fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
+            Text(note, color = muted, fontSize = 10.5.sp)
         }
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                if (value == null) "-" else String.format(Locale.getDefault(), if (value % 1.0 == 0.0) "%.0f" else "%.1f", value),
+                fontSize = 36.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = white,
+                letterSpacing = (-1).sp,
+                style = TabularTextStyle
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                unit,
+                color = limeAccent,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 7.dp)
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Slider(
+            value = sliderValue,
+            onValueChange = { onValue(it.toDouble()) },
+            valueRange = 0f..maxValue,
+            modifier = Modifier.fillMaxWidth().height(30.dp).testTag("builder-ability-$tag-slider"),
+            thumb = { _ ->
+                Box(
+                    Modifier.size(20.dp)
+                        .clip(CircleShape)
+                        .background(limeAccent)
+                        .padding(5.dp)
+                        .clip(CircleShape)
+                        .background(PlanBuilderPalette.accentOn)
+                )
+            },
+            track = { _ ->
+                Box(
+                    Modifier.fillMaxWidth().height(6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(PlanBuilderPalette.surfaceRaised)
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(sliderValue / maxValue)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(StrideLabVisualPalette.easyTeal, limeAccent)
+                                )
+                            )
+                    )
+                }
+            }
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("0 km", fontSize = 10.sp, color = PlanBuilderPalette.muted)
+            Text(String.format(Locale.getDefault(), "%.0f km", maxValue / 2), fontSize = 10.sp, color = PlanBuilderPalette.muted)
+            Text(String.format(Locale.getDefault(), "%.0f km", maxValue), fontSize = 10.sp, color = PlanBuilderPalette.muted)
+        }
+        Spacer(Modifier.height(10.dp))
+        StrideLabHairline()
     }
 }
 
@@ -776,9 +837,16 @@ internal fun TracksideRunningAbilityScreen(
     weeklySource: String = "Recent training",
     longestSource: String = "Recent training",
     onConfirmNoRecentRunning: (() -> Unit)? = null,
-    progressStep: Int = 3
+    progressStep: Int = 3,
+    runningTargetMode: String = "PACE",
+    onRunningTargetMode: ((String) -> Unit)? = null,
+    hrZoneProfile: ExecutionHrZoneProfile? = null,
+    hrZoneSourceLabel: String? = null,
+    hrSettings: AthleteHeartRateZoneSettings = AthleteHeartRateZoneSettings(),
+    onSaveHrSettings: ((AthleteHeartRateZoneSettings) -> Unit)? = null
 ) {
     var benchmarkDialogOpen by remember { mutableStateOf(false) }
+    var hrDialogOpen by remember { mutableStateOf(false) }
     var chosenDistance by remember(benchmarkDistance) { mutableStateOf(benchmarkDistance) }
 
     TracksideBuilderFrame(
@@ -787,6 +855,7 @@ internal fun TracksideRunningAbilityScreen(
         description = "We fill in what we can from your recent runs. You can adjust either distance.",
         onBack = onBack,
         onContinue = onContinue,
+        continueEnabled = runningTargetMode != "HR" || hrZoneProfile != null,
         descriptionBottomGap = 16,
         contentTopPadding = 12,
         headlineLineHeight = 34,
@@ -847,6 +916,7 @@ internal fun TracksideRunningAbilityScreen(
             TextButton(onClick = onConfirmNoRecentRunning) { Text("I haven’t run recently") }
         }
         Spacer(Modifier.height(16.dp))
+        historyContent()
         Text("RECENT PERFORMANCE  (OPTIONAL)", fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         BenchmarkEntryCard(
@@ -861,6 +931,82 @@ internal fun TracksideRunningAbilityScreen(
             Spacer(Modifier.height(10.dp))
             ProvisionalPaceZoneStrip(paceZones)
         }
+        if (onRunningTargetMode != null) {
+            Spacer(Modifier.height(16.dp))
+            Text("TRAINING TARGETS", fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = surfaceCard,
+                border = BorderStroke(1.dp, outline)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("PACE" to "Pace", "HR" to "Heart Rate").forEach { (mode, label) ->
+                        val selected = runningTargetMode == mode
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .testTag("builder-target-mode-${mode.lowercase()}"),
+                            onClick = { onRunningTargetMode(mode) },
+                            shape = RoundedCornerShape(11.dp),
+                            color = if (selected) limeAccent else Color.Transparent
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = label,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                                    color = if (selected) PlanBuilderPalette.accentOn else muted
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (runningTargetMode == "HR") {
+                Spacer(Modifier.height(10.dp))
+                if (hrZoneProfile != null) {
+                    HeartRateZonePreviewStrip(
+                        profile = hrZoneProfile,
+                        sourceLabel = hrZoneSourceLabel,
+                        onEdit = { hrDialogOpen = true }
+                    )
+                } else {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        color = surfaceCard,
+                        border = BorderStroke(1.dp, outline)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "Heart rate zones are required for HR-targeted plans.",
+                                fontSize = 13.sp,
+                                color = white,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "Enter your LTHR, Max + Resting HR (HRR), or Max HR to build accurate Z1-Z5 targets.",
+                                fontSize = 12.sp,
+                                color = muted
+                            )
+                            Button(
+                                onClick = { hrDialogOpen = true },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = limeAccent,
+                                    contentColor = PlanBuilderPalette.accentOn
+                                ),
+                                modifier = Modifier.testTag("builder-hr-configure")
+                            ) {
+                                Text("Configure HR Zones", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     if (benchmarkDialogOpen) {
         BenchmarkTimeDialog(
@@ -873,4 +1019,194 @@ internal fun TracksideRunningAbilityScreen(
             onDismiss = { benchmarkDialogOpen = false }
         )
     }
+    if (hrDialogOpen) {
+        HeartRateZoneSetupDialog(
+            initial = hrSettings,
+            onSave = { updated ->
+                onSaveHrSettings?.invoke(updated)
+                hrDialogOpen = false
+            },
+            onDismiss = { hrDialogOpen = false }
+        )
+    }
+}
+
+@Composable
+private fun HeartRateZonePreviewStrip(
+    profile: ExecutionHrZoneProfile,
+    sourceLabel: String?,
+    onEdit: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = PlanBuilderPalette.surfaceRaised,
+        border = androidx.compose.foundation.BorderStroke(1.dp, PlanBuilderPalette.border)
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "HEART RATE ZONES",
+                        fontSize = 10.sp,
+                        letterSpacing = 1.2.sp,
+                        color = PlanBuilderPalette.muted,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (!sourceLabel.isNullOrBlank()) {
+                        Text(sourceLabel, fontSize = 11.sp, color = PlanBuilderPalette.muted)
+                    }
+                }
+                androidx.compose.material3.TextButton(onClick = onEdit) {
+                    Text("Edit zones", fontSize = 12.sp, color = PlanBuilderPalette.accent)
+                }
+            }
+            val zones = listOf(
+                "Z1" to "${profile.z1FloorBpm}-${profile.z2FloorBpm - 1}",
+                "Z2" to "${profile.z2FloorBpm}-${profile.z3FloorBpm - 1}",
+                "Z3" to "${profile.z3FloorBpm}-${profile.z4FloorBpm - 1}",
+                "Z4" to "${profile.z4FloorBpm}-${profile.z5FloorBpm - 1}",
+                "Z5" to "${profile.z5FloorBpm}+"
+            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                zones.forEach { (label, range) ->
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(PlanBuilderPalette.surface, RoundedCornerShape(8.dp))
+                            .padding(vertical = 6.dp, horizontal = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = PlanBuilderPalette.accent)
+                        Text(range, fontSize = 10.sp, color = PlanBuilderPalette.text)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeartRateZoneSetupDialog(
+    initial: AthleteHeartRateZoneSettings,
+    onSave: (AthleteHeartRateZoneSettings) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var method by remember(initial) { mutableStateOf(initial.method) }
+    var lthrText by remember(initial) { mutableStateOf(initial.lactateThresholdHr?.toString() ?: "170") }
+    var maxHrText by remember(initial) { mutableStateOf(initial.maximumHr?.toString() ?: "190") }
+    var restingHrText by remember(initial) { mutableStateOf(initial.restingHr?.toString() ?: "55") }
+
+    val candidate = when (method) {
+        HeartRateZoneMethod.LTHR_PERCENT -> AthleteHeartRateZoneSettings(
+            method = HeartRateZoneMethod.LTHR_PERCENT,
+            lactateThresholdHr = lthrText.toIntOrNull()
+        )
+        HeartRateZoneMethod.HRR_PERCENT -> AthleteHeartRateZoneSettings(
+            method = HeartRateZoneMethod.HRR_PERCENT,
+            maximumHr = maxHrText.toIntOrNull(),
+            restingHr = restingHrText.toIntOrNull()
+        )
+        HeartRateZoneMethod.MAX_BPM -> AthleteHeartRateZoneSettings(
+            method = HeartRateZoneMethod.MAX_BPM,
+            maximumHr = maxHrText.toIntOrNull()
+        )
+    }
+    val validProfile = HeartRateZoneAnalysis.toExecutionZoneProfile(candidate)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = PlanBuilderPalette.surface,
+        title = { Text("Configure HR Zones", color = white, fontWeight = FontWeight.ExtraBold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        HeartRateZoneMethod.LTHR_PERCENT to "LTHR %",
+                        HeartRateZoneMethod.HRR_PERCENT to "HRR %",
+                        HeartRateZoneMethod.MAX_BPM to "Max HR %"
+                    ).forEach { (m, label) ->
+                        val active = method == m
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { method = m },
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (active) limeAccent else PlanBuilderPalette.surfaceRaised,
+                            border = BorderStroke(1.dp, if (active) limeAccent else PlanBuilderPalette.border)
+                        ) {
+                            Box(modifier = Modifier.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    label,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (active) PlanBuilderPalette.accentOn else white
+                                )
+                            }
+                        }
+                    }
+                }
+                when (method) {
+                    HeartRateZoneMethod.LTHR_PERCENT -> {
+                        OutlinedTextField(
+                            value = lthrText,
+                            onValueChange = { lthrText = it.filter(Char::isDigit).take(3) },
+                            label = { Text("Lactate Threshold HR (bpm)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
+                    HeartRateZoneMethod.HRR_PERCENT -> {
+                        OutlinedTextField(
+                            value = maxHrText,
+                            onValueChange = { maxHrText = it.filter(Char::isDigit).take(3) },
+                            label = { Text("Max HR (bpm)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        OutlinedTextField(
+                            value = restingHrText,
+                            onValueChange = { restingHrText = it.filter(Char::isDigit).take(3) },
+                            label = { Text("Resting HR (bpm)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
+                    HeartRateZoneMethod.MAX_BPM -> {
+                        OutlinedTextField(
+                            value = maxHrText,
+                            onValueChange = { maxHrText = it.filter(Char::isDigit).take(3) },
+                            label = { Text("Max HR (bpm)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
+                }
+                if (validProfile != null) {
+                    Text(
+                        "Z1 ${validProfile.z1FloorBpm} | Z2 ${validProfile.z2FloorBpm} | Z3 ${validProfile.z3FloorBpm} | Z4 ${validProfile.z4FloorBpm} | Z5 ${validProfile.z5FloorBpm} bpm",
+                        fontSize = 11.sp,
+                        color = muted
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(candidate) },
+                enabled = validProfile != null
+            ) {
+                Text("Save", color = if (validProfile != null) limeAccent else muted, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = muted)
+            }
+        }
+    )
 }

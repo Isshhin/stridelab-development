@@ -119,7 +119,7 @@ internal fun TracksideWeekReview(
             modifier = Modifier.testTag("builder-discard-preview")) { Text("Discard preview") }
         trackControls?.invoke()
         supportReview?.let { RunnerSupportPreviewCard(it, weekStart, weekEnd) }
-        // 1. Hero Plan Blueprint Summary Card (when plan exists)
+        // 1. Flat Hero Plan Blueprint Summary (when plan exists)
         if (plan != null) {
             val peakWeeklyKm = remember(plan.id, plan.revision) {
                 if (request.runDays == 0 && plan.sessions.none { it.discipline == "run" }) null
@@ -129,98 +129,86 @@ internal fun TracksideWeekReview(
                     weekReviewDistance(plan.sessions.filter { it.date in ws..we })
                 }.maxOrNull()
             }
-            Surface(
-                modifier = Modifier.fillMaxWidth().testTag("builder-hero-blueprint"),
-                shape = RoundedCornerShape(18.dp),
-                color = PlanBuilderPalette.surface,
-                border = BorderStroke(1.dp, PlanBuilderPalette.borderStrong)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("builder-hero-blueprint")
+                    .padding(vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(
-                                    PlanBuilderPalette.accent.copy(alpha = 0.09f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "${firstDate.format(dateFmt)} – ${blockEnd.format(dateFmt)}".uppercase(),
-                            fontSize = 10.sp,
-                            letterSpacing = 1.2.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PlanBuilderPalette.accent
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                            counts.filter { it.second > 0 }.forEach { (disc, _) ->
-                                val dColor = StrideLabVisualPalette.disciplineColor(disc)
-                                val label = when (disc) {
-                                    "run" -> "Run"
-                                    "str" -> "Strength"
-                                    "cal" -> "Cali"
-                                    else -> "Cond"
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(dColor.copy(alpha = 0.14f))
-                                        .padding(horizontal = 7.dp, vertical = 3.dp)
-                                ) {
-                                    Text(
-                                        label,
-                                        fontSize = 9.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = dColor
-                                    )
-                                }
+                    Text(
+                        "${firstDate.format(dateFmt)} - ${blockEnd.format(dateFmt)}".uppercase(),
+                        fontSize = 10.sp,
+                        letterSpacing = 1.2.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PlanBuilderPalette.accent
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        counts.filter { it.second > 0 }.forEach { (disc, _) ->
+                            val dColor = StrideLabVisualPalette.disciplineColor(disc)
+                            val label = when (disc) {
+                                "run" -> "Run"
+                                "str" -> "Strength"
+                                "cal" -> "Cali"
+                                else -> "Cond"
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(dColor.copy(alpha = 0.14f))
+                                    .padding(horizontal = 7.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    label,
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = dColor
+                                )
                             }
                         }
                     }
-
-                    Text(
-                        plan.request.goal,
-                        fontSize = 21.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = PlanBuilderPalette.text,
-                        letterSpacing = (-0.4).sp
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        HeroKpiBlock(
-                            value = peakWeeklyKm?.let { String.format(Locale.US, "%.0f km", it) } ?: "—",
-                            label = "Peak week",
-                            accent = PlanBuilderPalette.accent,
-                            modifier = Modifier.weight(1f)
-                        )
-                        HeroKpiBlock(
-                            value = "$totalWeeks wks",
-                            label = "Block length",
-                            accent = PlanBuilderPalette.text,
-                            modifier = Modifier.weight(1f)
-                        )
-                        HeroKpiBlock(
-                            value = plan.sessions.size.toString(),
-                            label = "Workouts",
-                            accent = PlanBuilderPalette.text,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
                 }
+
+                Text(
+                    plan.request.goal,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = PlanBuilderPalette.text,
+                    letterSpacing = (-0.4).sp
+                )
+
+                StrideLabHairline()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    HeroKpiBlock(
+                        value = peakWeeklyKm?.let { String.format(Locale.US, "%.0f km", it) } ?: "-",
+                        label = "Peak week",
+                        accent = PlanBuilderPalette.accent,
+                        modifier = Modifier.weight(1f)
+                    )
+                    HeroKpiBlock(
+                        value = "$totalWeeks wks",
+                        label = "Block length",
+                        accent = PlanBuilderPalette.text,
+                        modifier = Modifier.weight(1f)
+                    )
+                    HeroKpiBlock(
+                        value = plan.sessions.size.toString(),
+                        label = "Workouts",
+                        accent = PlanBuilderPalette.text,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                StrideLabHairline()
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
         }
 
         // 2. Interactive Visual Analytics Stack (Running plans)
@@ -248,61 +236,72 @@ internal fun TracksideWeekReview(
             Spacer(Modifier.height(12.dp))
         }
 
-        // 3. Compact Advisory Card (non-blocking — user can always finalize immediately)
+        // 3. Flat Advisory Row (non-blocking — user can always finalize immediately)
         if (plan != null && targetReview != null) {
-            Surface(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("builder-mileage-target-review"),
-                color = PlanBuilderPalette.surface,
-                shape = RoundedCornerShape(15.dp),
-                border = BorderStroke(1.dp, StrideLabVisualPalette.moderateAmber.copy(alpha = 0.45f))
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .height(IntrinsicSize.Min),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        if (plan.request.foundationAcknowledged) "FOUNDATION PROGRESSION"
-                        else "COACH PROGRESSION NOTE",
-                        color = StrideLabVisualPalette.moderateAmber,
-                        fontSize = 10.sp,
-                        letterSpacing = 1.2.sp,
-                        fontWeight = FontWeight.Bold
+                    Box(
+                        modifier = Modifier
+                            .width(3.dp)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(StrideLabVisualPalette.moderateAmber)
                     )
-                    Text(
-                        targetReview.explanation(),
-                        color = PlanBuilderPalette.secondary,
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp
-                    )
-                    if (targetReview.requiresFoundationDecision && !plan.request.foundationAcknowledged) {
-                        TextButton(
-                            onClick = { onChooseGoalOption(plan.request.copy(foundationAcknowledged = true)) },
-                            enabled = !busy,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 40.dp)
-                                .testTag("builder-choose-foundation")
-                        ) {
-                            Text(
-                                "Switch to gradual foundation build",
-                                color = PlanBuilderPalette.accent,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            )
+                    Column(
+                        modifier = Modifier.weight(1f).padding(vertical = 2.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            if (plan.request.foundationAcknowledged) "FOUNDATION PROGRESSION"
+                            else "COACH PROGRESSION NOTE",
+                            color = StrideLabVisualPalette.moderateAmber,
+                            fontSize = 10.sp,
+                            letterSpacing = 1.2.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            targetReview.explanation(),
+                            color = PlanBuilderPalette.secondary,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp
+                        )
+                        if (targetReview.requiresFoundationDecision && !plan.request.foundationAcknowledged) {
+                            TextButton(
+                                onClick = { onChooseGoalOption(plan.request.copy(foundationAcknowledged = true)) },
+                                enabled = !busy,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 40.dp)
+                                    .testTag("builder-choose-foundation")
+                            ) {
+                                Text(
+                                    "Switch to gradual foundation build",
+                                    color = PlanBuilderPalette.accent,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
                     }
                 }
+                StrideLabHairline()
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
         }
 
         if (plan != null) MileageGoalChoices(plan, busy, onChooseGoalOption)
 
-        // 4. Weekly KPI Strip
+        // 4. Flat Weekly KPI Strip
         val trainingDays = days.coerceIn(0, 7)
         val noRunning = request.runDays == 0 && rows.none { it.discipline == "run" }
         val distance = when {
@@ -317,34 +316,30 @@ internal fun TracksideWeekReview(
             request.targetWeeklyKm != null -> "Target km"
             else -> "Weekly km"
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(7.dp)
-        ) {
-            listOf(
-                Triple(distance?.let { String.format(Locale.US, "%.1f", it) } ?: "—", distanceLabel, PlanBuilderPalette.accent),
-                Triple(total.toString(), "Sessions", PlanBuilderPalette.text),
-                Triple(trainingDays.toString(), "Active", StrideLabVisualPalette.easyTeal),
-                Triple((7 - trainingDays).toString(), "Rest", PlanBuilderPalette.secondary)
-            ).forEach { (value, caption, color) ->
-                Surface(
-                    modifier = Modifier.weight(1f),
-                    color = PlanBuilderPalette.surface,
-                    shape = RoundedCornerShape(13.dp),
-                    border = BorderStroke(1.dp, PlanBuilderPalette.border)
-                ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf(
+                    Triple(distance?.let { String.format(Locale.US, "%.1f", it) } ?: "-", distanceLabel, PlanBuilderPalette.accent),
+                    Triple(total.toString(), "Sessions", PlanBuilderPalette.text),
+                    Triple(trainingDays.toString(), "Active", StrideLabVisualPalette.easyTeal),
+                    Triple((7 - trainingDays).toString(), "Rest", PlanBuilderPalette.secondary)
+                ).forEach { (value, caption, color) ->
                     Column(
                         modifier = Modifier
-                            .semantics(mergeDescendants = true) {}
-                            .padding(horizontal = 6.dp, vertical = 10.dp),
+                            .weight(1f)
+                            .semantics(mergeDescendants = true) {},
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Text(
                             value,
                             color = color,
-                            fontSize = 17.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.ExtraBold,
+                            style = TabularTextStyle,
                             maxLines = 1
                         )
                         Text(
@@ -356,23 +351,16 @@ internal fun TracksideWeekReview(
                     }
                 }
             }
+            StrideLabHairline()
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        // 5. Week Switcher
+        // 5. Flat Week Switcher
         if (plan != null) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(13.dp),
-                color = PlanBuilderPalette.surface,
-                border = BorderStroke(1.dp, PlanBuilderPalette.border)
-            ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 46.dp)
-                        .padding(horizontal = 6.dp),
+                        .heightIn(min = 48.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -392,7 +380,8 @@ internal fun TracksideWeekReview(
                         "Week ${safeWeekIdx + 1} of $totalWeeks",
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.Bold,
-                        color = PlanBuilderPalette.text
+                        color = PlanBuilderPalette.text,
+                        style = TabularTextStyle
                     )
                     TextButton(
                         onClick = { onWeekChange(safeWeekIdx + 1) },
@@ -407,182 +396,178 @@ internal fun TracksideWeekReview(
                         )
                     }
                 }
+                StrideLabHairline()
             }
-            Spacer(Modifier.height(12.dp))
         }
 
-        // 6. Weekly Schedule Card with semantic left stripes + inline mini workout bar charts
-        Surface(
+        Spacer(Modifier.height(10.dp))
+
+        // 6. Flat Weekly Schedule with semantic left stripes + inline mini workout bar charts
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            color = PlanBuilderPalette.surface,
-            shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(1.dp, PlanBuilderPalette.border)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Text(
+                    (weekStart.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())) + " - " +
+                        weekEnd.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()))).uppercase(),
+                    fontSize = 10.sp,
+                    letterSpacing = 1.1.sp,
+                    color = PlanBuilderPalette.muted,
+                    fontWeight = FontWeight.Bold
+                )
+                val doubleDays = plan?.let { PlanScheduleValidation.isMultiPolicy(it.policyId) }
+                    ?: (request.policyChoice == "multi-session" || request.allowDoubleDays)
+                Text(
+                    if (doubleDays) "ADAPTIVE MULTI-SESSION" else "SINGLE SESSION / DAY",
+                    fontSize = 9.5.sp,
+                    letterSpacing = 0.8.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (doubleDays) StrideLabVisualPalette.moderateAmber else PlanBuilderPalette.secondary
+                )
+            }
+
+            StrideLabHairline()
+
+            (0..6).forEach { offset ->
+                val date = weekStart.plusDays(offset.toLong())
+                val day = date.dayOfWeek.value
+                val assigned = rows.filter { it.date == date }
+                val isActiveDay = assigned.isNotEmpty() || (plan == null && exactAssignments.any { it.first == day })
+
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Text(
-                        (weekStart.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())) + " – " +
-                            weekEnd.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()))).uppercase(),
-                        fontSize = 10.sp,
-                        letterSpacing = 1.1.sp,
-                        color = PlanBuilderPalette.muted,
-                        fontWeight = FontWeight.Bold
-                    )
-                    val doubleDays = plan?.let { PlanScheduleValidation.isMultiPolicy(it.policyId) }
-                        ?: (request.policyChoice == "multi-session" || request.allowDoubleDays)
-                    Text(
-                        if (doubleDays) "ADAPTIVE MULTI-SESSION" else "SINGLE SESSION / DAY",
-                        fontSize = 9.5.sp,
-                        letterSpacing = 0.8.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (doubleDays) StrideLabVisualPalette.moderateAmber else PlanBuilderPalette.secondary
-                    )
-                }
-
-                (0..6).forEach { offset ->
-                    val date = weekStart.plusDays(offset.toLong())
-                    val day = date.dayOfWeek.value
-                    val assigned = rows.filter { it.date == date }
-                    val isActiveDay = assigned.isNotEmpty() || (plan == null && exactAssignments.any { it.first == day })
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(13.dp))
-                            .background(if (isActiveDay) Color.Transparent else PlanBuilderPalette.input)
-                            .padding(vertical = if (isActiveDay) 2.dp else 10.dp, horizontal = if (isActiveDay) 0.dp else 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    Column(
+                        modifier = Modifier.width(40.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Column(
-                            modifier = Modifier.width(40.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                date.dayOfWeek.name.take(3),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isActiveDay) PlanBuilderPalette.accent else PlanBuilderPalette.muted
-                            )
-                            Text(
-                                date.dayOfMonth.toString(),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (isActiveDay) PlanBuilderPalette.text else PlanBuilderPalette.muted
-                            )
-                        }
+                        Text(
+                            date.dayOfWeek.name.take(3),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isActiveDay) PlanBuilderPalette.accent else PlanBuilderPalette.muted
+                        )
+                        Text(
+                            date.dayOfMonth.toString(),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isActiveDay) PlanBuilderPalette.text else PlanBuilderPalette.muted,
+                            style = TabularTextStyle
+                        )
+                    }
 
-                        if (plan == null) {
-                            val choices = exactAssignments.filter { it.first == day }
-                            Text(
-                                when {
-                                    choices.isNotEmpty() -> choices.joinToString(" + ") { it.third }
-                                    day in request.days -> "Available · coach assigns"
-                                    else -> "Rest day"
-                                },
-                                fontSize = 12.sp,
-                                color = if (choices.isNotEmpty()) PlanBuilderPalette.text else PlanBuilderPalette.muted,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .testTag("builder-requested-day-$day")
-                            )
-                        } else if (assigned.isEmpty()) {
-                            Text(
-                                "Rest & recovery",
-                                fontSize = 12.sp,
-                                color = PlanBuilderPalette.muted,
-                                modifier = Modifier.weight(1f)
-                            )
-                        } else {
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                assigned.take(2).forEach { session ->
-                                    val accent = sessionAccentColor(session)
-                                    val dist = Engine15SessionPresentation.currentDistance(session)
-                                    val subtitle = buildString {
-                                        if (dist != null && dist > 0.0) {
-                                            append(String.format(Locale.US, "%.1f km", dist))
-                                            append(" · ")
-                                        }
-                                        append("${session.minutes} min")
+                    if (plan == null) {
+                        val choices = exactAssignments.filter { it.first == day }
+                        Text(
+                            when {
+                                choices.isNotEmpty() -> choices.joinToString(" + ") { it.third }
+                                day in request.days -> "Available · coach assigns"
+                                else -> "Rest day"
+                            },
+                            fontSize = 12.sp,
+                            color = if (choices.isNotEmpty()) PlanBuilderPalette.text else PlanBuilderPalette.muted,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("builder-requested-day-$day")
+                        )
+                    } else if (assigned.isEmpty()) {
+                        Text(
+                            "Rest & recovery",
+                            fontSize = 12.sp,
+                            color = PlanBuilderPalette.muted,
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            assigned.take(2).forEach { session ->
+                                val accent = sessionAccentColor(session)
+                                val dist = Engine15SessionPresentation.currentDistance(session)
+                                val subtitle = buildString {
+                                    if (dist != null && dist > 0.0) {
+                                        append(String.format(Locale.US, "%.1f km", dist))
+                                        append(" · ")
                                     }
-                                    Surface(
+                                    append("${session.minutes} min")
+                                }
+                                Surface(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("builder-preview-session-${session.id}"),
+                                    onClick = { onOpenSession(session.id) },
+                                    color = Color.Transparent
+                                ) {
+                                    Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .testTag("builder-preview-session-${session.id}"),
-                                        onClick = { onOpenSession(session.id) },
-                                        color = PlanBuilderPalette.surfaceRaised,
-                                        shape = RoundedCornerShape(13.dp),
-                                        border = BorderStroke(1.dp, accent.copy(alpha = 0.32f))
+                                            .height(IntrinsicSize.Min),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Row(
+                                        // Semantic left color stripe
+                                        Box(
                                             modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(IntrinsicSize.Min),
-                                            verticalAlignment = Alignment.CenterVertically
+                                                .width(3.dp)
+                                                .fillMaxHeight()
+                                                .clip(RoundedCornerShape(2.dp))
+                                                .background(accent)
+                                        )
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .padding(start = 10.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+                                            verticalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
-                                            // Semantic left color stripe
-                                            Box(
-                                                modifier = Modifier
-                                                    .width(4.dp)
-                                                    .fillMaxHeight()
-                                                    .background(accent)
-                                            )
-                                            Column(
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Column(Modifier.weight(1f)) {
-                                                        Text(
-                                                            session.effectiveTitle,
-                                                            fontSize = 13.sp,
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = PlanBuilderPalette.text,
-                                                            maxLines = 1,
-                                                            overflow = TextOverflow.Ellipsis
-                                                        )
-                                                        Text(
-                                                            subtitle,
-                                                            fontSize = 11.sp,
-                                                            color = PlanBuilderPalette.secondary
-                                                        )
-                                                    }
+                                                Column(Modifier.weight(1f)) {
                                                     Text(
-                                                        "›",
-                                                        color = PlanBuilderPalette.muted,
-                                                        fontSize = 18.sp
+                                                        session.effectiveTitle,
+                                                        fontSize = 13.5.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = PlanBuilderPalette.text,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Text(
+                                                        subtitle,
+                                                        fontSize = 11.sp,
+                                                        color = PlanBuilderPalette.secondary,
+                                                        style = TabularTextStyle
                                                     )
                                                 }
-                                                if (session.discipline == "run") {
-                                                    val blocks = remember(session.id, session.title, session.distanceKm) {
-                                                        WorkoutVisualBlocks.fromSession(session)
-                                                    }
-                                                    if (blocks.isNotEmpty()) {
-                                                        WorkoutStructureBarChart(
-                                                            blocks = blocks,
-                                                            height = 18.dp,
-                                                            interactive = false,
-                                                            tag = "mini-bars-${session.id}"
-                                                        )
-                                                    }
+                                                Text(
+                                                    "›",
+                                                    color = PlanBuilderPalette.muted,
+                                                    fontSize = 18.sp
+                                                )
+                                            }
+                                            if (session.discipline == "run") {
+                                                val blocks = remember(session.id, session.title, session.distanceKm) {
+                                                    WorkoutVisualBlocks.fromSession(session)
+                                                }
+                                                if (blocks.isNotEmpty()) {
+                                                    WorkoutStructureBarChart(
+                                                        blocks = blocks,
+                                                        height = 18.dp,
+                                                        interactive = false,
+                                                        tag = "mini-bars-${session.id}"
+                                                    )
                                                 }
                                             }
                                         }
@@ -592,6 +577,7 @@ internal fun TracksideWeekReview(
                         }
                     }
                 }
+                StrideLabHairline()
             }
         }
 
@@ -612,17 +598,16 @@ private fun HeroKpiBlock(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(PlanBuilderPalette.surfaceRaised)
-            .padding(horizontal = 10.dp, vertical = 10.dp),
+        modifier = modifier.padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(
             value,
-            fontSize = 16.sp,
+            fontSize = 17.sp,
             fontWeight = FontWeight.ExtraBold,
             color = accent,
+            style = TabularTextStyle,
             maxLines = 1
         )
         Text(

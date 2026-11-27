@@ -80,7 +80,7 @@ internal class Engine15CoachingUiTest {
             Column { WorkoutExecutionVerdictCard(analysis(ExecutionVerdict.VOLUME_ONLY_MATCH)); WorkoutExecutionVerdictCard(analysis(ExecutionVerdict.INTENSITY_MISMATCH_TOO_FAST)) }
         } }
         compose.onNodeWithText("Volume Only").assertExists()
-        compose.onNodeWithText("Intensity Mismatch Too Fast").assertExists()
+        compose.onNodeWithText("Intensity mismatch too fast").assertExists()
         compose.onNodeWithText("HR zone compliance").assertDoesNotExist()
     }
 
@@ -131,7 +131,7 @@ internal class Engine15CoachingUiTest {
         compose.activity.setContent { StrideTheme { TracksideRunningStepCards(items) } }
         compose.onNodeWithText("1.0 km").assertExists()
         compose.onNodeWithText("Stride").assertExists()
-        compose.onNodeWithText("Uphill Effort").assertExists()
+        compose.onNodeWithText("Hill Repeat").assertExists()
         compose.onNodeWithText("Run uphill at a steady grade").assertExists()
         compose.onNodeWithText("Race Pace").assertExists()
         compose.onNodeWithText("4.0 km").assertExists()

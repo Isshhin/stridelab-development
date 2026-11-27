@@ -45,7 +45,7 @@ class Engine15MultiDisciplineStabilizationTest {
         val strengthPlan = Engine15IndependentPlanGenerator.generateWithHistory(
             strengthReq, owner, emptyList(), "solo-str-8w", now, exerciseLibrary = library
         )
-        assertEquals(ENGINE15_INDEPENDENT_STRENGTH_POLICY, strengthPlan.policyId)
+        assertEquals(ENGINE16_STRENGTH_POLICY, strengthPlan.policyId)
         assertEquals(24, strengthPlan.sessions.size)
         assertTrue(strengthPlan.sessions.all { it.discipline == "str" })
         verifyRoundTrip(strengthPlan)
@@ -64,7 +64,7 @@ class Engine15MultiDisciplineStabilizationTest {
         val calPlan = Engine15IndependentPlanGenerator.generateWithHistory(
             calReq, owner, emptyList(), "solo-cal-8w", now, exerciseLibrary = library
         )
-        assertEquals(ENGINE15_INDEPENDENT_CALISTHENICS_POLICY, calPlan.policyId)
+        assertEquals(ENGINE17_CALISTHENICS_POLICY, calPlan.policyId)
         assertEquals(24, calPlan.sessions.size)
         assertTrue(calPlan.sessions.all { it.discipline == "cal" })
         verifyRoundTrip(calPlan)
@@ -82,7 +82,7 @@ class Engine15MultiDisciplineStabilizationTest {
         val condPlan = Engine15IndependentPlanGenerator.generateWithHistory(
             condReq, owner, emptyList(), "solo-cond-8w", now, exerciseLibrary = library
         )
-        assertEquals(ENGINE15_INDEPENDENT_CONDITIONING_POLICY, condPlan.policyId)
+        assertEquals(ENGINE18_CONDITIONING_POLICY, condPlan.policyId)
         assertEquals(16, condPlan.sessions.size)
         assertTrue(condPlan.sessions.all { it.discipline == "cond" })
         verifyRoundTrip(condPlan)
@@ -114,7 +114,7 @@ class Engine15MultiDisciplineStabilizationTest {
         val rsPlan = Engine15IndependentPlanGenerator.generateWithHistory(
             runStrength, owner, emptyList(), "comb-run-str", now, exerciseLibrary = library
         )
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, rsPlan.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, rsPlan.policyId)
         assertEquals(40, rsPlan.sessions.size)
         assertEquals(24, rsPlan.sessions.count { it.discipline == "run" })
         assertEquals(16, rsPlan.sessions.count { it.discipline == "str" })
@@ -131,7 +131,7 @@ class Engine15MultiDisciplineStabilizationTest {
         val rcPlan = Engine15IndependentPlanGenerator.generateWithHistory(
             runCal, owner, emptyList(), "comb-run-cal", now, exerciseLibrary = library
         )
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, rcPlan.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, rcPlan.policyId)
         assertEquals(40, rcPlan.sessions.size)
         verifyRoundTrip(rcPlan)
 
@@ -145,7 +145,7 @@ class Engine15MultiDisciplineStabilizationTest {
         val rcondPlan = Engine15IndependentPlanGenerator.generateWithHistory(
             runCond, owner, emptyList(), "comb-run-cond", now, exerciseLibrary = library
         )
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, rcondPlan.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, rcondPlan.policyId)
         assertEquals(40, rcondPlan.sessions.size)
         verifyRoundTrip(rcondPlan)
     }
@@ -183,7 +183,7 @@ class Engine15MultiDisciplineStabilizationTest {
         val plan = Engine15IndependentPlanGenerator.generateWithHistory(
             allFour, owner, emptyList(), "comb-all-four", now, exerciseLibrary = library
         )
-        assertEquals(ENGINE15_INDEPENDENT_COMBINED_POLICY, plan.policyId)
+        assertEquals(ENGINE18_HYBRID_POLICY, plan.policyId)
         assertEquals(40, plan.sessions.size)
         assertEquals(setOf("run", "str", "cal", "cond"), plan.sessions.map { it.discipline }.toSet())
         verifyRoundTrip(plan)

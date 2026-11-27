@@ -23,6 +23,8 @@ internal data class GarminRecordingLoad(val activityId: String, val error: Strin
 internal data class TrainingState(
     val initializing: Boolean = true,
     val account: String? = null,
+    val accountDisplayName: String? = null,
+    val accountEmail: String? = null,
     /** Persistent on-device Garmin namespace, independent of cloud sign-in. */
     val localGarminOwner: String? = null,
     /** Stable on-device plan namespace, distinct from cloud and local Garmin. */
@@ -30,6 +32,7 @@ internal data class TrainingState(
     val localGarminIds: Set<String> = emptySet(),
     val activities: List<ActivityRecord> = emptyList(),
     val busy: Boolean = false,
+    val pullRefreshing: Boolean = false,
     val message: String? = null,
     val lastSync: Long? = null,
     val needsSignIn: Boolean = false,
@@ -41,6 +44,7 @@ internal data class TrainingState(
     val templates:List<SessionTemplate> = emptyList(),
     val workoutDrafts:Map<Pair<String,String>,WorkoutEntryDraft> = emptyMap(),
     val wellness: List<WellnessRecord> = emptyList(),
+    val lastWellnessSyncMillis: Long? = null,
     val details: Map<String,ActivityDetail> = emptyMap(),
     val activityMatches: Map<String, ActivityMatchRecord> = emptyMap(),
     val executionAnalyses: Map<String, WorkoutExecutionAnalysis> = emptyMap(),
@@ -59,6 +63,7 @@ internal data class TrainingState(
     val savedEquipment: Map<String, Int>? = null,
     val hybridPlanPreview: HybridPlanPreview? = null
 ) {
+    val freeformOwner: String? get() = account ?: localPlanOwner
     val displayedPlanPreview get() = planPreviewSupportReview?.candidate?.takeIf { it.id == planPreview?.id } ?: planPreview
     fun blueprintDraft(id: String): PlanSnapshot? =
         displayedPlanPreview?.takeIf { it.id == id }
@@ -83,11 +88,49 @@ internal data class TrainingState(
         }
 }
 
+internal object AccountProfilePresentation {
+    private val UUID_REGEX = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+    fun isUuid(raw: String?): Boolean = !raw.isNullOrBlank() && UUID_REGEX.matches(raw.trim())
+
+    fun extractJwtProfile(accessToken: String): Pair<String?, String?> = runCatching {
+        val parts = accessToken.split('.')
+        if (parts.size < 2) return@runCatching null to null
+        val payloadBytes = java.util.Base64.getUrlDecoder().decode(parts[1])
+        val json = JSONObject(String(payloadBytes, Charsets.UTF_8))
+        val meta = json.optJSONObject("user_metadata")
+        val name = listOfNotNull(
+            meta?.optString("display_name")?.takeIf { it.isNotBlank() && !isUuid(it) },
+            meta?.optString("full_name")?.takeIf { it.isNotBlank() && !isUuid(it) },
+            meta?.optString("name")?.takeIf { it.isNotBlank() && !isUuid(it) }
+        ).firstOrNull()
+        val email = json.optString("email").takeIf { it.isNotBlank() && !isUuid(it) }
+        name to email
+    }.getOrDefault(null to null)
+
+    fun resolve(account: String?, displayName: String?, email: String?): Pair<String, String> {
+        val cleanName = displayName?.trim()?.takeIf { it.isNotEmpty() && !isUuid(it) }
+        val cleanEmail = email?.trim()?.takeIf { it.isNotEmpty() && !isUuid(it) }
+        val cleanAccount = account?.trim()?.takeIf { it.isNotEmpty() && !isUuid(it) }
+        val primary = cleanName ?: cleanEmail ?: cleanAccount ?: "StrideLab Account"
+        val subtitle = if (cleanName != null && cleanEmail != null) cleanEmail else "Signed in"
+        return primary to subtitle
+    }
+}
+
 /** All network/database/encryption work is serialized off the main thread, including workers. */
 internal class TrainingRepository(context: Context, private val gateway: TrainingGateway = SupabaseGateway(),
-    databaseName: String = TrainingStore.DATABASE, preferencesName: String = "native-account-v1") {
+    databaseName: String = TrainingStore.DATABASE, preferencesName: String = "native-account-v1",
+    manualDatabaseName: String = if (databaseName == TrainingStore.DATABASE) ManualDisciplineStore.DATABASE
+        else "$databaseName-manual"
+) {
     private val store = TrainingStore(context, databaseName)
+    private val manualStore = ManualDisciplineStore(context, manualDatabaseName)
+    private val m1LocalStore = Engine15M1LocalStore(TrainingStoreM1Backend(store))
+    private val coachingStateStore = Engine19CoachingStateLocalStore(TrainingStoreM1Backend(store))
+    private val adaptiveProfileStore = Engine20AdaptiveProfileLocalStore(TrainingStoreM1Backend(store))
     private val appContext = context.applicationContext
+    internal val thumbnailCache = SharedThumbnailCacheHolder.get(appContext)
     private val engine15ExerciseLibrary by lazy {
         try { ExerciseLibraryV2.load { path -> appContext.assets.open(path) } }
         catch (_: Exception) { throw PlanConstraint("STRENGTH_CATALOG_UNAVAILABLE: The shared offline exercise catalog could not be read; no substitute was generated.") }
@@ -130,8 +173,15 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         try {
             val account = preferences.getString("active", null)
             val owner = account ?: localPlanOwner
-            mutable.value = TrainingState(account = account,
-                localGarminOwner = localGarminOwner, localPlanOwner = localPlanOwner)
+            val cachedName = account?.let { preferences.getString("profile_name_$it", null) }
+            val cachedEmail = account?.let { preferences.getString("profile_email_$it", null) }
+            mutable.value = TrainingState(
+                account = account,
+                accountDisplayName = cachedName,
+                accountEmail = cachedEmail,
+                localGarminOwner = localGarminOwner,
+                localPlanOwner = localPlanOwner
+            )
             val summaries = async { traceStartup("Today activity summaries") { readSummaries(account) } }
             val session = account?.let { async {
                 runCatching { vault.read(it) }.getOrNull()?.also { _ -> copyLegacyGarminConnection(it) }
@@ -143,8 +193,25 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             }
             publishSummaries(summaries.await())
             publishSecondary(secondary.await())
-            if (session != null && session.await() == null) {
-                mutable.value = mutable.value.copy(needsSignIn = true)
+            if (session != null) {
+                val activeSession = session.await()
+                if (activeSession == null) {
+                    mutable.value = mutable.value.copy(needsSignIn = true)
+                } else if (account != null) {
+                    val (jwtName, jwtEmail) = AccountProfilePresentation.extractJwtProfile(activeSession.accessToken)
+                    val resolvedName = jwtName ?: cachedName
+                    val resolvedEmail = jwtEmail ?: cachedEmail
+                    if (resolvedName != cachedName || resolvedEmail != cachedEmail) {
+                        preferences.edit().apply {
+                            if (resolvedName != null) putString("profile_name_$account", resolvedName)
+                            if (resolvedEmail != null) putString("profile_email_$account", resolvedEmail)
+                        }.apply()
+                    }
+                    mutable.value = mutable.value.copy(
+                        accountDisplayName = resolvedName,
+                        accountEmail = resolvedEmail
+                    )
+                }
             }
         } catch (error: CancellationException) {
             throw error
@@ -397,19 +464,45 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 }
             }
         }
-        val wellness=mutableListOf<WellnessRecord>()
-        if (account != null) store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=?",arrayOf(account,"wellness"),null,null,null).use { c ->
-            while(c.moveToNext()) runCatching {
-                WellnessRecord.parse(JSONObject(c.getString(0)),account)?.let {
-                    if(ActiveActivitySources.accepts(it.source))wellness.add(it)
-                }
-            }
-        }
+        val wellness = readMergedWellnessLocked(account)
         val last = account?.let { store.cursor(it, "activity") }?.let {
             runCatching { JSONObject(it).getLong("completedAt") }.getOrNull()
         }
         return SecondaryCaches(templates, shelf, drafts, loadResearchDrafts(owner),
             wellness, last, loadExecutionRecords(owner), readWorkoutOutcomes(owner, plans))
+    }
+
+    private fun readMergedWellnessLocked(account: String?): List<WellnessRecord> {
+        val owners = listOfNotNull(account, localGarminOwner).distinct()
+        val raw = mutableListOf<WellnessRecord>()
+        val zone = java.time.ZoneId.systemDefault()
+        for (ownerKey in owners) {
+            store.readableDatabase.query(
+                "records",
+                arrayOf("payload"),
+                "account=? AND kind=?",
+                arrayOf(ownerKey, "wellness"),
+                null,
+                null,
+                null
+            ).use { c ->
+                while (c.moveToNext()) runCatching {
+                    WellnessRecord.parse(JSONObject(c.getString(0)), ownerKey)?.let {
+                        if (ActiveActivitySources.accepts(it.source)) raw.add(it)
+                    }
+                }
+            }
+        }
+        return raw
+            .groupBy { it.type to it.recordedAt.atZone(zone).toLocalDate() }
+            .values
+            .map { group ->
+                group.sortedWith(
+                    compareBy<WellnessRecord> { it.recordedAt }
+                        .thenBy { it.source == "garmin" }
+                ).last()
+            }
+            .sortedByDescending { it.recordedAt }
     }
 
     private fun readWorkoutOutcomes(owner: String, plans: List<PlanSnapshot>): Map<Pair<String, String>, WorkoutExecutionOutcome> {
@@ -444,9 +537,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 
     private fun publishSecondary(cache: SecondaryCaches) {
         val bundle = cache.execution
+        val wellnessSync = GarminWellnessSyncStore(appContext).lastSyncMillis(
+            listOfNotNull(mutable.value.account, localGarminOwner).distinct()
+        )
         mutable.value = mutable.value.copy(
             templates = cache.templates, shelf = cache.shelf, workoutDrafts = cache.drafts,
-            researchDrafts = cache.research, wellness = cache.wellness, lastSync = cache.lastSync,
+            researchDrafts = cache.research, wellness = cache.wellness, lastWellnessSyncMillis = wellnessSync,
+            lastSync = cache.lastSync,
             activityMatches = bundle.matches, executionAnalyses = bundle.analyses,
             athleteDiagnostics = bundle.diagnostics, pendingAdaptationProposals = bundle.pendingProposals,
             adaptationRevisions = bundle.revisions, adaptationCooldowns = bundle.cooldowns,
@@ -476,6 +573,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     /** Reads only on-device Garmin history. Cloud-user records remain isolated. */
     private fun loadLocalGarminCache() {
         publishSummaries(readSummaries(mutable.value.account))
+        val mergedWellness = readMergedWellnessLocked(mutable.value.account)
+        val wellnessSync = GarminWellnessSyncStore(appContext).lastSyncMillis(
+            listOfNotNull(mutable.value.account, localGarminOwner).distinct()
+        )
+        mutable.value = mutable.value.copy(
+            wellness = mergedWellness,
+            lastWellnessSyncMillis = wellnessSync
+        )
     }
     /**
      * Private, owner-scoped activity archive. The repository lock prevents
@@ -698,20 +803,230 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 )
             }
         }
-        return { request, generationPeers -> when(selected) {
-            Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(
-                request, owner, generationPeers,
-                exerciseLibrary = if (request.strengthDays > 0 || request.calDays > 0 || request.conditioningDays > 0)
-                    engine15ExerciseLibrary else null,
-                activityEvidence = if (request.runDays > 0 && request.strengthDays == 0 &&
-                    request.calDays == 0 && request.conditioningDays == 0 &&
-                    request.disciplineGoals.keys.all { it == "run" }) activityEvidence else null,
-                qualityEvidence = qualityEvidence,
-                activities = ownerRows,
-                detections = detections
+        val unifiedAssessment = if (FeatureFlags.USE_UNIFIED_ATHLETE_STATE_V1) {
+            buildUnifiedAthleteAssessmentLocked(state, owner, java.time.Instant.now())
+        } else {
+            null
+        }
+        return { request, generationPeers ->
+            val effectiveRequest = if (unifiedAssessment != null) {
+                Engine15UnifiedAthleteAssembler.requireRequestedDisciplinesUnblocked(request, unifiedAssessment)
+                Engine15UnifiedAthleteAssembler.applySafetyAndAssessmentToRequest(request, unifiedAssessment)
+            } else {
+                request
+            }
+            when (selected) {
+                Engine15IndependentPlanGenerator -> Engine15IndependentPlanGenerator.generateWithHistory(
+                    effectiveRequest, owner, generationPeers,
+                    exerciseLibrary = if (effectiveRequest.strengthDays > 0 || effectiveRequest.calDays > 0 || effectiveRequest.conditioningDays > 0)
+                        engine15ExerciseLibrary else null,
+                    activityEvidence = if (effectiveRequest.runDays > 0 && effectiveRequest.strengthDays == 0 &&
+                        effectiveRequest.calDays == 0 && effectiveRequest.conditioningDays == 0 &&
+                        effectiveRequest.disciplineGoals.keys.all { it == "run" }) activityEvidence else null,
+                    qualityEvidence = qualityEvidence,
+                    activities = ownerRows,
+                    detections = detections,
+                    safetyRestrictions = unifiedAssessment?.activeRestrictions
+                )
+                else -> selected.generate(effectiveRequest, owner)
+            }
+        }
+    }
+
+    internal suspend fun loadM1SafetyRestrictions(): M1RestrictionLoadResult = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            m1LocalStore.loadRestrictions(owner)
+        }
+    }
+
+    internal suspend fun saveM1SafetyRestriction(restriction: AthleteSafetyRestriction): Boolean =
+        operation("Saving training safety restriction…") {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            val nowMs = System.currentTimeMillis()
+            m1LocalStore.saveRestriction(owner, restriction, nowMs)
+            m1LocalStore.invalidateDerivedAssessment(owner)
+        }
+
+    internal suspend fun clearM1SafetyRestriction(
+        restrictionId: String,
+        reason: String? = null
+    ): Boolean = operation("Updating training safety restriction…") {
+        val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+        val nowMs = System.currentTimeMillis()
+        m1LocalStore.clearRestriction(owner, restrictionId, java.time.Instant.ofEpochMilli(nowMs), reason, nowMs)
+        m1LocalStore.invalidateDerivedAssessment(owner)
+    }
+
+    internal suspend fun loadCoachingDecisionState(): DecisionStateSnapshot = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            coachingStateStore.loadDecisionState(owner)
+        }
+    }
+
+    internal suspend fun evaluateCoachingDecision(
+        event: CoachingEvent,
+        persistDelta: Boolean = false
+    ): CoachingDecisionBundle = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val state = mutable.value
+            val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
+            val baseState = coachingStateStore.loadDecisionState(owner)
+            val enriched = if (baseState.athleteStateSnapshot == null) {
+                val assessment = buildUnifiedAthleteAssessmentLocked(state, owner, event.evaluatedAtUtc)
+                baseState.copy(athleteStateSnapshot = assessment.athleteSnapshot)
+            } else baseState
+            val (bundle, delta) = Engine19CoachingDecisionEngine.evaluate(enriched, event)
+            if (persistDelta) {
+                val nowMs = System.currentTimeMillis()
+                delta.recordedHold?.let { hold ->
+                    coachingStateStore.saveHealthHold(owner, hold, nowMs)
+                    hold.toM1SafetyRestriction()?.let { m1 ->
+                        m1LocalStore.saveRestriction(owner, m1, nowMs)
+                        m1LocalStore.invalidateDerivedAssessment(owner)
+                    }
+                }
+                coachingStateStore.saveDecisionState(owner, delta.nextState, nowMs)
+            }
+            bundle
+        }
+    }
+
+    internal suspend fun evaluateCoachingWeeklyReview(
+        input: WeeklyReviewInputSummary
+    ): WeeklyReviewDecision = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            val currentState = coachingStateStore.loadDecisionState(owner)
+            Engine19CoachingDecisionEngine.evaluateWeeklyReview(currentState, input)
+        }
+    }
+
+    internal suspend fun recordCoachingHealthHold(hold: HealthHoldRecord): Boolean =
+        operation("Recording safety hold…") {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            val nowMs = System.currentTimeMillis()
+            coachingStateStore.saveHealthHold(owner, hold, nowMs)
+            hold.toM1SafetyRestriction()?.let { m1 ->
+                m1LocalStore.saveRestriction(owner, m1, nowMs)
+                m1LocalStore.invalidateDerivedAssessment(owner)
+            }
+        }
+
+    internal suspend fun clearCoachingHealthHold(
+        restrictionId: String,
+        provenance: HealthClearanceProvenance,
+        reason: String? = null
+    ): Boolean = operation("Updating health clearance…") {
+        val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+        val nowMs = System.currentTimeMillis()
+        val nowUtc = java.time.Instant.ofEpochMilli(nowMs)
+        val existing = coachingStateStore.loadHealthHolds(owner)[restrictionId]
+            ?: throw PlanConstraint("HEALTH_HOLD_NOT_FOUND: No active hold matches $restrictionId.")
+        val (updated, cleared) = Engine19HealthEscalationAndState.attemptClearHold(existing, provenance, nowUtc, reason)
+        if (!cleared) {
+            throw PlanConstraint("HEALTH_CLEARANCE_REQUIRED: Cannot clear ${existing.tier.name} without required clearance provenance.")
+        }
+        coachingStateStore.saveHealthHold(owner, updated, nowMs)
+        m1LocalStore.clearRestriction(owner, restrictionId, nowUtc, reason, nowMs)
+        m1LocalStore.invalidateDerivedAssessment(owner)
+    }
+
+    internal suspend fun mergeBackupHealthHoldsMonotonically(
+        importedHolds: Map<String, HealthHoldRecord>
+    ): Int = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            val localHolds = coachingStateStore.loadHealthHolds(owner)
+            val merged = Engine19HealthEscalationAndState.mergeHealthHoldsMonotonically(localHolds, importedHolds, owner)
+            val nowMs = System.currentTimeMillis()
+            merged.values.forEach { hold ->
+                coachingStateStore.saveHealthHold(owner, hold, nowMs)
+                hold.toM1SafetyRestriction()?.let { m1 -> m1LocalStore.saveRestriction(owner, m1, nowMs) }
+            }
+            m1LocalStore.invalidateDerivedAssessment(owner)
+            merged.size
+        }
+    }
+
+    internal suspend fun loadAdaptiveResponseProfile(): AthleteAdaptiveResponseProfile = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            adaptiveProfileStore.loadProfile(owner)
+        }
+    }
+
+    internal suspend fun saveAdaptiveResponseProfile(profile: AthleteAdaptiveResponseProfile): Boolean =
+        operation("Updating individual response profile…") {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            adaptiveProfileStore.saveProfile(owner, profile, System.currentTimeMillis())
+        }
+
+    internal suspend fun setBoundedAutonomyOptIn(enabled: Boolean): Boolean =
+        operation("Updating adaptive coaching preferences…") {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            val nowMs = System.currentTimeMillis()
+            val current = adaptiveProfileStore.loadProfile(owner, java.time.Instant.ofEpochMilli(nowMs))
+            val updated = current.copy(
+                authorityMode = if (enabled) AdaptationAuthorityMode.OPT_IN_BOUNDED_AUTONOMY else AdaptationAuthorityMode.SUPERVISORY_APPROVAL,
+                updatedAtUtc = java.time.Instant.ofEpochMilli(nowMs)
             )
-            else -> selected.generate(request,owner)
-        } }
+            adaptiveProfileStore.saveProfile(owner, updated, nowMs)
+        }
+
+    internal suspend fun evaluateAdaptivePlanAdjustments(
+        basePlanVersion: Int,
+        occFingerprint: OccInputFingerprint,
+        hasLockedConflictOrRaceWeek: Boolean = false,
+        asOfUtc: java.time.Instant = java.time.Instant.now()
+    ): AdaptivePlanEvaluationResult = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = LocalPlanOwnership.activeOwner(mutable.value.account, localPlanOwner)
+            val profile = adaptiveProfileStore.loadProfile(owner, asOfUtc)
+            val decisionState = coachingStateStore.loadDecisionState(owner)
+            Engine20AdaptivePlanEngine.synthesizeAdaptiveAdjustments(
+                profile = profile,
+                decisionState = decisionState,
+                basePlanVersion = basePlanVersion,
+                occFingerprint = occFingerprint,
+                nowUtc = asOfUtc,
+                hasLockedConflictOrRaceWeek = hasLockedConflictOrRaceWeek
+            )
+        }
+    }
+
+    internal suspend fun evaluateUnifiedAthleteState(
+        asOfUtc: java.time.Instant = java.time.Instant.now()
+    ): UnifiedAthleteAssessment = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val state = mutable.value
+            val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
+            buildUnifiedAthleteAssessmentLocked(state, owner, asOfUtc)
+        }
+    }
+
+    private fun buildUnifiedAthleteAssessmentLocked(
+        state: TrainingState,
+        owner: String,
+        asOfUtc: java.time.Instant
+    ): UnifiedAthleteAssessment {
+        val ownerRows = state.activities.filter { activityCorrectionOwner(it.id, state) == owner }
+        val freeform = manualStore.listFreeformReadOnly(owner)
+        return Engine15UnifiedAthleteAssembler.assemble(
+            UnifiedAthleteAssemblyInput(
+                accountId = owner,
+                evaluatedAtUtc = asOfUtc,
+                zoneId = java.time.ZoneId.systemDefault(),
+                activityRecords = ownerRows,
+                activityDetails = state.details,
+                freeformWorkouts = freeform,
+                existingPlans = state.plans,
+                hrZoneProfile = resolveExecutionHrZones(null),
+                localStore = m1LocalStore,
+                persistDerivedAssessment = true
+            )
+        )
     }
 
     suspend fun generateHybridPlan(requests: List<HybridTrackRequest>) =
@@ -802,11 +1117,37 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 ?.takeIf { it.proposalId == proposalId }
                 ?: throw PlanConstraint("This adaptation proposal is no longer pending.")
             val today = java.time.LocalDate.now()
+            val activeRestrictions = m1LocalStore.loadRestrictions(plan.owner).restrictions
+            val evaluatedUtc = java.time.Instant.now()
+            if (proposal.type == AdaptationType.PACE_RECALIBRATION_UP &&
+                (activeRestrictions.hasHardBlock(AthleteDiscipline.RUN, evaluatedUtc) ||
+                    plan.request.effectiveSafetyCap("run", activeRestrictions, evaluatedUtc) != null)
+            ) {
+                throw PlanConstraint("PACE_UP_SAFETY_HOLD: Running pace recalibration is paused while an active safety restriction is in place.")
+            }
             if (proposal.type == AdaptationType.RUNNER_SUPPORT_DOSE) {
-                val live = Engine15PlanAdaptationEngine.evaluateRunnerSupport(plan, current.plans, today,
-                    current.adaptationCooldowns) { supportReceipt(plan, it) }
+                val live = Engine15PlanAdaptationEngine.evaluateRunnerSupport(
+                    plan, current.plans, today, current.adaptationCooldowns,
+                    safetyRestrictions = activeRestrictions, evaluatedAtUtc = evaluatedUtc
+                ) { supportReceipt(plan, it) }
                 if (live?.proposalId != proposal.proposalId || live.candidatePlanJson != proposal.candidatePlanJson)
                     throw PlanConstraint("The workout evidence or Running calendar changed. Review the updated adjustment.")
+            }
+            if (proposal.type == AdaptationType.STRENGTH_PROGRESSION) {
+                val live = Engine15PlanAdaptationEngine.evaluateStrengthExecutionProgression(
+                    plan, current.plans, today, current.adaptationCooldowns,
+                    safetyRestrictions = activeRestrictions, evaluatedAtUtc = evaluatedUtc
+                ) { supportReceipt(plan, it) }
+                if (live?.proposalId != proposal.proposalId || live.candidatePlanJson != proposal.candidatePlanJson)
+                    throw PlanConstraint("The strength workout evidence changed. Review the updated adjustment.")
+            }
+            if (proposal.type == AdaptationType.CALISTHENICS_PROGRESSION) {
+                val live = Engine15PlanAdaptationEngine.evaluateCalisthenicsExecutionProgression(
+                    plan, current.plans, today, current.adaptationCooldowns,
+                    safetyRestrictions = activeRestrictions, evaluatedAtUtc = evaluatedUtc
+                ) { supportReceipt(plan, it) }
+                if (live?.proposalId != proposal.proposalId || live.candidatePlanJson != proposal.candidatePlanJson)
+                    throw PlanConstraint("The calisthenics workout evidence changed. Review the updated adjustment.")
             }
             val applied = Engine15PlanAdaptationEngine.applyProposal(plan, proposal, today)
             writeSupportRevisionAtomically(proposal.type) {
@@ -883,7 +1224,12 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     }
 
     private fun writeSupportRevisionAtomically(type: AdaptationType, write: () -> Unit) {
-        if (type != AdaptationType.RUNNER_SUPPORT_DOSE) return write()
+        if (type !in setOf(
+                AdaptationType.RUNNER_SUPPORT_DOSE,
+                AdaptationType.STRENGTH_PROGRESSION,
+                AdaptationType.CALISTHENICS_PROGRESSION
+            )
+        ) return write()
         val before = mutable.value
         val db = store.writableDatabase
         try {
@@ -987,7 +1333,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     java.util.UUID.randomUUID().toString()).copy(openedAtMs = System.currentTimeMillis())
                 val before = if (saved != null && baseline.finalLog == null && baseline.phase != PlayerPhase.Completed) {
                     val currentTargets = WorkoutExecution.create(baseline.executionId, planId, session, baseline.finalizationId)
-                    if (baseline.sets.map { it.target to it.number } == currentTargets.sets.map { it.target to it.number }) baseline
+                    if (baseline.matchesPrescribedStructure(currentTargets)) baseline
                     else {
                         if (!baseline.canChangePrescription)
                             throw PlanConstraint("The workout prescription changed after you started. Your original execution was retained.")
@@ -1096,6 +1442,59 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         }
         store.applyRemotePage(account,"wellness",rows,null,System.currentTimeMillis())
         loadCache(account)
+    }
+
+    internal suspend fun syncGarminWellnessNow(): Boolean = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = localGarminOwner
+            val source = GarminPersonalSource(owner, GarminCredentialVault(appContext), GarminPersonalClient())
+            if (source.status().state != "connected") {
+                val cloudOwner = mutable.value.account ?: return@withLock false
+                val cloudSource = GarminPersonalSource(cloudOwner, GarminCredentialVault(appContext), GarminPersonalClient())
+                if (cloudSource.status().state != "connected") return@withLock false
+                return@withLock syncGarminWellnessLocked(cloudSource, cloudOwner, System.currentTimeMillis(), GarminWellnessSyncStore(appContext))
+            }
+            syncGarminWellnessLocked(source, owner, System.currentTimeMillis(), GarminWellnessSyncStore(appContext))
+        }
+    }
+
+    private fun syncGarminWellnessLocked(
+        source: GarminPersonalSource,
+        account: String,
+        now: Long,
+        syncStore: GarminWellnessSyncStore
+    ): Boolean {
+        val zone = java.time.ZoneId.systemDefault()
+        val today = java.time.LocalDate.now(zone)
+        val cachedRhrDates = mutable.value.wellness
+            .filter { it.source == "garmin" && it.type == "resting_hr" }
+            .map { it.recordedAt.atZone(zone).toLocalDate() }
+            .toSet()
+        val fetched = runCatching {
+            source.fetchWellnessRecords(
+                accountId = account,
+                startDate = today.minusDays(27),
+                endDate = today,
+                cachedRhrDates = cachedRhrDates,
+                zone = zone
+            )
+        }.getOrElse { return false }
+        if (fetched.isNotEmpty()) {
+            val rows = fetched.map { rec ->
+                TrainingStore.RemoteRecord(rec.id, rec.encode(account).toString(), null)
+            }
+            store.applyRemotePage(account, "wellness", rows, null, now)
+        }
+        syncStore.markSynced(account, now)
+        val merged = readMergedWellnessLocked(mutable.value.account)
+        mutable.value = mutable.value.copy(
+            wellness = merged,
+            lastWellnessSyncMillis = now
+        )
+        if (fetched.isNotEmpty()) {
+            reconcileActivityMatchesAndAnalysis()
+        }
+        return fetched.isNotEmpty()
     }
     /**
      * Persist a local display-name override without modifying the original
@@ -1232,10 +1631,22 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         }
         vault.save(session) // No account activation unless encryption succeeds.
         copyLegacyGarminConnection(session.account)
-        check(preferences.edit().putString("active", session.account).commit())
-        mutable.value = TrainingState(initializing = false, account = session.account,
-            localPlanOwner = localPlanOwner, busy = true,
-            loginGeneration = mutable.value.loginGeneration + 1)
+        val (jwtName, jwtEmail) = AccountProfilePresentation.extractJwtProfile(session.accessToken)
+        val resolvedEmail = jwtEmail ?: email.trim().takeIf { it.isNotBlank() && !AccountProfilePresentation.isUuid(it) }
+        check(preferences.edit().apply {
+            putString("active", session.account)
+            if (jwtName != null) putString("profile_name_${session.account}", jwtName)
+            if (resolvedEmail != null) putString("profile_email_${session.account}", resolvedEmail)
+        }.commit())
+        mutable.value = TrainingState(
+            initializing = false,
+            account = session.account,
+            accountDisplayName = jwtName,
+            accountEmail = resolvedEmail,
+            localPlanOwner = localPlanOwner,
+            busy = true,
+            loginGeneration = mutable.value.loginGeneration + 1
+        )
         loadCache(session.account)
         // Authentication is complete even if this first cache refresh fails.
         fetchActivities()
@@ -1307,7 +1718,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     internal suspend fun syncGarmin(
         source: GarminPersonalSource,
         pageLimit: Int = 100,
-        detailLimit: Int = 24
+        detailLimit: Int = 24,
+        forceWellness: Boolean = false
     ): GarminConnectionStatus = withContext(Dispatchers.IO) {
         require(pageLimit in 1..100 && detailLimit in 0..24)
         mutex.withLock {
@@ -1327,6 +1739,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                         zoneStore.save(account,it,now)
                     }
                 }
+            }
+            // Non-fatal Garmin wellness sync (RHR, HRV, Sleep) with 1-hour cooldown (or forced on pull-to-refresh).
+            val wellnessSyncStore = GarminWellnessSyncStore(appContext)
+            val lastWellnessSync = wellnessSyncStore.lastSyncMillis(listOf(account)) ?: 0L
+            val hasGarminWellness = mutable.value.wellness.any { it.source == "garmin" }
+            if (forceWellness || !hasGarminWellness || now - lastWellnessSync >= 60L * 60 * 1000) {
+                syncGarminWellnessLocked(source, account, now, wellnessSyncStore)
             }
             var cursor:String?=null
             var pages=0
@@ -1441,9 +1860,46 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             )
         } }
 
+    @Volatile
+    private var lastPullRefreshMillis: Long = 0L
+
+    /**
+     * Universal pull-to-refresh across tabs: syncs recent Garmin activities, FIT streams,
+     * and RHR/HRV/Sleep (plus cloud history if signed in) with a 30s anti-spam throttle.
+     */
+    internal suspend fun pullToRefreshSync() = withContext(Dispatchers.IO) {
+        if (mutable.value.pullRefreshing) return@withContext
+        val now = System.currentTimeMillis()
+        if (now - lastPullRefreshMillis < 30_000L) {
+            return@withContext
+        }
+        lastPullRefreshMillis = now
+        mutable.value = mutable.value.copy(pullRefreshing = true)
+        try {
+            val owners = listOfNotNull(localGarminOwner, mutable.value.account).distinct()
+            val connectedSource = owners.firstNotNullOfOrNull { owner ->
+                val candidate = GarminPersonalSource(owner, GarminCredentialVault(appContext), GarminPersonalClient())
+                val isConnected = runCatching { candidate.status().state == "connected" }.getOrDefault(false)
+                if (isConnected) candidate else null
+            }
+            if (connectedSource != null) {
+                runCatching {
+                    syncGarmin(connectedSource, pageLimit = 3, detailLimit = 5, forceWellness = true)
+                }
+            }
+            if (mutable.value.account != null && !mutable.value.needsSignIn) {
+                runCatching {
+                    mutex.withLock { fetchActivities() }
+                }
+            }
+        } finally {
+            mutable.value = mutable.value.copy(pullRefreshing = false)
+        }
+    }
+
     /**
      * WorkManager and app-resume share this due-time claim. Automatic checks
-     * intentionally fetch at most 200 latest summaries and 3 FIT files so a
+     * intentionally fetch at most 200 latest summaries and 5 FIT files so a
      * background task does not monopolize the device or hit Garmin aggressively.
      * User-initiated manual sync retains its existing full-history behavior.
      */
@@ -1452,7 +1908,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             val ready = state.first { !it.initializing }
             val account = localGarminOwner
             var success = true
-            val interval = if (foreground) 30L * 60_000 else 6L * 60 * 60_000
+            val interval = if (foreground) 10L * 60_000 else 2L * 60 * 60_000
             if (garminSyncPreferences.automatic(account)) {
                 val source = GarminPersonalSource(
                     account, GarminCredentialVault(appContext), GarminPersonalClient())
@@ -1463,7 +1919,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 if (connected &&
                     garminSyncPreferences.claim(account, "garmin", interval)) {
                     try {
-                        val result = syncGarmin(source, pageLimit = 2, detailLimit = 3)
+                        val result = syncGarmin(source, pageLimit = 2, detailLimit = 5)
                         if (result.error != null) success = false
                     } catch (error: CancellationException) {
                         throw error
@@ -1972,16 +2428,27 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         }
 
         val today = java.time.LocalDate.now()
+        val activeRestrictions = m1LocalStore.loadRestrictions(plan.owner).restrictions
+        val evaluatedUtc = java.time.Instant.now()
+        val biometrics = BiometricReadinessEvaluator.evaluate(current.wellness, today)
         val existingForPlan = current.pendingAdaptationProposals[plan.id]
             ?.takeIf { !today.isAfter(it.expiresAtDate) }
-        val newProposal = if (existingForPlan?.type == AdaptationType.RUNNER_SUPPORT_DOSE) existingForPlan else Engine15PlanAdaptationEngine.evaluateProposal(
+        val newProposal = if (existingForPlan?.type in setOf(
+                AdaptationType.RUNNER_SUPPORT_DOSE,
+                AdaptationType.STRENGTH_PROGRESSION,
+                AdaptationType.CALISTHENICS_PROGRESSION
+            )
+        ) existingForPlan else Engine15PlanAdaptationEngine.evaluateProposal(
             plan = plan,
             diagnostic = newDiagnostic,
             activities = current.activities,
             matchesByActivityId = mergedMatches,
             cooldowns = current.adaptationCooldowns,
             existingProposals = listOfNotNull(existingForPlan),
-            asOfDate = today
+            asOfDate = today,
+            safetyRestrictions = activeRestrictions,
+            evaluatedAtUtc = evaluatedUtc,
+            biometrics = biometrics
         )
         val updatedPendingProposals = LinkedHashMap(current.pendingAdaptationProposals)
         val proposalChanged = if (newProposal != null) {
@@ -2013,6 +2480,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             )
         }
         reconcileRunnerSupport(today)
+        reconcileStrengthProgression(today)
+        reconcileCalisthenicsProgression(today)
     }
 
     private fun supportReceipt(plan: PlanSnapshot, session: PlannedSession): WorkoutExecution? {
@@ -2025,14 +2494,82 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     private fun reconcileRunnerSupport(today: java.time.LocalDate) {
         val state = mutable.value
         val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
+        val activeRestrictions = m1LocalStore.loadRestrictions(owner).restrictions
+        val evaluatedUtc = java.time.Instant.now()
         val pending = state.pendingAdaptationProposals.toMutableMap()
         for (plan in state.plans.filter { it.owner == owner && it.status == "approved" && RunnerSupportSchedule.supports(it) }) {
             val previous = pending[plan.id]
-            val proposal = Engine15PlanAdaptationEngine.evaluateRunnerSupport(plan, state.plans, today, state.adaptationCooldowns) {
+            val proposal = Engine15PlanAdaptationEngine.evaluateRunnerSupport(
+                plan, state.plans, today, state.adaptationCooldowns,
+                safetyRestrictions = activeRestrictions, evaluatedAtUtc = evaluatedUtc
+            ) {
                 supportReceipt(plan, it)
             }
             if (proposal?.proposalId == previous?.proposalId) continue
             if (previous != null && previous.type != AdaptationType.RUNNER_SUPPORT_DOSE && proposal == null) continue
+            previous?.let { persistAdaptationProposalLocked(it.copy(status = AdaptationProposalStatus.EXPIRED)) }
+            if (proposal == null) pending.remove(plan.id) else {
+                persistAdaptationProposalLocked(proposal)
+                pending[plan.id] = proposal
+            }
+        }
+        if (pending != state.pendingAdaptationProposals)
+            mutable.value = mutable.value.copy(pendingAdaptationProposals = pending)
+    }
+
+    private fun reconcileStrengthProgression(today: java.time.LocalDate) {
+        val state = mutable.value
+        val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
+        val today = java.time.LocalDate.now()
+        val activeRestrictions = m1LocalStore.loadRestrictions(owner).restrictions
+        val evaluatedUtc = java.time.Instant.now()
+        val biometrics = BiometricReadinessEvaluator.evaluate(state.wellness, today)
+        val pending = state.pendingAdaptationProposals.toMutableMap()
+        for (plan in state.plans.filter {
+            it.owner == owner && it.status == "approved" &&
+                it.sessions.any { s -> s.discipline == "str" && s.runnerSupportDose == null }
+        }) {
+            val previous = pending[plan.id]
+            val proposal = Engine15PlanAdaptationEngine.evaluateStrengthExecutionProgression(
+                plan, state.plans, today, state.adaptationCooldowns,
+                safetyRestrictions = activeRestrictions, evaluatedAtUtc = evaluatedUtc,
+                biometrics = biometrics
+            ) {
+                supportReceipt(plan, it)
+            }
+            if (proposal?.proposalId == previous?.proposalId) continue
+            if (previous != null && previous.type != AdaptationType.STRENGTH_PROGRESSION && proposal == null) continue
+            previous?.let { persistAdaptationProposalLocked(it.copy(status = AdaptationProposalStatus.EXPIRED)) }
+            if (proposal == null) pending.remove(plan.id) else {
+                persistAdaptationProposalLocked(proposal)
+                pending[plan.id] = proposal
+            }
+        }
+        if (pending != state.pendingAdaptationProposals)
+            mutable.value = mutable.value.copy(pendingAdaptationProposals = pending)
+    }
+
+    private fun reconcileCalisthenicsProgression(today: java.time.LocalDate) {
+        val state = mutable.value
+        val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
+        val activeRestrictions = m1LocalStore.loadRestrictions(owner).restrictions
+        val evaluatedUtc = java.time.Instant.now()
+        val biometrics = BiometricReadinessEvaluator.evaluate(state.wellness, today)
+        val pending = state.pendingAdaptationProposals.toMutableMap()
+        for (plan in state.plans.filter {
+            it.owner == owner && it.status == "approved" &&
+                it.sessions.any { s -> s.discipline == "cal" && s.runnerSupportDose == null }
+        }) {
+            val previous = pending[plan.id]
+            val proposal = Engine15PlanAdaptationEngine.evaluateCalisthenicsExecutionProgression(
+                plan, state.plans, today, state.adaptationCooldowns,
+                safetyRestrictions = activeRestrictions, evaluatedAtUtc = evaluatedUtc,
+                biometrics = biometrics
+            ) {
+                supportReceipt(plan, it)
+            }
+            if (proposal?.proposalId == previous?.proposalId) continue
+            if (previous != null && previous.type != AdaptationType.CALISTHENICS_PROGRESSION && proposal == null) continue
             previous?.let { persistAdaptationProposalLocked(it.copy(status = AdaptationProposalStatus.EXPIRED)) }
             if (proposal == null) pending.remove(plan.id) else {
                 persistAdaptationProposalLocked(proposal)
@@ -2111,7 +2648,41 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.applyRemotePage(owner, "workout", listOf(TrainingStore.RemoteRecord(id, raw, null)), null, System.currentTimeMillis())
     }
 
-    internal fun close() { scope.cancel(); store.close() }
+    internal fun freeformAccess() = FreeformAccess(
+        read = { owner -> withFreeformOwner(owner) {
+            FreeformBoard(manualStore.listFreeform(owner), manualStore.list(owner), manualStore.listTemplates(owner),
+                manualStore.listSchedules(owner))
+        } },
+        start = { draft -> withFreeformOwner(draft.owner) { manualStore.createFreeformDraft(draft) } },
+        save = { draft -> withFreeformOwner(draft.owner) { manualStore.saveFreeformDraft(draft) } },
+        finish = { draft -> withFreeformOwner(draft.owner) {
+            manualStore.completeFreeform(draft, System.currentTimeMillis())
+        } },
+        discard = { owner, id -> withFreeformOwner(owner) { manualStore.discardFreeform(owner, id) } },
+        export = { owner -> withFreeformOwner(owner) { manualStore.export(owner) } },
+        restore = { owner, raw -> withFreeformOwner(owner) { manualStore.restore(owner, raw) } },
+        saveTemplate = { template, previous -> withFreeformOwner(template.owner) {
+            if (previous == null) manualStore.saveTemplate(template) else manualStore.updateTemplate(template, previous)
+        } },
+        deleteTemplate = { owner, id -> withFreeformOwner(owner) { manualStore.deleteTemplate(owner, id) } },
+        saveSchedule = { schedule -> withFreeformOwner(schedule.owner) { manualStore.saveSchedule(schedule) } },
+        changeSchedule = { owner, key, edit -> withFreeformOwner(owner) {
+            manualStore.changeSchedule(owner, key, edit, System.currentTimeMillis())
+        } },
+        startCustom = { owner, key, date -> withFreeformOwner(owner) {
+            manualStore.startCustom(owner, key, date, System.currentTimeMillis())
+        } }
+    )
+
+    private suspend fun <T> withFreeformOwner(owner: String, action: suspend () -> T): T =
+        withContext(Dispatchers.IO) {
+            mutex.withLock {
+                check(mutable.value.freeformOwner == owner) { "This workout belongs to a different profile." }
+                action()
+            }
+        }
+
+    internal fun close() { scope.cancel(); store.close(); manualStore.close() }
 
     suspend fun signOut() = operation("Signing out…") {
         val account = mutable.value.account ?: return@operation
@@ -2124,6 +2695,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         check(preferences.edit().remove("active").commit())
         mutable.value = TrainingState(initializing = false,busy = true,
             localGarminOwner=localGarminOwner,localPlanOwner=localPlanOwner,
+            loginGeneration = mutable.value.loginGeneration + 1,
             task = "Finishing sign-out…")
         loadLocalPlanCache() // Show only local plans; cloud plans remain under their cloud owner.
         loadLocalGarminCache() // Hide cloud activities, retain local Garmin history.
@@ -2175,4 +2747,18 @@ private fun validatedActivityTitle(input:String):String {
         "Activity title must contain 1–100 printable characters."
     }
     return title
+}
+
+internal class GarminWellnessSyncStore(context: Context) {
+    private val prefs = context.getSharedPreferences("garmin_wellness_sync", Context.MODE_PRIVATE)
+
+    fun lastSyncMillis(accounts: List<String>): Long? =
+        accounts.mapNotNull { acc ->
+            val v = prefs.getLong("last_sync_$acc", 0L)
+            v.takeIf { it > 0L }
+        }.maxOrNull()
+
+    fun markSynced(account: String, millis: Long) {
+        prefs.edit().putLong("last_sync_$account", millis).apply()
+    }
 }

@@ -80,7 +80,7 @@ class Engine15FeedbackRepositoryTest {
     private suspend fun confirmedSource(): PlanSnapshot {
         assertTrue(repository.signIn("engine15@example.invalid", "fixture"))
         assertTrue(repository.generatePlan(request, fixtureEngine))
-        var plan = repository.state.value.plans.single()
+        var plan = requireNotNull(repository.state.value.planPreview)
         assertEquals(ENGINE15_POLICY, plan.policyId)
         assertTrue(repository.approvePlan(plan.id, plan.revision))
         plan = repository.state.value.plans.single()
@@ -228,7 +228,7 @@ class Engine15FeedbackRepositoryTest {
     @Test fun missedReportRequiresExplicitReviewAndAcceptedTimeOnlyTargetReopensOffline() = runBlocking {
         assertTrue(repository.signIn("engine15@example.invalid", "fixture"))
         assertTrue(repository.generatePlan(request, fixtureEngine))
-        var plan = repository.state.value.plans.single()
+        var plan = requireNotNull(repository.state.value.planPreview)
         assertTrue(repository.approvePlan(plan.id, plan.revision))
         plan = repository.state.value.plans.single()
 
@@ -298,7 +298,7 @@ class Engine15FeedbackRepositoryTest {
     @Test fun explicitWorkoutLocksSurviveOfflineReopenAndRejectStaleRevisions() = runBlocking {
         assertTrue(repository.signIn("engine15@example.invalid", "fixture"))
         assertTrue(repository.generatePlan(request, fixtureEngine))
-        var plan = repository.state.value.plans.single()
+        var plan = requireNotNull(repository.state.value.planPreview)
         assertTrue(repository.approvePlan(plan.id, plan.revision))
         plan = repository.state.value.plans.single()
 
@@ -335,7 +335,7 @@ class Engine15FeedbackRepositoryTest {
     @Test fun availabilityChangePausesDisplacedRunAndSurvivesOfflineReopen() = runBlocking {
         assertTrue(repository.signIn("engine15@example.invalid", "fixture"))
         assertTrue(repository.generatePlan(request, fixtureEngine))
-        var plan=repository.state.value.plans.single()
+        var plan=requireNotNull(repository.state.value.planPreview)
         assertTrue(repository.approvePlan(plan.id,plan.revision))
         plan=repository.state.value.plans.single()
         val days=(1..7).toSet()-targetDate.dayOfWeek.value
@@ -366,21 +366,25 @@ class Engine15FeedbackRepositoryTest {
 
     @Test fun internallyConflictingDraftIsRejectedWithoutOverwritingOfflineState() = runBlocking {
         assertTrue(repository.signIn("engine15@example.invalid", "fixture"))
-        assertTrue(repository.generatePlan(request, fixtureEngine))
-        var draft=repository.state.value.plans.single()
-        assertTrue(repository.changePlan(draft.id,draft.revision) { current ->
-            current.copy(sessions=current.sessions.map { session ->
-                if(session.id=="future-run")session.copy(date=sourceDate) else session
-            })
-        })
-        draft=repository.state.value.plans.single()
-        assertEquals("draft",draft.status)
-        assertFalse(repository.approvePlan(draft.id,draft.revision))
-        assertEquals(draft,repository.state.value.plans.single())
-        transport.offline=true
+        val conflictingEngine = object : PlanGenerationEngine {
+            override val version = ENGINE15_VERSION
+            override val policyId = ENGINE15_POLICY
+            override fun generate(request: PlanRequest, owner: String, id: String, now: Instant) =
+                fixtureEngine.generate(request, owner, id, now).let { base ->
+                    base.copy(sessions = base.sessions.map { session ->
+                        if (session.id == "future-run") session.copy(date = sourceDate) else session
+                    })
+                }
+        }
+        assertTrue(repository.generatePlan(request, conflictingEngine))
+        val draft = requireNotNull(repository.state.value.planPreview)
+        assertEquals("draft", draft.status)
+        assertFalse(repository.approvePlan(draft.id, draft.revision))
+        assertTrue(repository.state.value.plans.isEmpty())
+        transport.offline = true
         repository.close()
         open()
-        assertEquals(draft,repository.state.value.plans.single())
+        assertTrue(repository.state.value.plans.isEmpty())
     }
 
     private inner class FixtureGateway : TrainingGateway {

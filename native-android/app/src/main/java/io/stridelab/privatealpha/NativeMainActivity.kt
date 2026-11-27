@@ -2,12 +2,22 @@ package io.stridelab.privatealpha
 
 import android.content.Intent
 import android.os.Bundle
+import java.time.LocalDate
+import java.time.ZoneId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -30,6 +40,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -116,9 +129,11 @@ class NativeMainActivity: ComponentActivity() {
         loadCachedDetail=model::loadCachedDetail,
         renameActivity=model::renameActivity,
         exportLocalArchive=model::exportLocalActivityArchive,
-        restoreLocalArchive=model::restoreLocalActivityArchive) }
+        restoreLocalArchive=model::restoreLocalActivityArchive, freeform=model.freeform,
+        refreshWellness=model::refreshWellness,
+        pullToRefresh=model::pullToRefresh) }
     val thumbnailLoader = remember(model) { model::loadActivityThumbnail }
-    ActivityThumbnailProvider(thumbnailLoader, state.account, state.loginGeneration) {
+    ActivityThumbnailProvider(thumbnailLoader, state.account, state.loginGeneration, model.thumbnailCache) {
         NativeStrideContent(state, online, actions)
     }
 }
@@ -136,20 +151,20 @@ internal data class NativeActions(val signOut: () -> Unit, val signIn: (String, 
     val loadCachedDetail: (suspend (String) -> Boolean)? = null,
     val renameActivity: (suspend (String, String) -> Boolean)? = null,
     val exportLocalArchive: (suspend (LocalActivityArchiveScope) -> java.io.File)? = null,
-    val restoreLocalArchive: (suspend (LocalActivityArchiveScope,java.io.File) -> LocalActivityArchiveCounts)? = null)
+    val restoreLocalArchive: (suspend (LocalActivityArchiveScope,java.io.File) -> LocalActivityArchiveCounts)? = null,
+    val freeform: FreeformAccess? = null,
+    val refreshWellness: () -> Unit = {},
+    val pullToRefresh: () -> Unit = {})
 
-/** Primary destinations switch immediately; the legacy Activity history route remains available.
- * retain the existing Navigation Compose transitions.
- */
-private val mainTabRoutes = setOf("home", "training", "settings")
+/** Primary tab roots switch cleanly with zero flash; detail/editor screens animate smoothly. */
+private val mainTabRoutes = setOf("home", "training", "activities", "settings")
+private fun isTabRootSwitch(from: String?, to: String?) = to in mainTabRoutes
 
 /** Save each tab's root state, never its transient detail/auth destination. */
 private fun NavHostController.openTabRoot(path: String) {
-    // Do not dispatch another navigation transaction when the selected
-    // tab is already visible. Repeated taps must not rebuild its destination
-    // and interrupt the floating navigation pill's animation.
     if (currentDestination?.route == path) return
-    while(currentDestination?.route in setOf("activities", "activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "more/activity-backup", "builder/{discipline}", "workout/{planId}/{sessionId}", "manage/{planId}/{date}")) {
+    while(currentDestination?.route in setOf("activity/{id}", "auth", "auth/signup", "auth/reset", "more/garmin", "more/data", "more/offline-maps", "more/preferences", "more/about", "more/activity-backup", "builder/{discipline}", "workout/{planId}/{sessionId}", "manage/{planId}/{date}") ||
+        currentDestination?.route?.startsWith("freeform/") == true) {
         if(!popBackStack()) break
     }
     navigate(path) {
@@ -161,9 +176,28 @@ private fun NavHostController.openTabRoot(path: String) {
     if(currentDestination?.route != path) popBackStack(path, inclusive = false)
 }
 
-private fun NavHostController.openWorkout(planId:String,sessionId:String) {
-    openTabRoot("training")
-    navigate("workout/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}")
+private fun NavHostController.popOrOpenHome() {
+    if (!popBackStack()) openTabRoot("home")
+}
+
+private fun NavHostController.finishFreeformToHistory(completedId: String, editorDestinationId: Int) {
+    val encoded = android.net.Uri.encode(completedId)
+    val rootFreeformRoute = listOf("freeform/add", "freeform/templates", "freeform/custom/{series}/{anchor}")
+        .firstOrNull { route -> runCatching { getBackStackEntry(route) }.isSuccess }
+    navigate("freeform/history/freeform/$encoded") {
+        if (rootFreeformRoute != null) {
+            popUpTo(rootFreeformRoute) { inclusive = true }
+        } else {
+            popUpTo(editorDestinationId) { inclusive = true }
+        }
+        launchSingleTop = true
+    }
+}
+
+private fun NavHostController.openWorkout(planId: String, sessionId: String) {
+    navigate("workout/${android.net.Uri.encode(planId)}/${android.net.Uri.encode(sessionId)}") {
+        launchSingleTop = true
+    }
 }
 
 private fun NavHostController.openActivity(id: String) {
@@ -183,10 +217,45 @@ private fun NavHostController.openActivity(id: String) {
 ) {
     val entry by nav.currentBackStackEntryAsState()
     val route = entry?.destination?.route
+    val freeformOwner = state.freeformOwner
+    val freeformAccess = actions.freeform
+    var freeformBoard by remember(freeformOwner, state.loginGeneration) { mutableStateOf<FreeformBoard?>(null) }
+    var freeformReadError by remember(freeformOwner, state.loginGeneration) { mutableStateOf<String?>(null) }
+    var freeformReload by remember(freeformOwner, state.loginGeneration) { mutableStateOf(0) }
+    var customCalendarFocus by remember(freeformOwner, state.loginGeneration) { mutableStateOf<LocalDate?>(null) }
+    LaunchedEffect(freeformOwner, state.loginGeneration, freeformAccess, freeformReload) {
+        if (freeformOwner != null && freeformAccess != null) {
+            freeformReadError = null
+            freeformAttempt { freeformAccess.read(freeformOwner) }.onSuccess { freeformBoard = it }
+                .onFailure { freeformReadError = it.freeformMessage("Could not load saved workouts. Try again.") }
+        }
+    }
+    val openFreeform: (() -> Unit)? = if (freeformOwner != null && freeformAccess != null) {
+        { nav.navigate("freeform/add") { launchSingleTop = true } }
+    } else null
+    val openCustomWorkout: (CustomOccurrenceKey) -> Unit = { key ->
+        nav.navigate("freeform/custom/${android.net.Uri.encode(key.seriesId)}/${key.anchor}") { launchSingleTop = true }
+    }
+    fun openTrainingDate(date: LocalDate) {
+        customCalendarFocus = date
+        if (!nav.popBackStack("training", inclusive = false)) nav.openTabRoot("training")
+    }
+    fun plannerNote(discipline: ManualDiscipline, date: LocalDate, excluded: CustomOccurrenceKey? = null): String? {
+        val coached = state.plans.filter { it.owner == freeformOwner && it.status == "approved" }
+            .flatMap { it.sessions }
+        return customAdvisory(discipline, date, coached,
+            freeformBoard?.customBetween(date, date).orEmpty().filter { it.key != excluded })
+    }
+    val openFreeformHistory: (String, Boolean) -> Unit = { id, legacy ->
+        val kind = if (legacy) "legacy" else "freeform"
+        nav.navigate("freeform/history/$kind/${android.net.Uri.encode(id)}") { launchSingleTop = true }
+    }
     // Immediate visual acknowledgement of a bottom-tab press. NavController
     // still owns the back stack, restoration and child destination lifecycle;
     // the dock's animation never gates which retained root is laid out.
     var requestedTab by remember { mutableStateOf<String?>(null) }
+    var quickLogOpen by rememberSaveable { mutableStateOf(false) }
+    val quickLogScope = rememberCoroutineScope()
     val settingsContext = LocalContext.current.applicationContext
     var garminSheetOpen by remember { mutableStateOf(false) }
     var garminBusy by remember { mutableStateOf(false) }
@@ -213,7 +282,7 @@ private fun NavHostController.openActivity(id: String) {
     val garminOwner = state.localGarminOwner ?: state.account
     val garminConnected by key(garminOwner) {
         produceState(false, garminOwner, visibleRoot, garminSheetOpen, garminBusy) {
-            if (garminOwner != null && (visibleRoot == "settings" || garminSheetOpen)) {
+            if (garminOwner != null && (visibleRoot == null || visibleRoot == "home" || visibleRoot == "settings" || garminSheetOpen)) {
                 value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                     GarminPersonalSource(garminOwner, GarminCredentialVault(settingsContext),
                         GarminPersonalClient()).status().state == "connected"
@@ -225,6 +294,23 @@ private fun NavHostController.openActivity(id: String) {
         state.groupedActivitySummaries ?: ActivityDisplayConsolidation.groups(state.activities)
     }
     val visibleActivities = remember(groupedActivities) { groupedActivities.map { it.primary } }
+    val evidenceDate = LocalDate.now()
+    val evidence = if (route == "builder/{discipline}" || visibleRoot == "activities") {
+        key(freeformOwner, state.loginGeneration) {
+            val rows by produceState<List<WorkoutEvidence>?>(
+                null, state.plans, freeformBoard, groupedActivities, state.initializing, freeformReadError
+            ) {
+                if (!state.initializing && (freeformAccess == null || freeformOwner == null ||
+                    freeformBoard != null || freeformReadError != null)
+                ) {
+                    value = withContext(Dispatchers.Default) {
+                        projectWorkoutEvidence(freeformOwner, state.plans, freeformBoard, groupedActivities, ZoneId.systemDefault())
+                    }
+                }
+            }
+            rows
+        }
+    } else null
     // A genuinely floating dock must not participate in Scaffold's bottomBar:
     // the overlay is positioned above the system gesture area independently
     // of the scrolling screen. Detail/builder flows continue to hide it.
@@ -232,7 +318,8 @@ private fun NavHostController.openActivity(id: String) {
         route != "review-move/{planId}/{sessionId}/{date}" &&
         route != "activity/{id}" && route != "builder/{discipline}" &&
         route != "workout/{planId}/{sessionId}" && route != blueprintWorkoutRoute &&
-        route?.startsWith("auth") != true && route?.startsWith("more/") != true
+        route?.startsWith("auth") != true && route?.startsWith("more/") != true &&
+        route?.startsWith("freeform/") != true
     CompositionLocalProvider(
         LocalProfileAction provides { nav.openTabRoot("settings") },
         LocalFloatingDockVisible provides showFloatingDock
@@ -248,7 +335,7 @@ private fun NavHostController.openActivity(id: String) {
             route == "home" || route == null -> Brush.verticalGradient(
                 listOf(TodayAdaptivePalette.bg, TodayAdaptivePalette.bg)
             )
-            route == "training" || route == "settings" || route.startsWith("more/") -> {
+            route == "training" || route == "activities" || route == "settings" || route.startsWith("more/") -> {
                 Brush.verticalGradient(listOf(Color.Black, Color.Black))
             }
             else -> {
@@ -261,37 +348,43 @@ private fun NavHostController.openActivity(id: String) {
             Column(Modifier.fillMaxSize()) {
             // Keep the signed-out primary screens composed independently of
             // NavHost so their remembered state survives tab switches.
+            val reducedNavMotion = remember(settingsContext) { isSystemReducedMotion(settingsContext) }
             Box(Modifier.weight(1f)) {
             NavHost(
                 navController = nav,
                 startDestination = "home",
-                // Content is laid out behind the dock, not pushed upward into
-                // a blank bottom stripe. Scrollable roots reserve their own
-                // ending padding so their final actions remain reachable.
                 modifier = Modifier.fillMaxSize(),
-                // Navigation Compose's default 700 ms fade made the bottom tabs
-                // feel like a flash. The lime dock pill is the only tab motion.
                 enterTransition = {
-                    if (targetState.destination.route in mainTabRoutes) EnterTransition.None
-                    else fadeIn(animationSpec = tween(700))
+                    val from = initialState.destination.route
+                    val to = targetState.destination.route
+                    if (reducedNavMotion || isTabRootSwitch(from, to)) EnterTransition.None
+                    else slideInHorizontally(tween(260, easing = FastOutSlowInEasing)) { it / 6 } +
+                        fadeIn(tween(200))
                 },
                 exitTransition = {
-                    if (targetState.destination.route in mainTabRoutes) ExitTransition.None
-                    else fadeOut(animationSpec = tween(700))
+                    val from = initialState.destination.route
+                    val to = targetState.destination.route
+                    if (reducedNavMotion || isTabRootSwitch(from, to)) ExitTransition.None
+                    else scaleOut(targetScale = 0.96f, animationSpec = tween(260)) +
+                        fadeOut(tween(180))
                 },
                 popEnterTransition = {
-                    if (targetState.destination.route in mainTabRoutes) EnterTransition.None
-                    else fadeIn(animationSpec = tween(700))
+                    val from = initialState.destination.route
+                    val to = targetState.destination.route
+                    if (reducedNavMotion || (from in mainTabRoutes && to in mainTabRoutes)) EnterTransition.None
+                    else scaleIn(initialScale = 0.96f, animationSpec = tween(240)) +
+                        fadeIn(tween(200))
                 },
                 popExitTransition = {
-                    if (targetState.destination.route in mainTabRoutes) ExitTransition.None
-                    else fadeOut(animationSpec = tween(700))
+                    val from = initialState.destination.route
+                    val to = targetState.destination.route
+                    if (reducedNavMotion || (from in mainTabRoutes && to in mainTabRoutes)) ExitTransition.None
+                    else slideOutHorizontally(tween(220, easing = FastOutSlowInEasing)) { it / 5 } +
+                        fadeOut(tween(170))
                 }
             ) {
                 composable("home") { /* Root content is retained below NavHost. */ }
-                composable("activities") {
-                    LaunchedEffect(Unit) { nav.openTabRoot("training") }
-                }
+                composable("activities") { /* Retained tab surface. */ }
                 composable("activity/{id}") { detail ->
                     val activity = state.activities.firstOrNull {
                         it.id == detail.arguments?.getString("id") &&
@@ -375,6 +468,253 @@ private fun NavHostController.openActivity(id: String) {
                     }
                 }
                 composable("training") { /* Retained tab surface. */ }
+                composable("freeform/add") {
+                    if (freeformOwner != null && freeformAccess != null) {
+                        key(freeformOwner, state.loginGeneration) {
+                            WorkoutHubScreen(
+                                owner = freeformOwner,
+                                board = freeformBoard,
+                                readError = freeformReadError,
+                                access = freeformAccess,
+                                trainingState = state,
+                                back = { nav.popOrOpenHome() },
+                                retry = { freeformReload++ },
+                                updateDraft = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
+                                removeDraft = { id -> freeformBoard = freeformBoard?.without(id) },
+                                onTemplateAdded = { template ->
+                                    freeformBoard = (freeformBoard ?: FreeformBoard()).withTemplate(template)
+                                },
+                                openTemplates = { nav.navigate("freeform/templates") },
+                                startEmpty = {
+                                    nav.navigate("freeform/new/${ManualDiscipline.STRENGTH.name}") { launchSingleTop = true }
+                                },
+                                openDraft = { id ->
+                                    nav.navigate("freeform/edit/${android.net.Uri.encode(id)}") { launchSingleTop = true }
+                                },
+                                openGuided = { id ->
+                                    nav.navigate("freeform/guided/${android.net.Uri.encode(id)}") { launchSingleTop = true }
+                                },
+                                scheduleTemplate = { templateId ->
+                                    nav.navigate("freeform/schedule/template/${android.net.Uri.encode(templateId)}") { launchSingleTop = true }
+                                }
+                            )
+                        }
+                    } else {
+                        FreeformHistoryDetail(null, null, state.initializing) { nav.popOrOpenHome() }
+                    }
+                }
+                composable("freeform/guided/{workoutId}") { destination ->
+                    val workoutId = destination.arguments?.getString("workoutId")
+                    val curated = workoutId?.let { CuratedWorkoutLibrary.byId(it) }
+                    if (freeformOwner != null && freeformAccess != null && curated != null) {
+                        key(freeformOwner, state.loginGeneration, curated.id) {
+                            WorkoutHubGuidedPlayer(
+                                workout = curated,
+                                owner = freeformOwner,
+                                access = freeformAccess,
+                                onCompleted = { completed ->
+                                    freeformBoard = (freeformBoard ?: FreeformBoard()).updated(completed)
+                                    nav.popBackStack()
+                                },
+                                onBack = { nav.popBackStack() }
+                            )
+                        }
+                    } else {
+                        FreeformHistoryDetail(null, null, state.initializing) { nav.popBackStack() }
+                    }
+                }
+                composable("freeform/templates") {
+                    if (freeformOwner != null && freeformAccess != null) {
+                        key(freeformOwner, state.loginGeneration) {
+                            WorkoutTemplateLibrary(
+                                freeformOwner, freeformBoard?.templates.orEmpty(), freeformAccess,
+                                back = { nav.popBackStack() },
+                                create = { nav.navigate("freeform/template/new/${ManualDiscipline.STRENGTH.name}") },
+                                edit = { nav.navigate("freeform/template/edit/${android.net.Uri.encode(it)}") },
+                                schedule = { nav.navigate("freeform/schedule/template/${android.net.Uri.encode(it)}") },
+                                added = { template ->
+                                    freeformBoard = freeformBoard?.withTemplate(template)
+                                },
+                                deleted = { id ->
+                                    freeformBoard = freeformBoard?.let { board ->
+                                        board.copy(templates = board.templates.filterNot { it.id == id })
+                                    }
+                                },
+                                started = { draft ->
+                                    freeformBoard = (freeformBoard ?: FreeformBoard()).updated(draft)
+                                    nav.navigate("freeform/edit/${android.net.Uri.encode(draft.id)}")
+                                }
+                            )
+                        }
+                    }
+                }
+                composable("freeform/template/{mode}/{value}") { destination ->
+                    val mode = destination.arguments?.getString("mode")
+                    val value = destination.arguments?.getString("value")
+                    val board = freeformBoard
+                    if (freeformOwner != null && freeformAccess != null) {
+                        key(freeformOwner, state.loginGeneration, mode, value) {
+                            val previous = if (mode == "edit") board?.templates?.firstOrNull { it.id == value } else null
+                            val seed = when (mode) {
+                                "new" -> remember(value) {
+                                    ManualDiscipline.entries.firstOrNull { it.name == value }?.let {
+                                        ManualWorkoutTemplate.empty(freeformOwner, it)
+                                    }
+                                }
+                                "edit" -> previous
+                                "from" -> {
+                                    val workout = board?.workouts?.firstOrNull { it.id == value && it.isComplete }
+                                    remember(workout) { workout?.let(ManualWorkoutTemplate::fromWorkout) }
+                                }
+                                else -> null
+                            }
+                            if (seed != null) {
+                                WorkoutTemplateEditor(seed, previous, freeformAccess, back = { nav.popBackStack() }) { template ->
+                                    freeformBoard = freeformBoard?.withTemplate(template)
+                                    if (mode == "from") nav.navigate("freeform/templates") {
+                                        popUpTo("freeform/template/{mode}/{value}") { inclusive = true }
+                                    } else nav.popBackStack()
+                                }
+                            } else {
+                                FreeformHistoryDetail(null, null, board == null && freeformReadError == null) {
+                                    nav.popBackStack()
+                                }
+                            }
+                        }
+                    }
+                }
+                composable("freeform/schedule/{origin}/{id}") { destination ->
+                    val id = destination.arguments?.getString("id")
+                    val fromHistory = destination.arguments?.getString("origin") == "history"
+                    val board = freeformBoard
+                    if (freeformOwner != null && freeformAccess != null) {
+                        key(freeformOwner, state.loginGeneration, fromHistory, id) {
+                            val template = if (fromHistory) {
+                                val workout = board?.workouts?.firstOrNull { it.id == id && it.isComplete }
+                                remember(workout) {
+                                    workout?.let {
+                                        val copy = ManualWorkoutTemplate.fromWorkout(it)
+                                        if (it.templateId != null) copy.copy(id = it.templateId) else copy
+                                    }
+                                }
+                            } else board?.templates?.firstOrNull { it.id == id }
+                            if (template != null) {
+                                val initial = remember(template.id, fromHistory) {
+                                    ScheduleRule(LocalDate.now().plusDays(if (fromHistory) 1 else 0))
+                                }
+                                ScheduleRuleScreen(
+                                    if (fromHistory) "Repeat workout" else "Schedule workout", template, initial,
+                                    allowRepeat = true, advisory = { plannerNote(template.discipline, it) },
+                                    back = { nav.popBackStack() },
+                                    persist = { rule ->
+                                        val schedule = CustomSchedule.create(template, rule, System.currentTimeMillis())
+                                        freeformAccess.saveSchedule(schedule)
+                                        freeformBoard = freeformBoard?.withSchedule(schedule)
+                                    }, saved = ::openTrainingDate
+                                )
+                            } else {
+                                FreeformHistoryDetail(null, null, board == null && freeformReadError == null) {
+                                    nav.popBackStack()
+                                }
+                            }
+                        }
+                    }
+                }
+                composable("freeform/custom/{series}/{anchor}") { destination ->
+                    val series = destination.arguments?.getString("series")
+                    val anchor = destination.arguments?.getString("anchor")?.let {
+                        runCatching { LocalDate.parse(it) }.getOrNull()
+                    }
+                    if (series != null && anchor != null && freeformOwner != null && freeformAccess != null) {
+                        key(freeformOwner, state.loginGeneration, series, anchor) {
+                            val key = CustomOccurrenceKey(series, anchor)
+                            val schedule = freeformBoard?.schedules?.firstOrNull { it.id == series && it.owner == freeformOwner }
+                            val linked = freeformBoard?.workouts?.firstOrNull { it.custom?.key == key && it.owner == freeformOwner }
+                            val occurrence = schedule?.resolve(key)
+                            val item = if (linked != null && !linked.isComplete) {
+                                CustomCalendarItem(key, requireNotNull(linked.custom).date, linked.title, linked.discipline, true)
+                            } else if (linked == null && occurrence != null) {
+                                CustomCalendarItem(key, occurrence.date, occurrence.template.name, occurrence.template.discipline)
+                            } else null
+                            if (item != null) {
+                                CustomOccurrenceScreen(
+                                    freeformOwner, item, schedule, freeformAccess,
+                                    advisory = { plannerNote(item.discipline, it, key) },
+                                    back = { nav.popBackStack() },
+                                    returnToDate = ::openTrainingDate,
+                                    changed = { freeformBoard = freeformBoard?.withSchedule(it) },
+                                    openWorkout = { workout ->
+                                        freeformBoard = freeformBoard?.updated(workout)
+                                        if (workout.isComplete) openFreeformHistory(workout.id, false)
+                                        else nav.navigate("freeform/edit/${android.net.Uri.encode(workout.id)}") { launchSingleTop = true }
+                                    }
+                                )
+                            } else {
+                                FreeformHistoryDetail(linked?.takeIf { it.isComplete }, null,
+                                    freeformBoard == null && freeformReadError == null) { nav.popOrOpenHome() }
+                            }
+                        }
+                    }
+                }
+                composable("freeform/new/{discipline}") { destination ->
+                    val disciplineName = destination.arguments?.getString("discipline")
+                    val discipline = ManualDiscipline.entries.firstOrNull { it.name == disciplineName }
+                    val board = freeformBoard
+                    if (discipline != null && freeformOwner != null && freeformAccess != null && board != null) {
+                        key(freeformOwner, state.loginGeneration, discipline) {
+                            val initial = remember(freeformOwner, discipline) {
+                                FreeformWorkout.start(freeformOwner, discipline, LocalDate.now(), System.currentTimeMillis())
+                            }
+                            FreeformEditor(
+                                initial = initial, board = board, access = freeformAccess, persisted = false,
+                                update = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
+                                remove = { freeformBoard = freeformBoard?.without(it) },
+                                leave = { nav.popOrOpenHome() },
+                                saved = { completedId ->
+                                    nav.finishFreeformToHistory(completedId, destination.destination.id)
+                                }
+                            )
+                        }
+                    } else {
+                        FreeformHistoryDetail(null, null, board == null && freeformReadError == null) { nav.popOrOpenHome() }
+                    }
+                }
+                composable("freeform/edit/{id}") { destination ->
+                    val id = destination.arguments?.getString("id")
+                    val board = freeformBoard
+                    val workout = board?.workouts?.firstOrNull { it.id == id }
+                    if (workout != null && !workout.isComplete && freeformAccess != null) {
+                        key(freeformOwner, state.loginGeneration) {
+                            FreeformEditor(
+                                initial = workout, board = board, access = freeformAccess, persisted = true,
+                                update = { freeformBoard = (freeformBoard ?: FreeformBoard()).updated(it) },
+                                remove = { freeformBoard = freeformBoard?.without(it) },
+                                leave = { nav.popOrOpenHome() },
+                                saved = { completedId ->
+                                    nav.finishFreeformToHistory(completedId, destination.destination.id)
+                                }
+                            )
+                        }
+                    } else {
+                        FreeformHistoryDetail(workout, null, board == null && freeformReadError == null) { nav.popOrOpenHome() }
+                    }
+                }
+                composable("freeform/history/{kind}/{id}") { destination ->
+                    val id = destination.arguments?.getString("id")
+                    val legacy = destination.arguments?.getString("kind") == "legacy"
+                    FreeformHistoryDetail(
+                        workout = if (!legacy) freeformBoard?.workouts?.firstOrNull { it.id == id && it.isComplete } else null,
+                        legacy = if (legacy) freeformBoard?.legacy?.firstOrNull { it.id == id } else null,
+                        loading = freeformBoard == null && freeformReadError == null,
+                        onSaveAsTemplate = if (!legacy && id != null && freeformAccess != null) {
+                            { nav.navigate("freeform/template/from/${android.net.Uri.encode(id)}") }
+                        } else null,
+                        onRepeatWorkout = if (!legacy && id != null && freeformAccess != null) {
+                            { nav.navigate("freeform/schedule/history/${android.net.Uri.encode(id)}") }
+                        } else null,
+                        back = { nav.popOrOpenHome() }
+                    )
+                }
                 composable("manage/{planId}/{date}") { back ->
                     val planId = back.arguments?.getString("planId") ?: ""
                     val plan = state.plans.firstOrNull { it.id == planId }
@@ -384,9 +724,7 @@ private fun NavHostController.openActivity(id: String) {
                         plan = plan, selected = selected, busy = state.busy,
                         actions = actions.planning,
                         onBack = {
-                            // Return to Training explicitly. A saved tab destination may
-                            // not be the immediate prior NavHost entry after tab restore.
-                            if (!nav.popBackStack("training", inclusive = false)) {
+                            if (!nav.popBackStack()) {
                                 nav.openTabRoot("training")
                             }
                         },
@@ -405,6 +743,12 @@ private fun NavHostController.openActivity(id: String) {
                             state, actions.planning, builder.arguments?.getString("discipline") ?: "all",
                             onDone = { nav.openTabRoot("training") },
                             onSignIn = { nav.navigate("auth") },
+                            historySuggestion = remember(evidence, evidenceDate) {
+                                evidence?.let { suggestedHistoryBaseline(it, evidenceDate) }
+                            },
+                            onOpenWorkoutHub = {
+                                nav.navigate("freeform/add") { launchSingleTop = true }
+                            },
                             onPreview = { planId, sessionId ->
                                 state.blueprintDraft(planId)?.let { draft ->
                                     val plan = android.net.Uri.encode(planId)
@@ -597,18 +941,47 @@ private fun NavHostController.openActivity(id: String) {
                 }
             }
             PersistentTabSurface(active = visibleRoot == null || visibleRoot == "home") {
-                StrideLabTodayScreen(
-                    state = state,
-                    visibleActivities = visibleActivities,
-                    online = online,
-                    onOpenTraining = { nav.openTabRoot("training") },
-                    onOpenActivity = { nav.openTabRoot("training") },
-                    onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
-                    onOpenActivityDetail = { id -> nav.openActivity(id) },
-                    onOpenMore = { nav.openTabRoot("settings") },
-                    onSignIn = { nav.navigate("auth") },
-                    actions = actions.planning
-                )
+                StrideLabPullToRefresh(
+                    isRefreshing = state.pullRefreshing,
+                    onRefresh = actions.pullToRefresh
+                ) {
+                    StrideLabTodayScreen(
+                        state = state,
+                        visibleActivities = visibleActivities,
+                        online = online,
+                        onOpenTraining = { nav.openTabRoot("training") },
+                        onOpenActivity = { onDockTab("activities") },
+                        onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
+                        onOpenActivityDetail = { id -> nav.openActivity(id) },
+                        onOpenMore = { nav.openTabRoot("settings") },
+                        onSignIn = { nav.navigate("auth") },
+                        actions = actions.planning,
+                        freeformBoard = freeformBoard,
+                        garminConnected = garminConnected,
+                        onConnectGarmin = { garminSheetOpen = true },
+                        onRefreshWellness = actions.refreshWellness,
+                        onOpenWorkoutHub = { nav.navigate("freeform/add") { launchSingleTop = true } },
+                        onOpenGuidedWorkout = { id ->
+                            nav.navigate("freeform/guided/${android.net.Uri.encode(id)}") { launchSingleTop = true }
+                        }
+                    )
+                }
+            }
+            PersistentTabSurface(active = visibleRoot == "activities") {
+                StrideLabPullToRefresh(
+                    isRefreshing = state.pullRefreshing,
+                    onRefresh = actions.pullToRefresh
+                ) {
+                    ActivityHistoryTabScreen(
+                        evidence = evidence,
+                        loading = evidence == null || state.initializing || !state.activitySummariesReady,
+                        details = state.details,
+                        onOpenActivityDetail = { id -> nav.openActivity(id) },
+                        onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
+                        onOpenFreeformHistory = openFreeformHistory,
+                        onOpenQuickLog = { quickLogOpen = true }
+                    )
+                }
             }
             if (state.account != null) {
                 // Keep signed-in roots composed but measure/place only the
@@ -617,45 +990,58 @@ private fun NavHostController.openActivity(id: String) {
                 // The keyed group is disposed if the account changes.
                 key(state.account) {
                     PersistentTabSurface(active = visibleRoot == "training") {
-                        StrideLabUnifiedTrainingTimeline(
-                            state, groupedActivities, actions.planning,
-                            { nav.navigate("builder/all") },
-                            { p, session -> nav.openWorkout(p, session) },
-                            { id -> nav.openActivity(id) },
-                            { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
-                        )
+                        StrideLabPullToRefresh(
+                            isRefreshing = state.pullRefreshing,
+                            onRefresh = actions.pullToRefresh
+                        ) {
+                            StrideLabUnifiedTrainingTimeline(
+                                state, groupedActivities, actions.planning,
+                                { nav.navigate("builder/all") },
+                                { p, session -> nav.openWorkout(p, session) },
+                                { id -> nav.openActivity(id) },
+                                { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
+                                manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory,
+                                onOpenCustom = openCustomWorkout, calendarFocus = customCalendarFocus,
+                                clearCalendarFocus = { customCalendarFocus = null }
+                            )
+                        }
                     }
                     PersistentTabSurface(active = visibleRoot == "settings") {
-                        run {
-                            var confirmSignOut by remember { mutableStateOf(false) }
-                            TracksideMoreScreen(
-                                state = state,
-                                garminConnected = garminConnected,
-                                onSignIn = { nav.navigate("auth") },
-                                        onGarmin = { garminSheetOpen = true },
-                                onOfflineMaps = { nav.navigate("more/offline-maps") },
-                                onPreferences = { nav.navigate("more/preferences") },
-                                onAbout = { nav.navigate("more/about") },
-                                onSignOut = { confirmSignOut = true },
-                                onActivityBackup = { nav.navigate("more/activity-backup") }
-                            )
-                            if (confirmSignOut) {
-                                AlertDialog(
-                                    onDismissRequest = { confirmSignOut = false },
-                                    title = { Text("Sign out?") },
-                                    text = { Text("Your saved offline records will remain on this device.") },
-                                    confirmButton = {
-                                        TextButton(
-                                            onClick = { confirmSignOut = false; actions.signOut() },
-                                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD8FB70))
-                                        ) { Text("Sign out") }
-                                    },
-                                    dismissButton = {
-                                        TextButton(onClick = { confirmSignOut = false }) {
-                                            Text("Cancel")
-                                        }
-                                    }
+                        StrideLabPullToRefresh(
+                            isRefreshing = state.pullRefreshing,
+                            onRefresh = actions.pullToRefresh
+                        ) {
+                            run {
+                                var confirmSignOut by remember { mutableStateOf(false) }
+                                TracksideMoreScreen(
+                                    state = state,
+                                    garminConnected = garminConnected,
+                                    onSignIn = { nav.navigate("auth") },
+                                            onGarmin = { garminSheetOpen = true },
+                                    onOfflineMaps = { nav.navigate("more/offline-maps") },
+                                    onPreferences = { nav.navigate("more/preferences") },
+                                    onAbout = { nav.navigate("more/about") },
+                                    onSignOut = { confirmSignOut = true },
+                                    onActivityBackup = { nav.navigate("more/activity-backup") }
                                 )
+                                if (confirmSignOut) {
+                                    AlertDialog(
+                                        onDismissRequest = { confirmSignOut = false },
+                                        title = { Text("Sign out?") },
+                                        text = { Text("Your saved offline records will remain on this device.") },
+                                        confirmButton = {
+                                            TextButton(
+                                                onClick = { confirmSignOut = false; actions.signOut() },
+                                                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD8FB70))
+                                            ) { Text("Sign out") }
+                                        },
+                                        dismissButton = {
+                                            TextButton(onClick = { confirmSignOut = false }) {
+                                                Text("Cancel")
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
@@ -663,26 +1049,39 @@ private fun NavHostController.openActivity(id: String) {
             } else {
                 // Guest roots stay retained and account content is removed.
                 PersistentTabSurface(active = visibleRoot == "training") {
-                    StrideLabUnifiedTrainingTimeline(
-                        state, groupedActivities, actions.planning,
-                        { nav.navigate("builder/all") },
-                        { p, session -> nav.openWorkout(p, session) },
-                        { id -> nav.openActivity(id) },
-                        { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") }
-                    )
+                    StrideLabPullToRefresh(
+                        isRefreshing = state.pullRefreshing,
+                        onRefresh = actions.pullToRefresh
+                    ) {
+                        StrideLabUnifiedTrainingTimeline(
+                            state, groupedActivities, actions.planning,
+                            { nav.navigate("builder/all") },
+                            { p, session -> nav.openWorkout(p, session) },
+                            { id -> nav.openActivity(id) },
+                            { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
+                            manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory,
+                            onOpenCustom = openCustomWorkout, calendarFocus = customCalendarFocus,
+                            clearCalendarFocus = { customCalendarFocus = null }
+                        )
+                    }
                 }
                 PersistentTabSurface(active = visibleRoot == "settings") {
-                    TracksideMoreScreen(
-                        state = state,
-                                garminConnected = garminConnected,
-                        onSignIn = { nav.navigate("auth") },
-                        onGarmin = { garminSheetOpen = true },
-                        onOfflineMaps = { nav.navigate("more/offline-maps") },
-                        onPreferences = { nav.navigate("more/preferences") },
-                        onAbout = { nav.navigate("more/about") },
-                        onSignOut = {},
-                        onActivityBackup = { nav.navigate("more/activity-backup") }
-                    )
+                    StrideLabPullToRefresh(
+                        isRefreshing = state.pullRefreshing,
+                        onRefresh = actions.pullToRefresh
+                    ) {
+                        TracksideMoreScreen(
+                            state = state,
+                                    garminConnected = garminConnected,
+                            onSignIn = { nav.navigate("auth") },
+                            onGarmin = { garminSheetOpen = true },
+                            onOfflineMaps = { nav.navigate("more/offline-maps") },
+                            onPreferences = { nav.navigate("more/preferences") },
+                            onAbout = { nav.navigate("more/about") },
+                            onSignOut = {},
+                            onActivityBackup = { nav.navigate("more/activity-backup") }
+                        )
+                    }
                 }
             }
             } // Persistent tab container
@@ -701,15 +1100,42 @@ private fun NavHostController.openActivity(id: String) {
     }
     if (showFloatingDock) {
         Box(
-            modifier = Modifier.align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .padding(bottom = 10.dp)
-                .fillMaxWidth(.94f)
-                .widthIn(max = 410.dp)
-                .testTag("floating-navigation-overlay")
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
         ) {
-            TracksideFloatingNavigation(visibleRoot, onDockTab)
+            TracksideFloatingNavigation(
+                route = visibleRoot,
+                onTab = onDockTab,
+                onQuickLog = { quickLogOpen = true }
+            )
         }
+    }
+    if (quickLogOpen) {
+        QuickLogBottomSheet(
+            owner = freeformOwner,
+            board = freeformBoard,
+            onStartEmpty = {
+                nav.navigate("freeform/new/${ManualDiscipline.STRENGTH.name}") { launchSingleTop = true }
+            },
+            onResumeDraft = { id ->
+                nav.navigate("freeform/edit/${android.net.Uri.encode(id)}") { launchSingleTop = true }
+            },
+            onDiscardDraft = if (freeformOwner != null && freeformAccess != null) { id ->
+                quickLogScope.launch(Dispatchers.Main.immediate) {
+                    freeformAttempt { freeformAccess.discard(freeformOwner, id) }.onSuccess { removed ->
+                        if (removed) freeformBoard = freeformBoard?.without(id)
+                    }
+                }
+            } else null,
+            onOpenTemplates = {
+                nav.navigate("freeform/templates") { launchSingleTop = true }
+            },
+            onOpenWorkoutsHub = {
+                nav.navigate("freeform/add") { launchSingleTop = true }
+            },
+            onDismiss = { quickLogOpen = false }
+        )
     }
     if (garminSheetOpen) {
         val localOwner = state.localGarminOwner ?: state.account
@@ -827,6 +1253,32 @@ internal val LocalFloatingDockVisible=staticCompositionLocalOf { false }
 @Composable internal fun SignalCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     TracksideGlassCard(modifier = modifier, content = content)
 }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StrideLabPullToRefresh(
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val pullState = rememberPullToRefreshState()
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        state = pullState,
+        modifier = Modifier.fillMaxSize(),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = Color(0xFF181A1D),
+                color = Color(0xFFD8FB70)
+            )
+        },
+        content = content
+    )
+}
+
 @Composable private fun EmptyState(title: String, description: String) {
     SignalCard {
         Box(Modifier.size(52.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = .10f), RoundedCornerShape(16.dp)).padding(12.dp)) { BrandMark(Modifier.fillMaxSize()) }

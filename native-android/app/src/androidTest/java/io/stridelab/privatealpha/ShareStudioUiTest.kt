@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.unit.dp
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Rule
@@ -301,6 +302,32 @@ class ShareStudioUiTest {
             .performScrollToNode(hasTestTag("share-card-preview"))
         compose.onNodeWithTag("share-story-safe-guides").assertExists()
         compose.onNodeWithTag("share-export-png").assertIsEnabled()
+    }
+
+    @Test fun editorialStudioTrayAndExportFooterKeepTouchTargetsAndWidthBounds() {
+        mountDetail()
+        compose.onNodeWithTag("activity-share").performClick()
+        val studioBounds = compose.onNodeWithTag("share-studio").getUnclippedBoundsInRoot()
+
+        for (tag in listOf(
+            "share-studio-back",
+            "share-save-image",
+            "share-export-png",
+            "share-send"
+        )) {
+            val bounds = compose.onNodeWithTag(tag).getUnclippedBoundsInRoot()
+            assertTrue("$tag height ${(bounds.bottom - bounds.top).value}dp < 48dp", (bounds.bottom - bounds.top).value >= 47.5f)
+            assertTrue("$tag clips right edge", bounds.right <= studioBounds.right + 1.dp)
+        }
+
+        compose.onNodeWithTag("share-studio-scroll")
+            .performScrollToNode(hasTestTag("share-template-WORKOUT"))
+        for (template in ShareTemplate.entries) {
+            val tile = compose.onNodeWithTag("share-template-${template.name}")
+            tile.performScrollTo()
+            val bounds = tile.getUnclippedBoundsInRoot()
+            assertTrue("${template.name} clips right edge", bounds.right <= studioBounds.right + 1.dp)
+        }
     }
 
 }
