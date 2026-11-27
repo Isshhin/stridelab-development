@@ -110,6 +110,29 @@ internal object HeartRateZoneAnalysis {
             )
         )
 
+    fun toExecutionZoneProfile(settings: AthleteHeartRateZoneSettings): ExecutionHrZoneProfile? {
+        if (!settings.ready) return null
+        val cutoffs = cutoffs(settings) ?: return null
+        if (cutoffs.size != 4 || cutoffs.zipWithNext().any { (a, b) -> b <= a }) return null
+        val z2 = cutoffs[0]
+        val z3 = cutoffs[1]
+        val z4 = cutoffs[2]
+        val z5 = cutoffs[3]
+        val step = (z3 - z2).coerceAtLeast(8)
+        val z1 = (z2 - step).coerceIn(45, z2 - 1)
+        val maxHr = settings.maximumHr?.takeIf { it >= z5 } ?: (z5 + 15).coerceAtMost(240)
+        return runCatching {
+            ExecutionHrZoneProfile(
+                z1FloorBpm = z1,
+                z2FloorBpm = z2,
+                z3FloorBpm = z3,
+                z4FloorBpm = z4,
+                z5FloorBpm = z5,
+                maxHrBpm = maxHr
+            )
+        }.getOrNull()
+    }
+
     private fun cutoffs(settings: AthleteHeartRateZoneSettings): List<Int>? =
         when (settings.method) {
             HeartRateZoneMethod.MAX_BPM -> {

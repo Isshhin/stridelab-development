@@ -139,7 +139,15 @@ internal object Engine15WorkoutDifficultyAdjuster {
                             "RECOVERY",
                             meters,
                             "Recovery, very easy conversational pace (eased from ${base.title}).",
-                            stepIntent = RunningStepIntent.RECOVERY
+                            stepIntent = RunningStepIntent.RECOVERY,
+                            targetHrMinBpm = Engine15PaceZoneEstimator.hrBoundsForProfile(
+                                if (request.runningTargetMode == "HR") request.resolvedHrZoneProfile() else null,
+                                RunningStepIntent.RECOVERY
+                            )?.first,
+                            targetHrMaxBpm = Engine15PaceZoneEstimator.hrBoundsForProfile(
+                                if (request.runningTargetMode == "HR") request.resolvedHrZoneProfile() else null,
+                                RunningStepIntent.RECOVERY
+                            )?.second
                         )
                     ),
                     archetypeId = Engine15WorkoutArchetype.RECOVERY_RUN.id

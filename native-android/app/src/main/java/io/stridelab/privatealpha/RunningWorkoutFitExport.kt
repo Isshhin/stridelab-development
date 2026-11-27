@@ -63,7 +63,8 @@ internal fun rememberRunningWorkoutFitExport(
     zoneOwners: List<String>,
     title: String,
     session: PlannedSession,
-    target: Engine15SessionPresentation.Target
+    target: Engine15SessionPresentation.Target,
+    hrFallbackProfile: ExecutionHrZoneProfile? = null
 ): () -> Unit {
     val context = LocalContext.current.applicationContext
     val scope = rememberCoroutineScope()
@@ -110,7 +111,7 @@ internal fun rememberRunningWorkoutFitExport(
                                         GarminHeartRateZones.forRunning(listOf(profile))
                                     }
                                     ExecutionHrZoneProfile.fromGarmin(profile)
-                                }
+                                } ?: hrFallbackProfile
                                 encodeRunningWorkoutForWatch(title, session, target, Instant.now(), zones)
                             }
                             picker.launch(GarminFitWorkoutEncoder.fileName(title))

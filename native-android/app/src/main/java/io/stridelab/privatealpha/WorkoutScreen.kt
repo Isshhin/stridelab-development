@@ -47,7 +47,7 @@ import kotlinx.coroutines.flow.drop
         session.status in setOf("planned", "in_progress", "completed")
     ) {
         rememberRunningWorkoutFitExport(plan.owner, listOfNotNull(state.account, state.localGarminOwner).distinct(),
-            shown.effectiveTitle, session, current)
+            shown.effectiveTitle, session, current, hrFallbackProfile = plan.request.resolvedHrZoneProfile())
     } else null
     val crossDebrief = remember(plan, session, state.plans, state.activities) {
         if (done && session.discipline != "run") Engine15DebriefEngine.workout(

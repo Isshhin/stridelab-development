@@ -30,7 +30,7 @@ internal object Engine17CalisthenicsProgramBuilder {
         evaluatedAtUtc: Instant = Instant.now()
     ) {
         if (safetyRestrictions?.hasHardBlock(AthleteDiscipline.CALISTHENICS, evaluatedAtUtc) == true ||
-            safetyRestrictions?.effectiveIntensityCap(AthleteDiscipline.CALISTHENICS, evaluatedAtUtc) == SafetyIntensityCap.REST_ONLY
+            request.effectiveSafetyCap("cal", safetyRestrictions, evaluatedAtUtc) == SafetyIntensityCap.REST_ONLY
         ) {
             throw PlanConstraint("SAFETY_RESTRICTION_HOLD: Calisthenics planning is paused while a safety restriction is active.")
         }
@@ -96,7 +96,7 @@ internal object Engine17CalisthenicsProgramBuilder {
         val weekdays = request.weeklySlots["cal"] ?: spacedWeekdays(request.days, request.calDays)
         val locks = lockSlots(request)
 
-        val safetyCap = safetyRestrictions?.effectiveIntensityCap(AthleteDiscipline.CALISTHENICS, evaluatedAtUtc)
+        val safetyCap = request.effectiveSafetyCap("cal", safetyRestrictions, evaluatedAtUtc)
         val dailyBudget = if (request.timeBudgetEnabled) request.minutes else null
 
         val sessions = mutableListOf<PlannedSession>()

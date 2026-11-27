@@ -60,7 +60,8 @@ internal object Engine15DailyLoadShaper {
         pinnedSessionIds: Set<String> = emptySet(),
         externalHardDates: Set<LocalDate> = emptySet(),
         maxMinutesBySessionId: Map<String, Int> = emptyMap(),
-        minQualitySlotKm: Double? = null
+        minQualitySlotKm: Double? = null,
+        maxQualitySlotKm: Double? = null
     ): List<PlannedSession> {
         if (sessions.isEmpty() || request.weeks <= 0) return sessions
 
@@ -190,6 +191,44 @@ internal object Engine15DailyLoadShaper {
                         }
                     }
 
+                    if (maxQualitySlotKm != null && maxQualitySlotKm.isFinite() && maxQualitySlotKm > 0.0) {
+                        val targetQualityMaxTenths = ceil(maxQualitySlotKm * 10.0 - 1e-8).toInt()
+                        val effectiveQualityCap = maxOf(targetQualityMaxTenths, ceil(avgTenths).toInt())
+                        val qualityIndices = adjustable.indices.filter { roles[adjustable[it].id] == ShapeRole.QUALITY }
+                        if (qualityIndices.isNotEmpty() && adjustable.size > qualityIndices.size) {
+                            val preCapMax = maxTenthsByIndex.copyOf()
+                            for (qIdx in qualityIndices) {
+                                maxTenthsByIndex[qIdx] = effectiveQualityCap.coerceIn(minTenthsByIndex[qIdx], preCapMax[qIdx])
+                            }
+                            for (idx in adjustable.indices) {
+                                if (idx !in qualityIndices) {
+                                    val role = roles.getValue(adjustable[idx].id)
+                                    val bound = if (isRecoveryRole(role)) effectiveQualityCap - 1 else effectiveQualityCap
+                                    maxTenthsByIndex[idx] = minOf(
+                                        maxTenthsByIndex[idx],
+                                        bound.coerceAtLeast(minTenthsByIndex[idx])
+                                    )
+                                }
+                            }
+                            var deficit = remainingTenths - maxTenthsByIndex.sum()
+                            if (deficit > 0) {
+                                val recoveryIndices = adjustable.indices.filter {
+                                    it !in qualityIndices && isRecoveryRole(roles.getValue(adjustable[it].id))
+                                }
+                                val easyIndices = adjustable.indices.filter {
+                                    it !in qualityIndices && !isRecoveryRole(roles.getValue(adjustable[it].id))
+                                }
+                                for (idx in qualityIndices + easyIndices + recoveryIndices) {
+                                    if (deficit <= 0) break
+                                    val headroom = (preCapMax[idx] - maxTenthsByIndex[idx]).coerceAtLeast(0)
+                                    val add = minOf(deficit, headroom)
+                                    maxTenthsByIndex[idx] += add
+                                    deficit -= add
+                                }
+                            }
+                        }
+                    }
+
                     val distributed = allocateWeightedTenths(
                         sessions = adjustable,
                         weights = adjustable.map { roles.getValue(it.id).weight },
@@ -217,6 +256,9 @@ internal object Engine15DailyLoadShaper {
                 val finalMinutes = ceil(finalKm * request.planningPace / 60.0).toInt().coerceAtLeast(1)
                 val distanceChanged = finalTenths != roundTenths(originalKm)
 
+                val hrProfile = if (request.runningTargetMode == "HR") request.resolvedHrZoneProfile() else null
+                val recHr = Engine15PaceZoneEstimator.hrBoundsForProfile(hrProfile, RunningStepIntent.RECOVERY)
+                val easyHr = Engine15PaceZoneEstimator.hrBoundsForProfile(hrProfile, RunningStepIntent.AEROBIC_EASY)
                 shapedById[s.id] = when {
                     isRecoveryRole(role) && role != ShapeRole.QUALITY -> {
                         val recoveryReason = buildRecoveryReason(
@@ -242,7 +284,10 @@ internal object Engine15DailyLoadShaper {
                                     RunningSegment(
                                         "RECOVERY",
                                         finalMeters,
-                                        "Recovery, very easy conversational pace; keep effort low and legs fresh."
+                                        "Recovery, very easy conversational pace; keep effort low and legs fresh.",
+                                        stepIntent = if (hrProfile != null) RunningStepIntent.RECOVERY else null,
+                                        targetHrMinBpm = recHr?.first,
+                                        targetHrMaxBpm = recHr?.second
                                     )
                                 )
                             )
@@ -265,7 +310,10 @@ internal object Engine15DailyLoadShaper {
                                     RunningSegment(
                                         "EASY",
                                         finalMeters,
-                                        "Easy, conversational effort; no pace or heart-rate target."
+                                        "Easy, conversational effort; no pace or heart-rate target.",
+                                        stepIntent = if (hrProfile != null) RunningStepIntent.AEROBIC_EASY else null,
+                                        targetHrMinBpm = easyHr?.first,
+                                        targetHrMaxBpm = easyHr?.second
                                     )
                                 )
                             )
@@ -283,7 +331,10 @@ internal object Engine15DailyLoadShaper {
                                     RunningSegment(
                                         "EASY",
                                         finalMeters,
-                                        "Easy, conversational effort; no pace or heart-rate target."
+                                        "Easy, conversational effort; no pace or heart-rate target.",
+                                        stepIntent = if (hrProfile != null) RunningStepIntent.AEROBIC_EASY else null,
+                                        targetHrMinBpm = easyHr?.first,
+                                        targetHrMaxBpm = easyHr?.second
                                     )
                                 )
                             )

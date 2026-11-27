@@ -41,7 +41,7 @@ internal object Engine16StrengthProgramBuilder {
         evaluatedAtUtc: Instant = Instant.now()
     ) {
         if (safetyRestrictions?.hasHardBlock(AthleteDiscipline.STRENGTH, evaluatedAtUtc) == true ||
-            safetyRestrictions?.effectiveIntensityCap(AthleteDiscipline.STRENGTH, evaluatedAtUtc) == SafetyIntensityCap.REST_ONLY
+            request.effectiveSafetyCap("str", safetyRestrictions, evaluatedAtUtc) == SafetyIntensityCap.REST_ONLY
         ) {
             throw PlanConstraint("SAFETY_RESTRICTION_HOLD: Strength planning is paused while a safety restriction is active.")
         }
@@ -120,7 +120,8 @@ internal object Engine16StrengthProgramBuilder {
         now: Instant,
         allowCalendarReschedule: Boolean = false,
         safetyRestrictions: AthleteSafetyRestrictionSet? = null,
-        runningMajorStepWeeks: Set<Int> = emptySet()
+        runningMajorStepWeeks: Set<Int> = emptySet(),
+        runningTaperWeeks: Set<Int> = emptySet()
     ): Engine16ProgramResult {
         RecordPolicy.identifier(owner)
         RecordPolicy.identifier(id)
@@ -130,7 +131,7 @@ internal object Engine16StrengthProgramBuilder {
         val spec = Engine16StrengthPolicyRegistry.defaultsFor(objective, request.strengthExperience)
         val availableTokens = Engine16StrengthExerciseCatalog.availableEquipmentTokens(request)
         val catalog = Engine16StrengthExerciseCatalog.allMetadata(library = null)
-        val safetyCap = safetyRestrictions?.effectiveIntensityCap(AthleteDiscipline.STRENGTH, now)
+        val safetyCap = request.effectiveSafetyCap("str", safetyRestrictions, now)
 
         val weekdays = request.weeklySlots["str"] ?: evenlySpacedWeekdays(
             start = request.start,
@@ -146,13 +147,14 @@ internal object Engine16StrengthProgramBuilder {
         val durationMap = linkedMapOf<String, StrengthDurationInterval>()
 
         for (week in 1..request.weeks) {
-            val phase = phases.getValue(week)
+            val rawPhase = phases.getValue(week)
+            val isRunTaper = week in runningTaperWeeks
+            val phase = if (isRunTaper) StrengthMesocyclePhase.TAPER else rawPhase
             val weekStart = request.start.plusWeeks((week - 1).toLong())
             val weekStartDow = weekStart.dayOfWeek.value
             val weekEnd = weekStart.plusDays(6)
             val rungInBlock = (week - 1) % 4
-            val blockIndex = (week - 1) / 4
-            val runningHold = week in runningMajorStepWeeks
+            val runningHold = !isRunTaper && week in runningMajorStepWeeks
 
             val setMult = when (phase) {
                 StrengthMesocyclePhase.CONDITIONAL_DELOAD ->
@@ -162,7 +164,7 @@ internal object Engine16StrengthProgramBuilder {
                     objective == StrengthObjective.HYPERTROPHY &&
                     request.strengthExperience > 0 &&
                     !runningHold &&
-                    (rungInBlock == 2 || (blockIndex >= 1 && rungInBlock >= 1))
+                    rungInBlock == 2
                 ) 1.25 else 1.0
                 else -> 1.0
             }
@@ -221,7 +223,6 @@ internal object Engine16StrengthProgramBuilder {
                     slots = constructed.slots,
                     phase = phase,
                     rung = rungInBlock,
-                    blockIndex = blockIndex,
                     runningHold = runningHold
                 )
 
@@ -275,7 +276,8 @@ internal object Engine16StrengthProgramBuilder {
                         StrengthMesocyclePhase.CONDITIONAL_DELOAD ->
                             append("Working sets trimmed while maintaining comfortable load at 3 to 4 RIR.")
                         StrengthMesocyclePhase.TAPER ->
-                            append("Lower volume taper preserving strength readiness.")
+                            if (isRunTaper) append("Running race taper week: lower-body strength volume trimmed to 50% at 2 to 3 RIR for race freshness.")
+                            else append("Lower volume taper preserving strength readiness.")
                         StrengthMesocyclePhase.MAINTENANCE ->
                             append("Low-volume heavy maintenance preserving top-end strength cleanly.")
                         else ->
@@ -328,7 +330,10 @@ internal object Engine16StrengthProgramBuilder {
         val explanations = buildList {
             add("Engine 1.6 Strength Intelligence plan built from your goal, equipment, schedule, and conservative MOD-13 duration bounds.")
             add("Split: ${Engine16StrengthWorkoutConstructor.dayBlueprint(objective, request.strengthDays, 0, request.strengthExperience).splitKind.name.lowercase().replace('_', ' ')}; sets stay non-failure at ${spec.targetRir.first} to ${spec.targetRir.last} RIR with explicit warm-up ramp separation.")
-            add("Progressive overload climbs reps cleanly inside goal ranges and bridges coarse fixed-equipment steps instead of forcing abrupt load jumps.")
+            add("Progressive overload across blocks unlocks automatically from logged execution and RIR, bridging coarse fixed-equipment steps safely.")
+            if (runningTaperWeeks.isNotEmpty()) {
+                add("Race taper coordination: lower-body strength switches to taper maintenance during running taper week(s) ${runningTaperWeeks.sorted().joinToString(", ")}.")
+            }
             add("This is a draft. Review movements, equipment, and effort guidelines before explicit approval.")
         }
 
@@ -354,7 +359,8 @@ internal object Engine16StrengthProgramBuilder {
     fun validateSaved(
         plan: PlanSnapshot,
         allowCalendarReschedule: Boolean = false,
-        runningMajorStepWeeks: Set<Int> = emptySet()
+        runningMajorStepWeeks: Set<Int> = emptySet(),
+        runningTaperWeeks: Set<Int> = emptySet()
     ) {
         if (plan.engineVersion != ENGINE16_VERSION || plan.policyId != ENGINE16_STRENGTH_POLICY) {
             throw PlanConstraint("The saved Engine 1.6 strength plan has an unsupported engine identity.")
@@ -366,7 +372,8 @@ internal object Engine16StrengthProgramBuilder {
             id = plan.id,
             now = plan.createdAt,
             allowCalendarReschedule = allowCalendarReschedule,
-            runningMajorStepWeeks = runningMajorStepWeeks
+            runningMajorStepWeeks = runningMajorStepWeeks,
+            runningTaperWeeks = runningTaperWeeks
         ).snapshot
         val expectedById = expected.sessions.associateBy { it.id }
         if (plan.sessions.size != expectedById.size ||
@@ -426,32 +433,26 @@ internal object Engine16StrengthProgramBuilder {
         slots: List<ConstructedExerciseSlot>,
         phase: StrengthMesocyclePhase,
         rung: Int,
-        blockIndex: Int,
         runningHold: Boolean
-    ): List<ConstructedExerciseSlot> {
-        val blockBoost = if (phase in setOf(StrengthMesocyclePhase.ACCUMULATION, StrengthMesocyclePhase.TRANSMUTATION) && !runningHold) {
-            blockIndex.coerceAtMost(2)
-        } else 0
-        return slots.map { slot ->
-            if (phase in setOf(
-                    StrengthMesocyclePhase.CONDITIONAL_DELOAD,
-                    StrengthMesocyclePhase.TAPER,
-                    StrengthMesocyclePhase.MAINTENANCE
-                )
-            ) {
-                return@map slot
-            }
-            if (runningHold && slot.exercise.isLowerBody) {
-                return@map slot
-            }
-            if (slot.prescribedSeconds != null) {
-                val targetSec = (slot.prescribedSeconds + (rung + blockBoost) * 5).coerceAtMost(slot.repRange.last)
-                slot.copy(prescribedSeconds = targetSec)
-            } else if (slot.prescribedReps != null) {
-                val targetReps = (slot.prescribedReps + rung + blockBoost).coerceAtMost(slot.repRange.last)
-                slot.copy(prescribedReps = targetReps)
-            } else slot
+    ): List<ConstructedExerciseSlot> = slots.map { slot ->
+        if (phase in setOf(
+                StrengthMesocyclePhase.CONDITIONAL_DELOAD,
+                StrengthMesocyclePhase.TAPER,
+                StrengthMesocyclePhase.MAINTENANCE
+            )
+        ) {
+            return@map slot
         }
+        if (runningHold && slot.exercise.isLowerBody) {
+            return@map slot
+        }
+        if (slot.prescribedSeconds != null) {
+            val targetSec = (slot.prescribedSeconds + rung * 5).coerceAtMost(slot.repRange.last)
+            slot.copy(prescribedSeconds = targetSec)
+        } else if (slot.prescribedReps != null) {
+            val targetReps = (slot.prescribedReps + rung).coerceAtMost(slot.repRange.last)
+            slot.copy(prescribedReps = targetReps)
+        } else slot
     }
 
     private fun matchingLockId(request: PlanRequest, week: Int, slot: Int): String? =

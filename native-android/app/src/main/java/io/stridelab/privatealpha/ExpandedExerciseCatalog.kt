@@ -1714,7 +1714,7 @@ internal object ExpandedExerciseCatalog {
         strength(
             "str-db-oh-triceps-ext", "Dumbbell overhead triceps extension", "Long-head triceps stretch extension",
             listOf("triceps"), listOf("shoulder_stabilizers", "trunk_stabilizers"),
-            equipment = setOf("dumbbell", "bench"),
+            equipment = setOf("dumbbell"),
             difficulty = "foundation",
             technique = listOf(
                 "Press a single or pair of dumbbells overhead with upper arms pointed near vertical.",
@@ -1740,7 +1740,7 @@ internal object ExpandedExerciseCatalog {
         strength(
             "str-db-triceps-kickback", "Dumbbell triceps kickback", "Shortened-range triceps extension",
             listOf("triceps"), listOf("posterior_deltoid", "trunk_stabilizers"),
-            equipment = setOf("dumbbell", "bench"),
+            equipment = setOf("dumbbell"),
             difficulty = "foundation",
             technique = listOf(
                 "Brace torso forward over a bench with upper arm parallel to floor.",

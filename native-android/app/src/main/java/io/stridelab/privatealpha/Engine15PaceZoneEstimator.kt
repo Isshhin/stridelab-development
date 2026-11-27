@@ -467,6 +467,45 @@ internal object Engine15PaceZoneEstimator {
     }
 
     /**
+     * Derives HR target bounds from an explicit [ExecutionHrZoneProfile].
+     * Returns null when [profile] is absent (never fabricates 220-age).
+     */
+    fun hrBoundsForProfile(
+        profile: ExecutionHrZoneProfile?,
+        intent: RunningStepIntent,
+        goal: String? = null
+    ): Pair<Int, Int>? {
+        if (profile == null) return null
+        val z1Low = profile.z1FloorBpm
+        val z2Low = profile.z2FloorBpm
+        val z3Low = profile.z3FloorBpm
+        val z4Low = profile.z4FloorBpm
+        val z5Low = profile.z5FloorBpm
+        val z5High = (profile.maxHrBpm ?: (z5Low + 12)).coerceAtLeast(z5Low)
+        val (rawMin, rawMax) = when (intent) {
+            RunningStepIntent.RECOVERY -> z1Low to (z2Low - 1).coerceAtLeast(z1Low)
+            RunningStepIntent.WARMUP,
+            RunningStepIntent.COOLDOWN -> z1Low to ((z2Low + z3Low) / 2).coerceAtLeast(z2Low)
+            RunningStepIntent.AEROBIC_EASY -> z2Low to (z3Low - 1).coerceAtLeast(z2Low)
+            RunningStepIntent.STEADY -> ((z2Low + z3Low) / 2) to (z4Low - 1).coerceAtLeast(z3Low)
+            RunningStepIntent.TEMPO -> z3Low to (z4Low - 1).coerceAtLeast(z3Low)
+            RunningStepIntent.RACE_PACE -> when (goal) {
+                "Marathon" -> z3Low to (z4Low - 1).coerceAtLeast(z3Low)
+                "Half marathon" -> ((z3Low + z4Low) / 2) to ((z4Low + z5Low) / 2).coerceAtLeast(z4Low)
+                "Improve 10K" -> z4Low to (z5Low - 1).coerceAtLeast(z4Low)
+                else -> z4Low to z5High
+            }
+            RunningStepIntent.THRESHOLD -> z4Low to (z5Low - 1).coerceAtLeast(z4Low)
+            RunningStepIntent.VO2_INTERVAL,
+            RunningStepIntent.HILL,
+            RunningStepIntent.STRIDE -> z4Low to z5High
+        }
+        val minBpm = rawMin.coerceIn(60, 230)
+        val maxBpm = rawMax.coerceIn(minBpm, 230)
+        return minBpm to maxBpm
+    }
+
+    /**
      * Automatically computes reconciled whole-meter per-segment equivalents for
      * every loading-week alternative in a quality dry-run so they sum to each
      * slot's exact easy-run kilometer budget without warping WORK-segment pace

@@ -28,7 +28,8 @@ internal object Engine18HybridProgramBuilder {
         weeklySlots = request.weeklySlots.filterKeys { it == discipline },
         lockedSessionDays = request.lockedSessionDays.filterKeys { Regex(".*-$discipline(0|[1-9][0-9]*)$").matches(it) },
         allowDoubleDays = discipline != "run" && request.allowDoubleDays,
-        disciplineGoals = emptyMap()
+        disciplineGoals = emptyMap(),
+        safetyIntensityCaps = request.safetyIntensityCaps.filterKeys { it == discipline }
     )
 
     fun validateRequest(
@@ -105,6 +106,7 @@ internal object Engine18HybridProgramBuilder {
 
         val nonCondSessions = mutableListOf<PlannedSession>()
         var runMajorStepWeeks = emptySet<Int>()
+        var runTaperWeeks = emptySet<Int>()
         for (discipline in active.filter { it != "cond" }) {
             val solo = soloRequest(request, discipline)
             when (discipline) {
@@ -120,7 +122,9 @@ internal object Engine18HybridProgramBuilder {
                         runCandidateVolume = cand.volume
                         cand.plan.sessions
                     }
-                    runMajorStepWeeks = computeRunningHoldWeeks(runRows, request)
+                    val (majorWks, taperWks) = computeRunningCoordinationWeeks(solo, runCandidateVolume, runRows)
+                    runMajorStepWeeks = majorWks
+                    runTaperWeeks = taperWks
                     nonCondSessions += runRows
                 }
                 "str" -> if (FeatureFlags.USE_ENGINE16_STRENGTH_V1 && strengthTrack(solo) == "str") {
@@ -128,7 +132,8 @@ internal object Engine18HybridProgramBuilder {
                         solo, owner, id, now,
                         allowCalendarReschedule = true,
                         safetyRestrictions = safetyRestrictions,
-                        runningMajorStepWeeks = runMajorStepWeeks
+                        runningMajorStepWeeks = runMajorStepWeeks,
+                        runningTaperWeeks = runTaperWeeks
                     )
                     nonCondSessions += strResult.snapshot.sessions
                 } else {
@@ -217,6 +222,9 @@ internal object Engine18HybridProgramBuilder {
                 if (blockedForCond.isNotEmpty()) {
                     add("Conditioning avoided heavy overlap on high-load muscles: ${blockedForCond.sorted().joinToString(", ")}.")
                 }
+                if (runTaperWeeks.isNotEmpty()) {
+                    add("Race taper coordination: lower-body strength volume tapered alongside running taper week(s) ${runTaperWeeks.sorted().joinToString(", ")}.")
+                }
                 if (stackedDays > 0) {
                     add("Adapted $stackedDays stacked day(s) using High/Low separation (>= 6 h AM/PM gap with primary goal first).")
                 }
@@ -276,7 +284,28 @@ internal object Engine18HybridProgramBuilder {
             }.toMap()
         } else emptyMap()
 
-        val runMajorStepWeeks = computeRunningHoldWeeks(scheduled.filter { it.discipline == "run" }, request)
+        val runSessionsAll = scheduled.filter { it.discipline == "run" }
+        val (runMajorStepWeeks, runTaperWeeks) = if (runSessionsAll.isNotEmpty() && "str" in active) {
+            val soloRun = soloRequest(request, "run")
+            val vol = if (Engine15TimeOnlyRunWalkBuilder.isEligible(soloRun)) null else {
+                val athlete = Engine15AthleteBaseline.assess(soloRun)
+                Engine15IndependentVolumePlanner.propose(
+                    athlete,
+                    Engine15IndependentVolumePlanner.Input(
+                        weeks = soloRun.weeks,
+                        runningDays = soloRun.runDays,
+                        targetWeeklyKm = soloRun.targetWeeklyKm,
+                        returning = soloRun.returning,
+                        recoveryHold = soloRun.runningRecoveryHold,
+                        userDirected = soloRun.userDirectedPlanning,
+                        raceGoal = soloRun.goal,
+                        experience = soloRun.experience,
+                        useMultiFactorProgression = true
+                    )
+                )
+            }
+            computeRunningCoordinationWeeks(soloRun, vol, runSessionsAll)
+        } else emptySet<Int>() to emptySet<Int>()
         active.forEach { discipline ->
             val solo = soloRequest(request, discipline)
             val rows = scheduled.filter { it.discipline == discipline }
@@ -301,7 +330,8 @@ internal object Engine18HybridProgramBuilder {
                     Engine16StrengthProgramBuilder.validateSaved(
                         plan.copy(engineVersion = ENGINE16_VERSION, policyId = ENGINE16_STRENGTH_POLICY, request = solo, sessions = rows),
                         allowCalendarReschedule = true,
-                        runningMajorStepWeeks = runMajorStepWeeks
+                        runningMajorStepWeeks = runMajorStepWeeks,
+                        runningTaperWeeks = runTaperWeeks
                     )
                 }
                 "cal" -> Engine17CalisthenicsProgramBuilder.validateSaved(
@@ -430,21 +460,33 @@ internal object Engine18HybridProgramBuilder {
         return (enrichedRuns + otherSessions).sortedWith(compareBy<PlannedSession> { it.date }.thenBy { it.id })
     }
 
-    private fun computeRunningHoldWeeks(runSessions: List<PlannedSession>, request: PlanRequest): Set<Int> {
-        if (runSessions.isEmpty()) return emptySet()
-        val weekKm = (1..request.weeks).associateWith { week ->
-            val wStart = request.start.plusWeeks((week - 1).toLong())
+    internal fun computeRunningCoordinationWeeks(
+        soloRun: PlanRequest,
+        volume: Engine15IndependentVolumePlanner.Result?,
+        runSessions: List<PlannedSession>
+    ): Pair<Set<Int>, Set<Int>> {
+        if (runSessions.isEmpty()) return emptySet<Int>() to emptySet()
+        val macroPhases = if (volume != null && volume.status == Engine15IndependentVolumePlanner.Status.DISTANCE_CANDIDATE) {
+            Engine15MacrocyclePeriodization.assignPhases(soloRun, volume)
+        } else {
+            val recoveryFlags = (1..soloRun.weeks).map { it % 4 == 0 }
+            Engine15MacrocyclePeriodization.assignPhases(soloRun, recoveryFlags)
+        }
+        val taperWeeks = macroPhases.filterValues { it == Engine15MacroPhase.TAPER }.keys
+        val weekKm = (1..soloRun.weeks).associateWith { week ->
+            val wStart = soloRun.start.plusWeeks((week - 1).toLong())
             val wEnd = wStart.plusDays(6)
             runSessions.filter { it.date in wStart..wEnd }.sumOf { it.baselineSession().distanceKm ?: 0.0 }
         }
-        return buildSet {
-            for (week in 2..request.weeks) {
+        val majorStepWeeks = buildSet {
+            for (week in 2..soloRun.weeks) {
+                if (week in taperWeeks || macroPhases[week] == Engine15MacroPhase.RECOVERY) continue
                 val prev = weekKm[week - 1] ?: 0.0
                 val cur = weekKm[week] ?: 0.0
                 if (prev > 0.0 && cur >= prev * 1.08) add(week)
-                if (week == request.weeks && request.weeks >= 4 && prev > 0.0 && cur <= prev * 0.90) add(week)
             }
         }
+        return majorStepWeeks to taperWeeks
     }
 
     private fun annotateHybridNotes(sessions: List<PlannedSession>, primaryGoal: String): List<PlannedSession> {

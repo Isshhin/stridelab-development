@@ -283,7 +283,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         activityEvidence: ActivityAthleteEvidenceProfile? = null,
         qualityEvidence: List<IndependentQualitySegmentEvidence> = emptyList(),
         activities: List<ActivityRecord> = emptyList(),
-        detections: List<Engine15DetectedWorkout> = emptyList()
+        detections: List<Engine15DetectedWorkout> = emptyList(),
+        safetyRestrictions: AthleteSafetyRestrictionSet? = null
     ): PlanSnapshot {
         if (listOf("run", "str", "cal", "cond").count { request.disciplineSessionCount(it) > 0 } > 1) {
             if (FeatureFlags.USE_ENGINE18_HYBRID_V1) {
@@ -295,7 +296,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                     existingPlans = plans,
                     library = exerciseLibrary,
                     activities = activities,
-                    detections = detections
+                    detections = detections,
+                    safetyRestrictions = safetyRestrictions
                 )
             }
             val library = exerciseLibrary ?: throw PlanConstraint(
@@ -307,13 +309,17 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         }
         if (request.runDays == 0 && request.strengthDays == 0 && request.calDays == 0 && request.conditioningDays > 0) {
             if (FeatureFlags.USE_ENGINE18_HYBRID_V1) {
-                Engine18ConditioningWorkoutConstructor.validateSoloRequest(request)
+                Engine18ConditioningWorkoutConstructor.validateSoloRequest(request, safetyRestrictions, now)
                 RecordPolicy.identifier(owner)
                 RecordPolicy.identifier(id)
                 val (scheduledRequest, _) = soloExternalCalendar(request, owner, plans, "cond") { r ->
-                    Engine18ConditioningWorkoutConstructor.composeSessions(r, id)
+                    Engine18ConditioningWorkoutConstructor.composeSessions(
+                        r, id, safetyRestrictions = safetyRestrictions, evaluatedAtUtc = now
+                    )
                 }
-                return Engine18ConditioningWorkoutConstructor.buildSoloPlan(scheduledRequest, owner, id, now)
+                return Engine18ConditioningWorkoutConstructor.buildSoloPlan(
+                    scheduledRequest, owner, id, now, safetyRestrictions = safetyRestrictions
+                )
             }
             Engine15ConditioningWorkoutComposer.validateRequest(request)
             val library = exerciseLibrary ?: throw PlanConstraint(
@@ -338,13 +344,17 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         }
         if (request.runDays == 0 && request.strengthDays == 0 && request.calDays > 0) {
             if (FeatureFlags.USE_ENGINE17_CALISTHENICS_V1) {
-                Engine17CalisthenicsProgramBuilder.validateRequest(request)
+                Engine17CalisthenicsProgramBuilder.validateRequest(request, safetyRestrictions, now)
                 RecordPolicy.identifier(owner)
                 RecordPolicy.identifier(id)
                 val (scheduledRequest, _) = soloExternalCalendar(request, owner, plans, "cal") { r ->
-                    Engine17CalisthenicsProgramBuilder.build(r, owner, id, now).snapshot.sessions
+                    Engine17CalisthenicsProgramBuilder.build(
+                        r, owner, id, now, safetyRestrictions = safetyRestrictions, evaluatedAtUtc = now
+                    ).snapshot.sessions
                 }
-                return Engine17CalisthenicsProgramBuilder.build(scheduledRequest, owner, id, now).snapshot
+                return Engine17CalisthenicsProgramBuilder.build(
+                    scheduledRequest, owner, id, now, safetyRestrictions = safetyRestrictions, evaluatedAtUtc = now
+                ).snapshot
             }
             Engine15CalisthenicsWorkoutComposer.validateRequest(request)
             val library = exerciseLibrary ?: throw PlanConstraint(
@@ -369,13 +379,17 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         }
         if (request.runDays == 0 && request.strengthDays > 0) {
             if (FeatureFlags.USE_ENGINE16_STRENGTH_V1 && strengthTrack(request) == "str") {
-                Engine16StrengthProgramBuilder.validateRequest(request)
+                Engine16StrengthProgramBuilder.validateRequest(request, safetyRestrictions, now)
                 RecordPolicy.identifier(owner)
                 RecordPolicy.identifier(id)
                 val (scheduledRequest, _) = soloExternalCalendar(request, owner, plans, "str") { r ->
-                    Engine16StrengthProgramBuilder.build(r, owner, id, now).snapshot.sessions
+                    Engine16StrengthProgramBuilder.build(
+                        r, owner, id, now, safetyRestrictions = safetyRestrictions
+                    ).snapshot.sessions
                 }
-                return Engine16StrengthProgramBuilder.build(scheduledRequest, owner, id, now).snapshot
+                return Engine16StrengthProgramBuilder.build(
+                    scheduledRequest, owner, id, now, safetyRestrictions = safetyRestrictions
+                ).snapshot
             }
             Engine15StrengthWorkoutComposer.validateRequest(request)
             val library = exerciseLibrary ?: throw PlanConstraint(
@@ -399,11 +413,24 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 name = "Engine 1.5 independent strength plan"
             )
         }
-        if (Engine15TimeOnlyRunWalkBuilder.isEligible(request)) {
+        val runCap = request.effectiveSafetyCap("run", safetyRestrictions, now)
+        val effectiveRunRequest = when {
+            safetyRestrictions?.hasHardBlock(AthleteDiscipline.RUN, now) == true || runCap == SafetyIntensityCap.REST_ONLY ->
+                request.copy(runningRecoveryHold = true)
+            runCap == SafetyIntensityCap.EASY_AEROBIC_ONLY ->
+                request.copy(qualityCount = 0, qualityDays = emptySet())
+            runCap == SafetyIntensityCap.NO_HIGH_INTENSITY_Z3 ->
+                request.copy(qualityCount = minOf(request.qualityCount, 1))
+            else -> request
+        }
+        if (Engine15TimeOnlyRunWalkBuilder.isEligible(effectiveRunRequest)) {
+            if (effectiveRunRequest.runningRecoveryHold) {
+                throw PlanConstraint("RUNNING_RECOVERY_HOLD: Running remains on hold until the recovery review is resolved.")
+            }
             RecordPolicy.identifier(owner)
             RecordPolicy.identifier(id)
-            val external = externalPlanContext(request, owner, plans)
-            return Engine15TimeOnlyRunWalkBuilder.compose(request, owner, id, now, external.blockedRunDates)
+            val external = externalPlanContext(effectiveRunRequest, owner, plans)
+            return Engine15TimeOnlyRunWalkBuilder.compose(effectiveRunRequest, owner, id, now, external.blockedRunDates)
         }
         // Independent app plans share a calendar, but only overlapping running slots
         // and legacy policies enter the strict M6 interference review.
@@ -413,7 +440,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             ) else plan
         }
         return appDraft(previewAutoReconciled(
-            request, owner, id, now, runningCalendar, activityEvidence, qualityEvidence,
+            effectiveRunRequest, owner, id, now, runningCalendar, activityEvidence, qualityEvidence,
             activities = activities, detections = detections
         ))
     }
@@ -509,6 +536,11 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
             request.planningPace.let { !it.isFinite() || it !in 180.0..1800.0 })
             return defer("INVALID_RUNNING_INPUT", "Recent mileage, longest-run exposure, target and planning pace must be valid before generation.")
 
+        val hrProfile = if (request.runningTargetMode == "HR") {
+            request.resolvedHrZoneProfile()
+                ?: return defer("HR_ZONES_REQUIRED", "Configure your heart-rate zones (Garmin sync, LTHR, HRR, or Max HR) to generate a heart-rate-based running plan.")
+        } else null
+
         Engine15SessionLocks.validateRequest(request)
         val lockPattern = Regex(".*-w([1-9][0-9]*)-run(0|[1-9][0-9]*)$")
         val lockedSlots = request.lockedSessionDays.mapNotNull { (sessionId, rawDate) ->
@@ -583,7 +615,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         val baseSessions = placedWeeks.flatMap { week ->
             week.runs.map { placed ->
                 val slot = placed.slot
-                val meters = (slot.distanceKm * 1000.0).toInt()
+                val meters = kotlin.math.round(slot.distanceKm * 1000.0).toInt()
                 val runIndex = legacyRunIndex(request.runDays, slot.slotNumber, slot.role)
                 val sessionId = request.lockedSessionDays.keys.firstOrNull { lockedId ->
                     lockPattern.matchEntire(lockedId)?.let {
@@ -599,6 +631,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 }
                 if (request.timeBudgetEnabled && estimatedMinutes > sessionMinuteLimit)
                     return defer("DISTANCE_TIME_BUDGET_CONFLICT", "A distance-only run exceeds the entered session-time limit; no shorter substitute was generated.")
+                val baseEasyHr = Engine15PaceZoneEstimator.hrBoundsForProfile(hrProfile, RunningStepIntent.AEROBIC_EASY)
+                val baseHrSuffix = baseEasyHr?.let { " · ${it.first}-${it.second} bpm" }.orEmpty()
                 PlannedSession(
                     id = sessionId,
                     date = placed.date,
@@ -608,15 +642,28 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                     distanceKm = slot.distanceKm,
                     kind = if (slot.role == Engine15M5RunRole.LONG) "long" else "easy",
                     quality = false,
-                    steps = listOf("${formatMetersAsKm(meters)} at easy, conversational effort"),
+                    steps = listOf("${formatMetersAsKm(meters)} at easy, conversational effort$baseHrSuffix"),
                     reason = buildString {
                         append(if (week.kind == Engine15IndependentVolumePlanner.WeekKind.RECOVERY) "Recovery week. " else "Loading week. ")
-                        append("Distance and calendar were independently constructed; duration is estimated from the entered planning pace.")
+                        append(
+                            if (hrProfile != null) "Distance and calendar were independently constructed; intensity is guided by your configured HR zones."
+                            else "Distance and calendar were independently constructed; duration is estimated from the entered planning pace."
+                        )
                     },
                     runningPrescription = RunningPrescription(
                         role = if (slot.role == Engine15M5RunRole.LONG) "LONG" else "EASY",
                         family = null,
-                        segments = listOf(RunningSegment("EASY", meters, "Easy, conversational effort; no pace or heart-rate target."))
+                        segments = listOf(
+                            RunningSegment(
+                                "EASY",
+                                meters,
+                                if (hrProfile != null) "Easy conversational effort in target aerobic HR zone."
+                                else "Easy, conversational effort; no pace or heart-rate target.",
+                                stepIntent = if (hrProfile != null) RunningStepIntent.AEROBIC_EASY else null,
+                                targetHrMinBpm = baseEasyHr?.first,
+                                targetHrMaxBpm = baseEasyHr?.second
+                            )
+                        )
                     )
                 )
             }
@@ -674,13 +721,20 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 (780.0 * easySpeed + workM + recM) / 1000.0 * 1.03
             }
         } else null
+        val maxQualitySlotKm = if (adaptiveQualityMode && preQualityIds.isNotEmpty() && preSelection?.selectedFamily != null) {
+            val estZones = Engine15PaceZoneEstimator.estimate(request)
+            Engine15QualityProgressionPolicy.recommendedMaxQualitySlotKm(
+                request, preSelection.selectedFamily, estZones, assertedExposureSecondsOverride
+            )
+        } else null
         val initialShaped = Engine15DailyLoadShaper.shape(
             sessions = baseSessions,
             volume = volume,
             request = request,
             qualitySessionIds = preQualityIds,
             pinnedSessionIds = userDefinedQualityIds,
-            minQualitySlotKm = minQualitySlotKm
+            minQualitySlotKm = minQualitySlotKm,
+            maxQualitySlotKm = maxQualitySlotKm
         )
         val sessions = if (request.qualityDistanceClaims.isNotEmpty() && preSelection != null) {
             val claimsByKey = request.qualityDistanceClaims.groupBy { it.weekNumber to it.slotNumber }
@@ -700,7 +754,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                     request = request,
                     qualitySessionIds = preQualityIds,
                     pinnedSessionIds = userDefinedQualityIds + legacyClaimPins,
-                    minQualitySlotKm = minQualitySlotKm
+                    minQualitySlotKm = minQualitySlotKm,
+                    maxQualitySlotKm = maxQualitySlotKm
                 )
             } else initialShaped
         } else initialShaped
@@ -833,30 +888,38 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                             }
                             else -> "Easy conversational effort"
                         }
+                        val hrBounds = Engine15PaceZoneEstimator.hrBoundsForProfile(hrProfile, intent, request.goal)
+                        val isShortHrRep = hrBounds != null && work && (
+                            (segment.meters != null && segment.meters <= 400) ||
+                                (segment.meters == null && segment.seconds <= 90.0)
+                            )
+                        val finalEffortText = if (isShortHrRep) {
+                            "$effortText (Short rep: HR lags; guide by smooth RPE 8/10 while HR builds toward target zone.)"
+                        } else effortText
                         if (segment.meters != null) {
                             RunningStepV2(
                                 segment.purpose.name,
-                                effortText,
+                                finalEffortText,
                                 meters = segment.meters,
                                 seconds = null,
                                 distanceEquivalentMeters = null,
                                 stepIntent = intent,
                                 targetPaceMinSecPerKm = paceMin,
                                 targetPaceMaxSecPerKm = paceMax,
-                                targetHrMinBpm = null,
-                                targetHrMaxBpm = null
+                                targetHrMinBpm = hrBounds?.first,
+                                targetHrMaxBpm = hrBounds?.second
                             )
                         } else {
                             RunningStepV2(
                                 segment.purpose.name,
-                                effortText,
+                                finalEffortText,
                                 seconds = kotlin.math.round(segment.seconds).toInt().coerceAtLeast(1),
                                 distanceEquivalentMeters = kotlin.math.round(segment.assertedMeters).toInt().coerceAtLeast(1),
                                 stepIntent = intent,
                                 targetPaceMinSecPerKm = paceMin,
                                 targetPaceMaxSecPerKm = paceMax,
-                                targetHrMinBpm = null,
-                                targetHrMaxBpm = null
+                                targetHrMinBpm = hrBounds?.first,
+                                targetHrMaxBpm = hrBounds?.second
                             )
                         }
                     }
@@ -872,7 +935,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                             }
                             "$durText · ${formatMetersAsKm(st.distanceEquivalentMeters)}"
                         }
-                        return "$extent ${st.purpose.lowercase().replace('_', ' ')} · ${st.effort}"
+                        val hrTag = if (st.targetHrMinBpm != null && st.targetHrMaxBpm != null) {
+                            " · ${st.targetHrMinBpm}-${st.targetHrMaxBpm} bpm"
+                        } else ""
+                        return "$extent ${st.purpose.lowercase().replace('_', ' ')}$hrTag · ${st.effort}"
                     }
                     val totalMin = (kotlin.math.round(match.segments.sumOf { it.seconds } / 60.0).toInt())
                         .coerceAtLeast(10)
@@ -1026,7 +1092,10 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                 if(request.userDirectedPlanning)
                     add("Weekly volume follows the user-requested workload, with scheduled recovery weeks. This is not validated athlete capacity; coach-recommended progression remains available for comparison.")
                 if(experimentalTempo.isNotEmpty() && qualityBuildAdvisory != null) add(qualityBuildAdvisory)
-                if(experimentalTempo.isNotEmpty()) add("Structured quality workouts use estimated pace zones and perceived-effort cues. Review and approve before starting.")
+                if(experimentalTempo.isNotEmpty()) add(
+                    if (hrProfile != null) "Heart-rate-based training active: workouts target your configured BPM zones alongside perceived-effort cues."
+                    else "Structured quality workouts use estimated pace zones and perceived-effort cues. Review and approve before starting."
+                )
                 if(qualityById.isNotEmpty()) add("Quality workout steps and any intensity targets were explicitly user-defined; no automatic coach selection or intensity prescription was used. Timed steps are included in mileage only when explicit per-step distance equivalents were supplied.")
                 if(request.userDirectedPlanning) volume.weeks.flatMap { it.constraintCodes }.distinct()
                     .filter { it in setOf("REQUESTED_TARGET_ABOVE_COACH_RECOMMENDED","PROVISIONAL_SESSION_EXPOSURE_WARNING","RETURN_FROM_BREAK_RECOMMENDATION_EXCEEDED") }
@@ -1060,6 +1129,13 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
         val (recMin, recMax) = Engine15PaceZoneEstimator.paceBoundsForIntent(zones, RunningStepIntent.RECOVERY)
         val (steadyMin, steadyMax) = Engine15PaceZoneEstimator.paceBoundsForIntent(zones, RunningStepIntent.STEADY)
         val (strideMin, strideMax) = Engine15PaceZoneEstimator.paceBoundsForIntent(zones, RunningStepIntent.STRIDE)
+        val hrProfile = if (request.runningTargetMode == "HR") request.resolvedHrZoneProfile() else null
+        val easyHr = Engine15PaceZoneEstimator.hrBoundsForProfile(hrProfile, RunningStepIntent.AEROBIC_EASY)
+        val recHr = Engine15PaceZoneEstimator.hrBoundsForProfile(hrProfile, RunningStepIntent.RECOVERY)
+        val steadyHr = Engine15PaceZoneEstimator.hrBoundsForProfile(hrProfile, RunningStepIntent.STEADY)
+        val strideHr = Engine15PaceZoneEstimator.hrBoundsForProfile(hrProfile, RunningStepIntent.STRIDE)
+        val marathonHr = Engine15PaceZoneEstimator.hrBoundsForProfile(hrProfile, RunningStepIntent.RACE_PACE, goal = "Marathon")
+        val hmHr = Engine15PaceZoneEstimator.hrBoundsForProfile(hrProfile, RunningStepIntent.RACE_PACE, goal = "Half marathon")
 
         val phasesByWeek = Engine15MacrocyclePeriodization.assignPhases(request, volume)
         val recoveryWeeks = volume.weeks.filter {
@@ -1161,8 +1237,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                                 role = "LONG",
                                 family = null,
                                 segments = listOf(
-                                    RunningSegment("EASY", baseMeters, "Easy aerobic long-run base pace.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax),
-                                    RunningSegment("TRANSITION", finishMeters, "Marathon goal race pace finish.", RunningStepIntent.RACE_PACE, raceMin, raceMax)
+                                    RunningSegment("EASY", baseMeters, "Easy aerobic long-run base pace.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second),
+                                    RunningSegment("TRANSITION", finishMeters, "Marathon goal race pace finish.", RunningStepIntent.RACE_PACE, raceMin, raceMax, marathonHr?.first, marathonHr?.second)
                                 ),
                                 archetypeId = Engine15WorkoutArchetype.FAST_FINISH_PROGRESSIVE_LONG_RUN.id
                             )
@@ -1187,8 +1263,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                                 role = "LONG",
                                 family = null,
                                 segments = listOf(
-                                    RunningSegment("EASY", baseMeters, "Easy aerobic long-run base pace.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax),
-                                    RunningSegment("TRANSITION", finishMeters, "Half marathon race pace finish.", RunningStepIntent.RACE_PACE, raceMin, raceMax)
+                                    RunningSegment("EASY", baseMeters, "Easy aerobic long-run base pace.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second),
+                                    RunningSegment("TRANSITION", finishMeters, "Half marathon race pace finish.", RunningStepIntent.RACE_PACE, raceMin, raceMax, hmHr?.first, hmHr?.second)
                                 ),
                                 archetypeId = Engine15WorkoutArchetype.FAST_FINISH_PROGRESSIVE_LONG_RUN.id
                             )
@@ -1210,8 +1286,8 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                                 role = "LONG",
                                 family = null,
                                 segments = listOf(
-                                    RunningSegment("EASY", baseMeters, "Easy aerobic long-run base pace.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax),
-                                    RunningSegment("TRANSITION", finishMeters, "Steady controlled finish effort.", RunningStepIntent.STEADY, steadyMin, steadyMax)
+                                    RunningSegment("EASY", baseMeters, "Easy aerobic long-run base pace.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second),
+                                    RunningSegment("TRANSITION", finishMeters, "Steady controlled finish effort.", RunningStepIntent.STEADY, steadyMin, steadyMax, steadyHr?.first, steadyHr?.second)
                                 ),
                                 archetypeId = Engine15WorkoutArchetype.FAST_FINISH_PROGRESSIVE_LONG_RUN.id
                             )
@@ -1224,7 +1300,7 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                                 role = "LONG",
                                 family = null,
                                 segments = listOf(
-                                    RunningSegment("EASY", totalMeters, "Easy, conversational aerobic long-run effort.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax)
+                                    RunningSegment("EASY", totalMeters, "Easy, conversational aerobic long-run effort.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second)
                                 ),
                                 archetypeId = Engine15WorkoutArchetype.STEADY_AEROBIC_LONG_RUN.id
                             )
@@ -1244,19 +1320,27 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                                 meters = mainM,
                                 stepIntent = RunningStepIntent.AEROBIC_EASY,
                                 targetPaceMinSecPerKm = easyMin,
-                                targetPaceMaxSecPerKm = easyMax
+                                targetPaceMaxSecPerKm = easyMax,
+                                targetHrMinBpm = easyHr?.first,
+                                targetHrMaxBpm = easyHr?.second
                             )
                         )
                         repeat(reps) {
                             add(
                                 RunningStepV2(
                                     purpose = "TRANSITION",
-                                    effort = "20s smooth relaxed stride: quick cadence and tall posture, never an all-out sprint.",
+                                    effort = if (strideHr != null) {
+                                        "20s smooth relaxed stride: quick cadence and tall posture, never an all-out sprint. (Short rep: HR lags; guide by smooth relaxation.)"
+                                    } else {
+                                        "20s smooth relaxed stride: quick cadence and tall posture, never an all-out sprint."
+                                    },
                                     seconds = 20,
                                     distanceEquivalentMeters = strideM,
                                     stepIntent = RunningStepIntent.STRIDE,
                                     targetPaceMinSecPerKm = strideMin,
-                                    targetPaceMaxSecPerKm = strideMax
+                                    targetPaceMaxSecPerKm = strideMax,
+                                    targetHrMinBpm = strideHr?.first,
+                                    targetHrMaxBpm = strideHr?.second
                                 )
                             )
                             add(
@@ -1267,7 +1351,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                                     distanceEquivalentMeters = recM,
                                     stepIntent = RunningStepIntent.RECOVERY,
                                     targetPaceMinSecPerKm = recMin,
-                                    targetPaceMaxSecPerKm = recMax
+                                    targetPaceMaxSecPerKm = recMax,
+                                    targetHrMinBpm = recHr?.first,
+                                    targetHrMaxBpm = recHr?.second
                                 )
                             )
                         }
@@ -1302,7 +1388,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                                     "Recovery, very easy conversational pace (15–30 s/km slower than easy max).",
                                     RunningStepIntent.RECOVERY,
                                     recMin,
-                                    recMax
+                                    recMax,
+                                    recHr?.first,
+                                    recHr?.second
                                 )
                             ),
                             archetypeId = Engine15WorkoutArchetype.RECOVERY_RUN.id
@@ -1322,7 +1410,9 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                                     "Easy, conversational aerobic effort.",
                                     RunningStepIntent.AEROBIC_EASY,
                                     easyMin,
-                                    easyMax
+                                    easyMax,
+                                    easyHr?.first,
+                                    easyHr?.second
                                 )
                             ),
                             archetypeId = Engine15WorkoutArchetype.EASY_AEROBIC_RUN.id

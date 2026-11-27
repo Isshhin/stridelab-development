@@ -82,7 +82,15 @@ internal data class PlanRequest(
     /** Optional recent race / time-trial benchmark duration in seconds. */
     val benchmarkDurationSeconds:Int? = null,
     /** Optional separate duration cap in minutes for the weekly long run when timeBudgetEnabled is true. */
-    val longRunMinutes:Int? = null
+    val longRunMinutes:Int? = null,
+    /** Projected per-discipline M1 safety intensity caps so validateSaved stays deterministic after restriction changes. */
+    val safetyIntensityCaps:Map<String,String> = emptyMap(),
+    /** Running intensity guidance mode ("PACE" or "HR"). */
+    val runningTargetMode:String = "PACE",
+    /** Snapshot of 5 ascending BPM zone floors [z1, z2, z3, z4, z5] when runningTargetMode == "HR". */
+    val hrZoneFloors:List<Int> = emptyList(),
+    /** Optional max heart rate BPM when runningTargetMode == "HR". */
+    val hrMaxBpm:Int? = null
 ) {
     init {
         require(qualityDistanceClaims.size <= 32)
@@ -93,6 +101,48 @@ internal data class PlanRequest(
         require(benchmarkDistanceMeters == null || benchmarkDistanceMeters in 1000..100000)
         require(benchmarkDurationSeconds == null || benchmarkDurationSeconds in 120..43200)
         require(longRunMinutes == null || longRunMinutes in 15..300)
+        val validCapNames = SafetyIntensityCap.entries.mapTo(HashSet()) { it.name }
+        require(safetyIntensityCaps.keys.all { it in setOf("run", "str", "cal", "cond") } &&
+            safetyIntensityCaps.values.all { it in validCapNames })
+        require(runningTargetMode in setOf("PACE", "HR"))
+        require(hrZoneFloors.isEmpty() || (hrZoneFloors.size == 5 &&
+            hrZoneFloors.all { it in 45..240 } &&
+            hrZoneFloors.zipWithNext().all { (a, b) -> b > a }))
+        require(hrMaxBpm == null || (hrMaxBpm in 100..255 &&
+            (hrZoneFloors.isEmpty() || hrMaxBpm >= hrZoneFloors.last())))
+    }
+
+    fun resolvedHrZoneProfile(): ExecutionHrZoneProfile? =
+        if (hrZoneFloors.size == 5) {
+            runCatching {
+                ExecutionHrZoneProfile(
+                    z1FloorBpm = hrZoneFloors[0],
+                    z2FloorBpm = hrZoneFloors[1],
+                    z3FloorBpm = hrZoneFloors[2],
+                    z4FloorBpm = hrZoneFloors[3],
+                    z5FloorBpm = hrZoneFloors[4],
+                    maxHrBpm = hrMaxBpm
+                )
+            }.getOrNull()
+        } else null
+
+    fun effectiveSafetyCap(
+        disciplineKey: String,
+        external: AthleteSafetyRestrictionSet? = null,
+        evaluatedAtUtc: Instant = Instant.now()
+    ): SafetyIntensityCap? {
+        val persisted = safetyIntensityCaps[disciplineKey]?.let { raw ->
+            SafetyIntensityCap.entries.firstOrNull { it.name == raw }
+        }
+        val ad = when (disciplineKey) {
+            "run" -> AthleteDiscipline.RUN
+            "str" -> AthleteDiscipline.STRENGTH
+            "cal" -> AthleteDiscipline.CALISTHENICS
+            "cond" -> AthleteDiscipline.CONDITIONING
+            else -> null
+        }
+        val live = ad?.let { external?.effectiveIntensityCap(it, evaluatedAtUtc) }
+        return listOfNotNull(persisted, live).minByOrNull { it.strictnessRank }
     }
     fun disciplineSessionCount(discipline:String)=when(discipline) {
         "run"->runDays;"str"->strengthDays;"cal"->calDays;"cond"->conditioningDays;else->0
@@ -139,6 +189,10 @@ internal data class PlanRequest(
         if(benchmarkDistanceMeters!=null)encoded.put("benchmarkDistanceMeters",benchmarkDistanceMeters)
         if(benchmarkDurationSeconds!=null)encoded.put("benchmarkDurationSeconds",benchmarkDurationSeconds)
         if(longRunMinutes!=null)encoded.put("longRunMinutes",longRunMinutes)
+        if(safetyIntensityCaps.isNotEmpty())encoded.put("safetyIntensityCaps",JSONObject(safetyIntensityCaps))
+        if(runningTargetMode!="PACE")encoded.put("runningTargetMode",runningTargetMode)
+        if(hrZoneFloors.isNotEmpty())encoded.put("hrZoneFloors",JSONArray(hrZoneFloors))
+        if(hrMaxBpm!=null)encoded.put("hrMaxBpm",hrMaxBpm)
         return encoded
     }
     companion object {
@@ -174,7 +228,13 @@ internal data class PlanRequest(
                 j.nullString("targetRaceDate")?.let(LocalDate::parse),
                 j.nullInt("benchmarkDistanceMeters"),
                 j.nullInt("benchmarkDurationSeconds"),
-                j.nullInt("longRunMinutes"))
+                j.nullInt("longRunMinutes"),
+                j.optJSONObject("safetyIntensityCaps")?.let { caps ->
+                    caps.keys().asSequence().associateWith { caps.getString(it) }
+                } ?: emptyMap(),
+                j.optString("runningTargetMode","PACE"),
+                j.optJSONArray("hrZoneFloors")?.let { arr -> (0 until arr.length()).map { arr.getInt(it) } } ?: emptyList(),
+                j.nullInt("hrMaxBpm"))
         }
     }
 }

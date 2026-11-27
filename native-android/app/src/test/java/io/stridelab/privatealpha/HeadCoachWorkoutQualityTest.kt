@@ -91,12 +91,20 @@ class HeadCoachWorkoutQualityTest {
         assertTrue(lowerA.steps.first().contains("lower-body prep"))
         assertTrue(upperA.steps.first().contains("upper-body prep") || upperA.steps.first().contains("upper"))
 
-        // Multi-mesocycle progression: Week 5/6 beats Week 1/2 in reps or sets
+        // Execution-gated block progression (P1 fix): unexecuted Block 2 resets cleanly to Block 1 baseline instead of blindly inflating
         val w1UpperA = ulPlan.snapshot.sessions[0]
+        val w2UpperA = ulPlan.snapshot.sessions[1 * 4]
+        val w4UpperA = ulPlan.snapshot.sessions[3 * 4]
+        val w5UpperA = ulPlan.snapshot.sessions[4 * 4]
         val w6UpperA = ulPlan.snapshot.sessions[5 * 4]
         val w1Work = w1UpperA.exercises.sumOf { it.sets * (it.reps ?: 1) }
+        val w2Work = w2UpperA.exercises.sumOf { it.sets * (it.reps ?: 1) }
+        val w4Work = w4UpperA.exercises.sumOf { it.sets * (it.reps ?: 1) }
+        val w5Work = w5UpperA.exercises.sumOf { it.sets * (it.reps ?: 1) }
         val w6Work = w6UpperA.exercises.sumOf { it.sets * (it.reps ?: 1) }
-        assertTrue("Expected Block 2 Week 6 total work ($w6Work) > Block 1 Week 1 ($w1Work)", w6Work > w1Work)
+        assertEquals("Expected Block 2 Week 5 baseline ($w5Work) to match Block 1 Week 1 ($w1Work) before execution receipts", w1Work, w5Work)
+        assertEquals("Expected Block 2 Week 6 baseline ($w6Work) to match Block 1 Week 2 ($w2Work) before execution receipts", w2Work, w6Work)
+        assertTrue("Expected Week 4 recovery deload ($w4Work) < Week 1 baseline ($w1Work)", w4Work < w1Work)
     }
 
     @Test

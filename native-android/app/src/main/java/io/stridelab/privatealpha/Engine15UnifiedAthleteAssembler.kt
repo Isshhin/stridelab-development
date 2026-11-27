@@ -321,23 +321,46 @@ internal object Engine15UnifiedAthleteAssembler {
             }
         }
 
+        val projectedCaps = LinkedHashMap(updated.safetyIntensityCaps)
+        val nonRunSpecs = listOf(
+            Triple("str", updated.strengthDays > 0, AthleteDiscipline.STRENGTH),
+            Triple("cal", updated.calDays > 0, AthleteDiscipline.CALISTHENICS),
+            Triple("cond", updated.conditioningDays > 0, AthleteDiscipline.CONDITIONING)
+        )
+        for ((key, requested, disc) in nonRunSpecs) {
+            if (!requested) continue
+            val liveCap = assessment.activeRestrictions.effectiveIntensityCap(disc, evaluatedAt)
+            if (liveCap != null && liveCap != SafetyIntensityCap.REST_ONLY) {
+                val existing = projectedCaps[key]?.let { raw -> SafetyIntensityCap.entries.firstOrNull { it.name == raw } }
+                val stricter = listOfNotNull(existing, liveCap).minByOrNull { it.strictnessRank }
+                if (stricter != null) projectedCaps[key] = stricter.name
+            }
+        }
+        if (projectedCaps != updated.safetyIntensityCaps) {
+            updated = updated.copy(safetyIntensityCaps = projectedCaps)
+        }
+
         return updated
     }
 
     /**
-     * Checks requested non-running disciplines against active M1-D hard blocks or fail-closed
-     * restriction storage before draft generation.
+     * Checks requested non-running disciplines against active M1-D hard blocks, REST_ONLY caps,
+     * or fail-closed restriction storage before draft generation.
      */
     fun requireRequestedDisciplinesUnblocked(
         request: PlanRequest,
         assessment: UnifiedAthleteAssessment
     ) {
+        val evaluatedAt = assessment.evaluatedAtUtc
         val requested = buildList {
             if (request.strengthDays > 0) add(AthleteDiscipline.STRENGTH to "Strength")
             if (request.calDays > 0) add(AthleteDiscipline.CALISTHENICS to "Calisthenics")
             if (request.conditioningDays > 0) add(AthleteDiscipline.CONDITIONING to "Conditioning")
         }
-        val blocked = requested.firstOrNull { (disc, _) -> assessment.hasHardBlock(disc) }
+        val blocked = requested.firstOrNull { (disc, _) ->
+            assessment.hasHardBlock(disc) ||
+                assessment.activeRestrictions.effectiveIntensityCap(disc, evaluatedAt) == SafetyIntensityCap.REST_ONLY
+        }
         if (blocked != null) {
             throw PlanConstraint(
                 "SAFETY_RESTRICTION_HOLD: ${blocked.second} planning is paused while an active safety restriction is unresolved."

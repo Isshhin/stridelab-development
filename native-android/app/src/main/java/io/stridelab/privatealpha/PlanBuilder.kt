@@ -496,6 +496,31 @@ internal fun PlanBuilder(
                 val setLongestKm: (Double) -> Unit = { value ->
                     longestOverride = kotlin.math.round(value * 10) / 10
                 }
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                val ownerScope = state.account ?: state.localGarminOwner
+                val hrPrefs = remember(ctx) { AthleteHeartRatePreferences(ctx) }
+                val garminZoneStore = remember(ctx) { GarminZonePreferenceStore(ctx) }
+                var hrSettings by remember(ownerScope) { mutableStateOf(hrPrefs.settings(ownerScope)) }
+                val garminHrProfile = remember(ownerScope, state.account, state.localGarminOwner) {
+                    listOfNotNull(state.account, state.localGarminOwner).distinct().firstNotNullOfOrNull { acc ->
+                        garminZoneStore.load(acc)?.profile?.let { GarminHeartRateZones.forRunning(listOf(it)) }
+                    }?.let { ExecutionHrZoneProfile.fromGarmin(it) }
+                }
+                val activityHrProfile = remember(state.details) {
+                    state.details.values.firstNotNullOfOrNull {
+                        ExecutionHrZoneProfile.fromActivitySourceZones(it.sourceHeartRateZones)
+                    }
+                }
+                val manualHrProfile = remember(hrSettings) {
+                    HeartRateZoneAnalysis.toExecutionZoneProfile(hrSettings)
+                }
+                val activeHrProfile = manualHrProfile ?: garminHrProfile ?: activityHrProfile
+                val hrSourceLabel = when {
+                    manualHrProfile != null -> HeartRateZoneAnalysis.methodSummary(hrSettings)
+                    garminHrProfile != null -> "Synced Garmin Running HR Zones"
+                    activityHrProfile != null -> "Detected from Recent Activity Zones"
+                    else -> null
+                }
                 TracksideRunningAbilityScreen(
                     experience = input.experience,
                     weeklyKm = input.weeklyKm.takeIf { input.recentMileageBasis != "UNKNOWN" },
@@ -560,7 +585,33 @@ internal fun PlanBuilder(
                         Engine15PaceZoneEstimator.estimate(input, activities = state.activities)
                     },
                     progressStep = if (runningRoute == "custom") 2 else 3,
-                    autoDetectedExperience = detectedExperience != null && experienceOverride == null
+                    autoDetectedExperience = detectedExperience != null && experienceOverride == null,
+                    runningTargetMode = input.runningTargetMode,
+                    onRunningTargetMode = { mode ->
+                        if (mode == "HR") {
+                            val floors = activeHrProfile?.let {
+                                listOf(it.z1FloorBpm, it.z2FloorBpm, it.z3FloorBpm, it.z4FloorBpm, it.z5FloorBpm)
+                            } ?: emptyList()
+                            edit(input.copy(runningTargetMode = "HR", hrZoneFloors = floors, hrMaxBpm = activeHrProfile?.maxHrBpm))
+                        } else {
+                            edit(input.copy(runningTargetMode = "PACE", hrZoneFloors = emptyList(), hrMaxBpm = null))
+                        }
+                    },
+                    hrZoneProfile = activeHrProfile,
+                    hrZoneSourceLabel = hrSourceLabel,
+                    hrSettings = hrSettings,
+                    onSaveHrSettings = { newSettings ->
+                        hrPrefs.save(ownerScope, newSettings)
+                        hrSettings = newSettings
+                        val p = HeartRateZoneAnalysis.toExecutionZoneProfile(newSettings)
+                        if (p != null) {
+                            edit(input.copy(
+                                runningTargetMode = "HR",
+                                hrZoneFloors = listOf(p.z1FloorBpm, p.z2FloorBpm, p.z3FloorBpm, p.z4FloorBpm, p.z5FloorBpm),
+                                hrMaxBpm = p.maxHrBpm
+                            ))
+                        }
+                    }
                 )
             }
             3 -> TracksideAdvancedRunning(

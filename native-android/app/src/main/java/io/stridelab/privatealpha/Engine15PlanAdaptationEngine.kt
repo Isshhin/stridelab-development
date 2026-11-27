@@ -1,8 +1,10 @@
 package io.stridelab.privatealpha
 
 import org.json.JSONObject
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlin.math.abs
@@ -57,7 +59,9 @@ internal object Engine15PlanAdaptationEngine {
         cooldowns: List<AdaptationCooldownRecord> = emptyList(),
         existingProposals: List<PlanAdaptationProposal> = emptyList(),
         asOfDate: LocalDate,
-        zoneId: ZoneId = ZoneId.systemDefault()
+        zoneId: ZoneId = ZoneId.systemDefault(),
+        safetyRestrictions: AthleteSafetyRestrictionSet? = null,
+        evaluatedAtUtc: Instant = asOfDate.atTime(12, 0).toInstant(ZoneOffset.UTC)
     ): PlanAdaptationProposal? {
         if (!Engine1Engines.canManage(plan) || !Engine1Engines.supportsCoachingLoop(plan)) {
             return null
@@ -67,6 +71,10 @@ internal object Engine15PlanAdaptationEngine {
 
         evaluateDisciplineRecovery(plan, cooldowns, existingProposals, asOfDate)?.let { return it }
         if (plan.sessions.none { it.discipline == "run" }) return null
+
+        val runSafetyBlocked = safetyRestrictions?.hasHardBlock(AthleteDiscipline.RUN, evaluatedAtUtc) == true ||
+            plan.request.effectiveSafetyCap("run", safetyRestrictions, evaluatedAtUtc) != null ||
+            plan.request.runningTargetMode == "HR"
 
         val effectiveFromDate = asOfDate.plusDays(1)
         val linkedSessionIds = resolveLinkedSessionIds(plan, matchesByActivityId)
@@ -122,8 +130,9 @@ internal object Engine15PlanAdaptationEngine {
             )
         }
 
-        // Priority 4: Pace Recalibration Up (strictly requires MODERATE/HIGH + clean easy pacing + cooldown clear)
-        if (diagnostic.recalibrationAdvisory == RecalibrationAdvisory.SUGGEST_FASTER_CHECK &&
+        // Priority 4: Pace Recalibration Up (strictly requires MODERATE/HIGH + clean easy pacing + cooldown clear + no active run restriction)
+        if (!runSafetyBlocked &&
+            diagnostic.recalibrationAdvisory == RecalibrationAdvisory.SUGGEST_FASTER_CHECK &&
             diagnostic.overallConfidence in setOf(DiagnosticConfidence.MODERATE, DiagnosticConfidence.HIGH) &&
             !diagnostic.easyDiscipline.hiddenFatigueRisk &&
             !hasActiveTypeCooldown(plan.id, AdaptationType.PACE_RECALIBRATION_UP, cooldowns, asOfDate)
@@ -139,8 +148,9 @@ internal object Engine15PlanAdaptationEngine {
             )
         }
 
-        // Priority 5: Pace Recalibration Down (MODERATE/HIGH + cooldown clear)
-        if (diagnostic.recalibrationAdvisory == RecalibrationAdvisory.SUGGEST_SLOWER_CHECK &&
+        // Priority 5: Pace Recalibration Down (MODERATE/HIGH + cooldown clear + Pace mode)
+        if (plan.request.runningTargetMode != "HR" &&
+            diagnostic.recalibrationAdvisory == RecalibrationAdvisory.SUGGEST_SLOWER_CHECK &&
             diagnostic.overallConfidence in setOf(DiagnosticConfidence.MODERATE, DiagnosticConfidence.HIGH) &&
             !hasActiveTypeCooldown(plan.id, AdaptationType.PACE_RECALIBRATION_DOWN, cooldowns, asOfDate)
         ) {
@@ -163,6 +173,8 @@ internal object Engine15PlanAdaptationEngine {
         otherPlans: List<PlanSnapshot>,
         today: LocalDate,
         cooldowns: List<AdaptationCooldownRecord> = emptyList(),
+        safetyRestrictions: AthleteSafetyRestrictionSet? = null,
+        evaluatedAtUtc: Instant = today.atTime(12, 0).toInstant(ZoneOffset.UTC),
         receipt: (PlannedSession) -> WorkoutExecution?
     ): PlanAdaptationProposal? {
         if (plan.status != "approved" || !RunnerSupportSchedule.supports(plan)) return null
@@ -194,6 +206,13 @@ internal object Engine15PlanAdaptationEngine {
         val target = plan.sessions.filter {
             it.title == source.title && it.date in today.plusDays(1)..today.plusDays(10) && supportCanAdjust(it, plan)
         }.minByOrNull { it.date } ?: return null
+        val supportDiscKey = if (target.discipline == "cal") "cal" else "str"
+        val supportDiscEnum = if (target.discipline == "cal") AthleteDiscipline.CALISTHENICS else AthleteDiscipline.STRENGTH
+        val targetSafetyCap = plan.request.effectiveSafetyCap(supportDiscKey, safetyRestrictions, evaluatedAtUtc)
+        if (safetyRestrictions?.hasHardBlock(supportDiscEnum, evaluatedAtUtc) == true ||
+            targetSafetyCap == SafetyIntensityCap.REST_ONLY
+        ) return null
+        if (direction == RunnerSupportDose.PROGRESS && targetSafetyCap != null) return null
         val runs = RunnerSupportSchedule.runningPlans(plan.owner, otherPlans)
         val phase = RunnerSupportSchedule.phases(runs)[target.date]
         val placement = RunnerSupportSchedule.placement(target, target.date, RunnerSupportSchedule.keyRuns(runs))
@@ -260,6 +279,208 @@ internal object Engine15PlanAdaptationEngine {
             candidatePlanJson = candidate.encode().toString(), reasonCodes = listOf("RUNNER_SUPPORT_DOSE")
         )
     }
+
+    fun evaluateStrengthExecutionProgression(
+        plan: PlanSnapshot,
+        otherPlans: List<PlanSnapshot>,
+        today: LocalDate,
+        cooldowns: List<AdaptationCooldownRecord> = emptyList(),
+        safetyRestrictions: AthleteSafetyRestrictionSet? = null,
+        evaluatedAtUtc: Instant = today.atTime(12, 0).toInstant(ZoneOffset.UTC),
+        receipt: (PlannedSession) -> WorkoutExecution?
+    ): PlanAdaptationProposal? {
+        if (plan.status != "approved") return null
+        val strengthCap = plan.request.effectiveSafetyCap("str", safetyRestrictions, evaluatedAtUtc)
+        if (safetyRestrictions?.hasHardBlock(AthleteDiscipline.STRENGTH, evaluatedAtUtc) == true ||
+            strengthCap == SafetyIntensityCap.REST_ONLY
+        ) return null
+
+        val source = plan.sessions.asSequence()
+            .filter {
+                it.discipline == "str" && it.runnerSupportDose == null &&
+                    it.title != "Strength for Runners" && it.kind != "structured-plyometrics" &&
+                    it.isMarkedComplete && it.log != null
+            }
+            .filter { (it.log!!.performedOn ?: it.date) in today.minusDays(13)..today }
+            .maxByOrNull { it.log!!.at } ?: return null
+        val log = requireNotNull(source.log)
+        val execution = receipt(source)?.takeIf {
+            it.receipt && it.planId == plan.id && it.sessionId == source.id && it.finalLog == log
+        } ?: return null
+
+        val metadataById = Engine16StrengthExerciseCatalog.allMetadata(library = null).associateBy { it.id }
+        val objective = StrengthObjective.fromRequestGoal(plan.request.disciplineGoal("str"))
+        val objectiveSpec = Engine16StrengthPolicyRegistry.defaultsFor(objective, plan.request.strengthExperience)
+        val sessionRir = Regex("(?im)^RIR:\\s*([0-9]+)\\s*$").find(log.notes)?.groupValues?.get(1)?.toIntOrNull()
+        val hasDiscomfort = log.discomfort?.let { it.isNotBlank() && !it.equals("None", true) } == true
+        val symptomStatus = when {
+            hasDiscomfort -> SymptomSafetyStatus.CONCERNING_SYMPTOM_FLAG
+            log.effort != null -> SymptomSafetyStatus.CONFIRMED_NONE
+            else -> SymptomSafetyStatus.MISSING_UNREPORTED
+        }
+        val fatigueDeload = (log.effort ?: 0) >= 9
+        val runningPhases = RunnerSupportSchedule.phases(RunnerSupportSchedule.runningPlans(plan.owner, otherPlans))
+        val sourceWeek = weekIndexOf(plan.request.start, source.date) + 1
+        val runningMajorStepActive = runningPhases[source.date] == Engine15MacroPhase.BUILD
+
+        val decisions = source.effectiveExercises.mapNotNull { ex ->
+            val targetReps = ex.reps ?: return@mapNotNull null
+            val meta = metadataById[ex.id] ?: return@mapNotNull null
+            val confirmedForEx = execution.sets.filter {
+                it.target.id == ex.id && it.isConfirmed && it.actual != null
+            }
+            if (confirmedForEx.isEmpty()) return@mapNotNull null
+            val summaries = confirmedForEx.map { s ->
+                val actual = requireNotNull(s.actual)
+                StrengthSetExecutionSummary(
+                    completedReps = actual.reps ?: targetReps,
+                    loadKg = actual.kg,
+                    reportedRir = actual.rir ?: sessionRir,
+                    techniqueQuality = if ((log.effort ?: 0) >= 9) TechniqueQuality.BORDERLINE else TechniqueQuality.CLEAN
+                )
+            }
+            val range = when {
+                targetReps in objectiveSpec.primaryRepRange -> objectiveSpec.primaryRepRange
+                targetReps in objectiveSpec.secondaryRepRange -> objectiveSpec.secondaryRepRange
+                targetReps in objectiveSpec.isolationRepRange -> objectiveSpec.isolationRepRange
+                else -> maxOf(1, targetReps - 2)..(targetReps + 2)
+            }
+            Engine16StrengthProgressionEngine.evaluate(
+                StrengthProgressionInput(
+                    exercise = meta,
+                    objective = objective,
+                    currentSets = ex.sets.coerceAtLeast(1),
+                    currentTargetReps = targetReps,
+                    repRange = range,
+                    targetRir = objectiveSpec.targetRir,
+                    completedSets = summaries,
+                    consecutiveCompletedCleanSessions = 1,
+                    verifiedSubsequentContinuity = true,
+                    techniqueProvenance = TechniqueProvenance.ATHLETE_SELF_REPORTED_TECHNIQUE,
+                    symptomStatus = symptomStatus,
+                    runningMajorStepActive = runningMajorStepActive && sourceWeek > 1,
+                    fatigueTriggeredDeload = fatigueDeload,
+                    equipmentBlockedOrPainful = false
+                )
+            )
+        }
+        if (decisions.isEmpty()) return null
+
+        val reduceOps = setOf(
+            StrengthProgressionOperator.REDUCE_LOAD,
+            StrengthProgressionOperator.REDUCE_WORKING_SETS,
+            StrengthProgressionOperator.SUBSTITUTE_MOVEMENT
+        )
+        val progressOps = setOf(
+            StrengthProgressionOperator.PROGRESS_ONE_SET,
+            StrengthProgressionOperator.PROGRESS_PARTIAL_SETS,
+            StrengthProgressionOperator.PROGRESS_ALL_SETS,
+            StrengthProgressionOperator.PROGRESS_LOAD_RESET_REPS,
+            StrengthProgressionOperator.PROGRESS_SET_VOLUME
+        )
+        val hasReductionSignal = decisions.any { it.operator in reduceOps }
+        val progressCount = decisions.count { it.operator in progressOps }
+        val stepDelta = when {
+            hasReductionSignal -> -1
+            strengthCap != null -> return null
+            execution.outcome.prescription == PrescriptionOutcome.FULLY_PERFORMED &&
+                progressCount * 2 >= decisions.size -> +1
+            else -> return null
+        }
+
+        val evidenceKey = "${source.id}:${source.logRevision}:${execution.finalizationId}"
+        val fingerprint = java.util.UUID.nameUUIDFromBytes(evidenceKey.toByteArray(Charsets.UTF_8)).toString()
+        val type = AdaptationType.STRENGTH_PROGRESSION
+        if (cooldowns.any {
+                it.planId == plan.id && it.adaptationType == type &&
+                    (it.disruptionFingerprint == fingerprint || today <= it.cooldownUntilDate)
+            }
+        ) return null
+
+        fun titleFamily(title: String): String = title.substringBefore(":").substringBefore(" (").trim()
+        val sourceFamily = titleFamily(source.title)
+        val candidateTargets = if (stepDelta < 0) {
+            plan.sessions.filter {
+                it.discipline == "str" && it.runnerSupportDose == null &&
+                    it.title != "Strength for Runners" && it.kind != "structured-plyometrics" &&
+                    it.date in today.plusDays(1)..today.plusDays(7) &&
+                    supportCanAdjustForStrength(it, plan)
+            }.sortedBy { it.date }.take(3)
+        } else {
+            val upcoming = plan.sessions.filter {
+                it.discipline == "str" && it.runnerSupportDose == null &&
+                    it.title != "Strength for Runners" && it.kind != "structured-plyometrics" &&
+                    it.date in today.plusDays(1)..today.plusDays(14) &&
+                    supportCanAdjustForStrength(it, plan) &&
+                    weekIndexOf(plan.request.start, it.date) % 4 != 3 &&
+                    runningPhases[it.date] !in setOf(Engine15MacroPhase.RECOVERY, Engine15MacroPhase.TAPER)
+            }.sortedBy { it.date }
+            listOfNotNull(
+                upcoming.firstOrNull { titleFamily(it.title) == sourceFamily } ?: upcoming.firstOrNull()
+            )
+        }
+        val adjustments = candidateTargets.mapNotNull { target ->
+            val nextStep = (target.difficultyStep + stepDelta).coerceIn(-1, 2)
+            if (nextStep == target.difficultyStep) return@mapNotNull null
+            val after = Engine15WorkoutDifficultyAdjuster.adjust(target, plan.request, nextStep)
+            if (after == target) return@mapNotNull null
+            if (stepDelta > 0 && plan.request.timeBudgetEnabled && after.minutes > plan.request.minutes) return@mapNotNull null
+            target to after
+        }.toMap()
+        if (adjustments.isEmpty()) return null
+
+        val candidate = plan.copy(
+            sessions = plan.sessions.map { adjustments[it] ?: it }
+        )
+        if (runCatching {
+                val restored = PlanSnapshot.decode(JSONObject(candidate.encode().toString()), plan.owner)
+                Engine15IndependentPlanGenerator.validateSaved(restored)
+            }.isFailure
+        ) return null
+
+        val effectiveFrom = adjustments.keys.minOf { it.date }
+        val rationale = if (stepDelta < 0) {
+            "Your last strength execution flagged high strain or discomfort. Step back upcoming strength volume conservatively."
+        } else {
+            "You completed ${source.title} cleanly within target RIR. Advance the next matching session cleanly (+1 progression step)."
+        }
+        val weekDiffs = adjustments.entries.groupBy { weekIndexOf(plan.request.start, it.key.date) }.map { (wk, entries) ->
+            AdaptationWeekDiff(
+                weekIndex = wk,
+                phaseBefore = "Scheduled",
+                phaseAfter = if (stepDelta < 0) "Stepped back" else "Progressed",
+                plannedKmBefore = 0.0,
+                plannedKmAfter = 0.0,
+                qualityCountBefore = 0,
+                qualityCountAfter = 0,
+                summaryNote = entries.joinToString("\n") { (before, after) ->
+                    "${before.date} · ${before.title}: ${before.exercises.sumOf { it.sets }} sets -> ${after.exercises.sumOf { it.sets }} sets"
+                }
+            )
+        }
+        return PlanAdaptationProposal(
+            proposalId = java.util.UUID.nameUUIDFromBytes("${plan.id}:$type:$fingerprint:${plan.revision}:$effectiveFrom".toByteArray()).toString(),
+            planId = plan.id,
+            type = type,
+            status = AdaptationProposalStatus.PENDING,
+            createdAtDate = today,
+            effectiveFromDate = effectiveFrom,
+            expiresAtDate = minOf(today.plusDays(PROPOSAL_EXPIRY_DAYS), effectiveFrom.minusDays(1).coerceAtLeast(today)),
+            disruptionTier = DisruptionTier.NONE,
+            disruptionFingerprint = fingerprint,
+            sourceDiagnosticDate = today,
+            sourceConfidence = DiagnosticConfidence.MODERATE,
+            title = if (stepDelta < 0) "Ease upcoming strength exposure" else "Progress next strength session",
+            coachingRationale = rationale,
+            diff = PlanAdaptationDiff(effectiveFrom, adjustments.size, 0.0, 0.0, weekDiffs, emptyList(), true, emptyList()),
+            candidatePlanJson = candidate.encode().toString(),
+            reasonCodes = listOf("STRENGTH_EXECUTION_PROGRESSION")
+        )
+    }
+
+    private fun supportCanAdjustForStrength(session: PlannedSession, plan: PlanSnapshot): Boolean =
+        session.status == "planned" && session.log == null && session.linkedActivityId == null &&
+            session.id !in plan.request.lockedSessionDays && session.swaps.isEmpty() && session.suggestion == null
 
     private fun supportCanAdjust(session: PlannedSession, plan: PlanSnapshot) =
         session.status == "planned" && session.log == null && session.linkedActivityId == null &&
@@ -366,6 +587,7 @@ internal object Engine15PlanAdaptationEngine {
         val decodedCandidate = PlanSnapshot.decode(JSONObject(candidateRaw), currentPlan.owner)
         val disciplineRecovery = "NON_RUNNING_RECOVERY" in proposal.reasonCodes
         val supportDose = proposal.type == AdaptationType.RUNNER_SUPPORT_DOSE
+        val strengthProgression = proposal.type == AdaptationType.STRENGTH_PROGRESSION
         if (supportDose) {
             require(currentPlan.status == "approved" && RunnerSupportSchedule.supports(currentPlan) &&
                 decodedCandidate.copy(sessions = currentPlan.sessions) == currentPlan &&
@@ -377,6 +599,26 @@ internal object Engine15PlanAdaptationEngine {
                 (mode == RunnerSupportDose.LIGHT && after.minutes <= before.minutes ||
                     mode == RunnerSupportDose.PROGRESS && before.runnerSupportDose == RunnerSupportDose.ENTRY))
             require(after == supportDoseFor(currentPlan, before, requireNotNull(mode)))
+            Engine15IndependentPlanGenerator.validateSaved(decodedCandidate)
+        }
+        if (strengthProgression) {
+            require(currentPlan.status == "approved" &&
+                decodedCandidate.copy(sessions = currentPlan.sessions) == currentPlan &&
+                decodedCandidate.sessions.map { it.id } == currentPlan.sessions.map { it.id }) {
+                "The saved plan structure changed. Review the updated strength adjustment."
+            }
+            val pairs = currentPlan.sessions.zip(decodedCandidate.sessions)
+            require(pairs.any { (before, after) -> before != after }) {
+                "Strength progression proposal contains no session adjustments."
+            }
+            require(pairs.all { (before, after) ->
+                before == after || (before.discipline == "str" && before.runnerSupportDose == null &&
+                    before.status == "planned" && before.date >= proposal.effectiveFromDate && before.date > asOfDate &&
+                    before.linkedActivityId == null && before.log == null && before.suggestion == null &&
+                    before.id !in currentPlan.request.lockedSessionDays && before.swaps.isEmpty() &&
+                    (after.difficultyStep - before.difficultyStep) in setOf(-1, 1) &&
+                    after == Engine15WorkoutDifficultyAdjuster.adjust(before, currentPlan.request, after.difficultyStep))
+            }) { "The reviewed strength adjustment no longer matches the current sessions." }
             Engine15IndependentPlanGenerator.validateSaved(decodedCandidate)
         }
         if (disciplineRecovery) {
@@ -408,7 +650,7 @@ internal object Engine15PlanAdaptationEngine {
         )
         val linkedIds = currentPlan.sessions.mapNotNull { if (it.linkedActivityId != null) it.id else null }.toSet()
         val trailingLongest = currentPlan.request.longestKm ?: 10.0
-        val gate = if (disciplineRecovery || supportDose) ValidationOutcome(true, emptyList()) else validateCandidatePlan(
+        val gate = if (disciplineRecovery || supportDose || strengthProgression) ValidationOutcome(true, emptyList()) else validateCandidatePlan(
             originalPlan = currentPlan,
             candidatePlan = candidatePlan,
             effectiveFromDate = proposal.effectiveFromDate,

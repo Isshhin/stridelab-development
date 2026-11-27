@@ -538,7 +538,7 @@ class Engine15M1AFoundationTest {
         assertEquals(16, expResult.plan.sessions.size)
         assertTrue(expResult.plan.sessions.all { it.discipline == "run" })
         assertEquals(
-            "16:86d0a01d5e0972bbc983d0f1642b69512538987bb5a45e1cc19ba1920b0fe332",
+            "16:35ce1094f2672e6451e7a11903c6ed043a4749f1477bf076d26dcd2afdae648b",
             expSig
         )
         assertEquals(12, starterSnap.sessions.size)

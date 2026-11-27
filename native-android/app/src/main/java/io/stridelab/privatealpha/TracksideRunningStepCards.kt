@@ -292,7 +292,17 @@ internal fun buildWorkoutStepItems(
         return listOfNotNull(timeText, distText).takeIf { it.isNotEmpty() }?.joinToString(" · ")
     }
 
-    fun displayEffort(effort: String, paceMin: Int?, paceMax: Int?): String? {
+    fun displayEffort(
+        effort: String,
+        paceMin: Int?,
+        paceMax: Int?,
+        hrMin: Int? = null,
+        hrMax: Int? = null
+    ): String? {
+        if (hrMin != null && hrMax != null) {
+            val hrLabel = if (hrMin == hrMax) "$hrMin bpm" else "$hrMin–$hrMax bpm"
+            return listOfNotNull(hrLabel, effort.takeIf { it.isNotBlank() }).joinToString(" · ")
+        }
         val paces = listOfNotNull(paceMin, paceMax).distinct().joinToString("–") {
             ActivityRecord.duration(it.toDouble())
         }
@@ -319,7 +329,7 @@ internal fun buildWorkoutStepItems(
                             purpose = step.purpose,
                             zoneBadge = zoneBadgeForPurpose(step.purpose, step.stepIntent),
                             metricLine = formatDurationAndMeters(step.seconds, step.meters, step.distanceEquivalentMeters),
-                            effortLine = displayEffort(step.effort, step.targetPaceMinSecPerKm, step.targetPaceMaxSecPerKm),
+                            effortLine = displayEffort(step.effort, step.targetPaceMinSecPerKm, step.targetPaceMaxSecPerKm, step.targetHrMinBpm, step.targetHrMaxBpm),
                             accentColor = accentForPurpose(step.purpose),
                             durationMinutes = estimateDurationMin(step.seconds, step.meters ?: step.distanceEquivalentMeters),
                             intensityFraction = intensityForPurpose(step.purpose, step.stepIntent),
@@ -338,7 +348,7 @@ internal fun buildWorkoutStepItems(
                             block.work.meters,
                             block.work.distanceEquivalentMeters
                         ),
-                        effortLine = displayEffort(block.work.effort, block.work.targetPaceMinSecPerKm, block.work.targetPaceMaxSecPerKm),
+                        effortLine = displayEffort(block.work.effort, block.work.targetPaceMinSecPerKm, block.work.targetPaceMaxSecPerKm, block.work.targetHrMinBpm, block.work.targetHrMaxBpm),
                         accentColor = accentForPurpose(block.work.purpose),
                         durationMinutes = estimateDurationMin(
                             block.work.seconds,
@@ -357,7 +367,7 @@ internal fun buildWorkoutStepItems(
                                 rec.meters,
                                 rec.distanceEquivalentMeters
                             ),
-                            effortLine = displayEffort(rec.effort, rec.targetPaceMinSecPerKm, rec.targetPaceMaxSecPerKm),
+                            effortLine = displayEffort(rec.effort, rec.targetPaceMinSecPerKm, rec.targetPaceMaxSecPerKm, rec.targetHrMinBpm, rec.targetHrMaxBpm),
                             accentColor = accentForPurpose(rec.purpose),
                             durationMinutes = estimateDurationMin(
                                 rec.seconds,
@@ -397,7 +407,7 @@ internal fun buildWorkoutStepItems(
                             purpose = seg.purpose,
                             zoneBadge = zoneBadgeForPurpose(seg.purpose, seg.stepIntent),
                             metricLine = runningStepDisplayKmLabel(seg.meters),
-                            effortLine = displayEffort(seg.effort, seg.targetPaceMinSecPerKm, seg.targetPaceMaxSecPerKm),
+                            effortLine = displayEffort(seg.effort, seg.targetPaceMinSecPerKm, seg.targetPaceMaxSecPerKm, seg.targetHrMinBpm, seg.targetHrMaxBpm),
                             accentColor = accentForPurpose(seg.purpose),
                             durationMinutes = segMinutes(seg.meters),
                             intensityFraction = intensityForPurpose(seg.purpose, seg.stepIntent),
@@ -412,7 +422,7 @@ internal fun buildWorkoutStepItems(
                         purpose = block.work.purpose,
                         zoneBadge = zoneBadgeForPurpose(block.work.purpose, block.work.stepIntent),
                         metricLine = runningStepDisplayKmLabel(block.work.meters),
-                        effortLine = displayEffort(block.work.effort, block.work.targetPaceMinSecPerKm, block.work.targetPaceMaxSecPerKm),
+                        effortLine = displayEffort(block.work.effort, block.work.targetPaceMinSecPerKm, block.work.targetPaceMaxSecPerKm, block.work.targetHrMinBpm, block.work.targetHrMaxBpm),
                         accentColor = accentForPurpose(block.work.purpose),
                         durationMinutes = segMinutes(block.work.meters),
                         intensityFraction = intensityForPurpose(block.work.purpose, block.work.stepIntent),
@@ -424,7 +434,7 @@ internal fun buildWorkoutStepItems(
                             purpose = rec.purpose,
                             zoneBadge = zoneBadgeForPurpose(rec.purpose),
                             metricLine = runningStepDisplayKmLabel(rec.meters),
-                        effortLine = displayEffort(rec.effort, rec.targetPaceMinSecPerKm, rec.targetPaceMaxSecPerKm),
+                        effortLine = displayEffort(rec.effort, rec.targetPaceMinSecPerKm, rec.targetPaceMaxSecPerKm, rec.targetHrMinBpm, rec.targetHrMaxBpm),
                             accentColor = accentForPurpose(rec.purpose),
                             durationMinutes = segMinutes(rec.meters),
                             intensityFraction = intensityForPurpose(rec.purpose),
