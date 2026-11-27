@@ -423,30 +423,32 @@ internal fun StrideLabTodayScreen(
                     }
                 }
             }
-            item(key = "today-hero") {
-                val showHeroSkeleton = rememberDelayedSkeletonVisible(!state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion)
-                if (isPastDate && !evidence.hasApprovedPlan && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion && state.todayPlanReady) {
-                    TodayCompactEmptyDay(online = online)
-                } else if (!state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion) {
-                    SkeletonShimmerContainer(reducedMotion = reduceMotion || !showHeroSkeleton) {
-                        SkeletonHeroTrainingCard(
-                            modifier = Modifier
-                                .testTag("today-hero-skeleton")
-                                .semantics { contentDescription = "Loading training day" },
-                            reducedMotion = reduceMotion || !showHeroSkeleton
+            val showHeroSkeleton = !state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion
+            val hideNoPlanCompanion = state.todayPlanReady && dailyTrainingState is TodayDailyTrainingState.NoPlanCompanion
+            if (showHeroSkeleton || !hideNoPlanCompanion) {
+                item(key = "today-hero") {
+                    val delayedSkeleton = rememberDelayedSkeletonVisible(showHeroSkeleton)
+                    if (showHeroSkeleton) {
+                        SkeletonShimmerContainer(reducedMotion = reduceMotion || !delayedSkeleton) {
+                            SkeletonHeroTrainingCard(
+                                modifier = Modifier
+                                    .testTag("today-hero-skeleton")
+                                    .semantics { contentDescription = "Loading training day" },
+                                reducedMotion = reduceMotion || !delayedSkeleton
+                            )
+                        }
+                    } else {
+                        TodayDailyTrainingCard(
+                            selectedDate = date,
+                            todayDate = todayDate,
+                            dailyState = dailyTrainingState,
+                            cachedDetails = state.details,
+                            hasPrimaryHeroTag = true,
+                            onOpenWorkout = onOpenWorkout,
+                            onOpenActivityDetail = onOpenActivityDetail,
+                            onOpenTraining = onOpenTraining
                         )
                     }
-                } else {
-                    TodayDailyTrainingCard(
-                        selectedDate = date,
-                        todayDate = todayDate,
-                        dailyState = dailyTrainingState,
-                        cachedDetails = state.details,
-                        hasPrimaryHeroTag = true,
-                        onOpenWorkout = onOpenWorkout,
-                        onOpenActivityDetail = onOpenActivityDetail,
-                        onOpenTraining = onOpenTraining
-                    )
                 }
             }
             if (selectedPage == "all") {

@@ -100,7 +100,8 @@ class TracksideTodayTest {
         compose.onNodeWithText("Your schedule awaits").assertDoesNotExist()
         val calendar = compose.onNodeWithTag("today-week-swipe").getUnclippedBoundsInRoot()
         compose.runOnIdle { state.value = TrainingState(initializing = false) }
-        compose.onNodeWithText("Companion training mode").assertExists()
+        compose.onNodeWithTag("today-hero").assertDoesNotExist()
+        compose.onNodeWithText("Companion training mode").assertDoesNotExist()
         assertEquals(calendar, compose.onNodeWithTag("today-week-swipe").getUnclippedBoundsInRoot())
         compose.onNodeWithText("Train with StrideLab").assertDoesNotExist()
         compose.onNodeWithText("Your schedule awaits").assertDoesNotExist()

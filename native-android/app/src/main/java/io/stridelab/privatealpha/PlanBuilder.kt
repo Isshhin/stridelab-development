@@ -528,12 +528,6 @@ internal fun PlanBuilder(
                     onExperience = { experienceOverride = it },
                     onWeeklyKm = setWeeklyKm,
                     onLongestKm = setLongestKm,
-                    historyContent = {
-                        historySuggestion?.let {
-                            Spacer(Modifier.height(12.dp))
-                            HistoryBaselineCard(it, setWeeklyKm, setLongestKm)
-                        }
-                    },
                     weeklySource = when (input.recentMileageBasis) {
                         "RECORDED_PARTIAL" -> "From recent runs"
                         "SELF_REPORTED_AVERAGE" -> "Entered by you"

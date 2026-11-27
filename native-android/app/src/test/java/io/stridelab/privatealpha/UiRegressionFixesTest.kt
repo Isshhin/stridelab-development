@@ -80,4 +80,24 @@ class UiRegressionFixesTest {
         assertEquals("--", formatWorkoutAvgPace(null, 30))
         assertFalse(formatWorkoutAvgPace(null, 30).contains("—"))
     }
+
+    @Test
+    fun mileageTargetReviewExplanation_isHumanizedAndHasNoEmDash() {
+        val review = Engine15MileageTargetReview(
+            requestedKm = 85.0,
+            reportedRecentKm = 70.6,
+            estimatedPeakKm = 78.0,
+            requiresFoundationDecision = true
+        )
+        val text = review.explanation()
+        assertTrue(text.contains("85.0 km/week"))
+        assertTrue(text.contains("70.6 km/week"))
+        assertTrue(text.contains("78.0 km/week"))
+        assertFalse(text.contains("—"))
+        assertFalse(text.contains("delivered weekly prescription"))
+
+        val timeOnly = review.copy(estimatedPeakKm = null).explanation()
+        assertTrue(timeOnly.contains("time-based"))
+        assertFalse(timeOnly.contains("—"))
+    }
 }

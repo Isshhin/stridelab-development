@@ -40,6 +40,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -127,7 +130,8 @@ class NativeMainActivity: ComponentActivity() {
         renameActivity=model::renameActivity,
         exportLocalArchive=model::exportLocalActivityArchive,
         restoreLocalArchive=model::restoreLocalActivityArchive, freeform=model.freeform,
-        refreshWellness=model::refreshWellness) }
+        refreshWellness=model::refreshWellness,
+        pullToRefresh=model::pullToRefresh) }
     val thumbnailLoader = remember(model) { model::loadActivityThumbnail }
     ActivityThumbnailProvider(thumbnailLoader, state.account, state.loginGeneration, model.thumbnailCache) {
         NativeStrideContent(state, online, actions)
@@ -149,7 +153,8 @@ internal data class NativeActions(val signOut: () -> Unit, val signIn: (String, 
     val exportLocalArchive: (suspend (LocalActivityArchiveScope) -> java.io.File)? = null,
     val restoreLocalArchive: (suspend (LocalActivityArchiveScope,java.io.File) -> LocalActivityArchiveCounts)? = null,
     val freeform: FreeformAccess? = null,
-    val refreshWellness: () -> Unit = {})
+    val refreshWellness: () -> Unit = {},
+    val pullToRefresh: () -> Unit = {})
 
 /** Primary tab roots switch cleanly with zero flash; detail/editor screens animate smoothly. */
 private val mainTabRoutes = setOf("home", "training", "activities", "settings")
@@ -900,33 +905,43 @@ private fun NavHostController.openActivity(id: String) {
                 }
             }
             PersistentTabSurface(active = visibleRoot == null || visibleRoot == "home") {
-                StrideLabTodayScreen(
-                    state = state,
-                    visibleActivities = visibleActivities,
-                    online = online,
-                    onOpenTraining = { nav.openTabRoot("training") },
-                    onOpenActivity = { onDockTab("activities") },
-                    onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
-                    onOpenActivityDetail = { id -> nav.openActivity(id) },
-                    onOpenMore = { nav.openTabRoot("settings") },
-                    onSignIn = { nav.navigate("auth") },
-                    actions = actions.planning,
-                    freeformBoard = freeformBoard,
-                    garminConnected = garminConnected,
-                    onConnectGarmin = { garminSheetOpen = true },
-                    onRefreshWellness = actions.refreshWellness
-                )
+                StrideLabPullToRefresh(
+                    isRefreshing = state.pullRefreshing,
+                    onRefresh = actions.pullToRefresh
+                ) {
+                    StrideLabTodayScreen(
+                        state = state,
+                        visibleActivities = visibleActivities,
+                        online = online,
+                        onOpenTraining = { nav.openTabRoot("training") },
+                        onOpenActivity = { onDockTab("activities") },
+                        onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
+                        onOpenActivityDetail = { id -> nav.openActivity(id) },
+                        onOpenMore = { nav.openTabRoot("settings") },
+                        onSignIn = { nav.navigate("auth") },
+                        actions = actions.planning,
+                        freeformBoard = freeformBoard,
+                        garminConnected = garminConnected,
+                        onConnectGarmin = { garminSheetOpen = true },
+                        onRefreshWellness = actions.refreshWellness
+                    )
+                }
             }
             PersistentTabSurface(active = visibleRoot == "activities") {
-                ActivityHistoryTabScreen(
-                    evidence = evidence,
-                    loading = evidence == null || state.initializing || !state.activitySummariesReady,
-                    details = state.details,
-                    onOpenActivityDetail = { id -> nav.openActivity(id) },
-                    onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
-                    onOpenFreeformHistory = openFreeformHistory,
-                    onOpenQuickLog = { quickLogOpen = true }
-                )
+                StrideLabPullToRefresh(
+                    isRefreshing = state.pullRefreshing,
+                    onRefresh = actions.pullToRefresh
+                ) {
+                    ActivityHistoryTabScreen(
+                        evidence = evidence,
+                        loading = evidence == null || state.initializing || !state.activitySummariesReady,
+                        details = state.details,
+                        onOpenActivityDetail = { id -> nav.openActivity(id) },
+                        onOpenWorkout = { planId, sessionId -> nav.openWorkout(planId, sessionId) },
+                        onOpenFreeformHistory = openFreeformHistory,
+                        onOpenQuickLog = { quickLogOpen = true }
+                    )
+                }
             }
             if (state.account != null) {
                 // Keep signed-in roots composed but measure/place only the
@@ -935,6 +950,69 @@ private fun NavHostController.openActivity(id: String) {
                 // The keyed group is disposed if the account changes.
                 key(state.account) {
                     PersistentTabSurface(active = visibleRoot == "training") {
+                        StrideLabPullToRefresh(
+                            isRefreshing = state.pullRefreshing,
+                            onRefresh = actions.pullToRefresh
+                        ) {
+                            StrideLabUnifiedTrainingTimeline(
+                                state, groupedActivities, actions.planning,
+                                { nav.navigate("builder/all") },
+                                { p, session -> nav.openWorkout(p, session) },
+                                { id -> nav.openActivity(id) },
+                                { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
+                                manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory,
+                                onOpenCustom = openCustomWorkout, calendarFocus = customCalendarFocus,
+                                clearCalendarFocus = { customCalendarFocus = null }
+                            )
+                        }
+                    }
+                    PersistentTabSurface(active = visibleRoot == "settings") {
+                        StrideLabPullToRefresh(
+                            isRefreshing = state.pullRefreshing,
+                            onRefresh = actions.pullToRefresh
+                        ) {
+                            run {
+                                var confirmSignOut by remember { mutableStateOf(false) }
+                                TracksideMoreScreen(
+                                    state = state,
+                                    garminConnected = garminConnected,
+                                    onSignIn = { nav.navigate("auth") },
+                                            onGarmin = { garminSheetOpen = true },
+                                    onOfflineMaps = { nav.navigate("more/offline-maps") },
+                                    onPreferences = { nav.navigate("more/preferences") },
+                                    onAbout = { nav.navigate("more/about") },
+                                    onSignOut = { confirmSignOut = true },
+                                    onActivityBackup = { nav.navigate("more/activity-backup") }
+                                )
+                                if (confirmSignOut) {
+                                    AlertDialog(
+                                        onDismissRequest = { confirmSignOut = false },
+                                        title = { Text("Sign out?") },
+                                        text = { Text("Your saved offline records will remain on this device.") },
+                                        confirmButton = {
+                                            TextButton(
+                                                onClick = { confirmSignOut = false; actions.signOut() },
+                                                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD8FB70))
+                                            ) { Text("Sign out") }
+                                        },
+                                        dismissButton = {
+                                            TextButton(onClick = { confirmSignOut = false }) {
+                                                Text("Cancel")
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Guest roots stay retained and account content is removed.
+                PersistentTabSurface(active = visibleRoot == "training") {
+                    StrideLabPullToRefresh(
+                        isRefreshing = state.pullRefreshing,
+                        onRefresh = actions.pullToRefresh
+                    ) {
                         StrideLabUnifiedTrainingTimeline(
                             state, groupedActivities, actions.planning,
                             { nav.navigate("builder/all") },
@@ -946,67 +1024,24 @@ private fun NavHostController.openActivity(id: String) {
                             clearCalendarFocus = { customCalendarFocus = null }
                         )
                     }
-                    PersistentTabSurface(active = visibleRoot == "settings") {
-                        run {
-                            var confirmSignOut by remember { mutableStateOf(false) }
-                            TracksideMoreScreen(
-                                state = state,
-                                garminConnected = garminConnected,
-                                onSignIn = { nav.navigate("auth") },
-                                        onGarmin = { garminSheetOpen = true },
-                                onOfflineMaps = { nav.navigate("more/offline-maps") },
-                                onPreferences = { nav.navigate("more/preferences") },
-                                onAbout = { nav.navigate("more/about") },
-                                onSignOut = { confirmSignOut = true },
-                                onActivityBackup = { nav.navigate("more/activity-backup") }
-                            )
-                            if (confirmSignOut) {
-                                AlertDialog(
-                                    onDismissRequest = { confirmSignOut = false },
-                                    title = { Text("Sign out?") },
-                                    text = { Text("Your saved offline records will remain on this device.") },
-                                    confirmButton = {
-                                        TextButton(
-                                            onClick = { confirmSignOut = false; actions.signOut() },
-                                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD8FB70))
-                                        ) { Text("Sign out") }
-                                    },
-                                    dismissButton = {
-                                        TextButton(onClick = { confirmSignOut = false }) {
-                                            Text("Cancel")
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Guest roots stay retained and account content is removed.
-                PersistentTabSurface(active = visibleRoot == "training") {
-                    StrideLabUnifiedTrainingTimeline(
-                        state, groupedActivities, actions.planning,
-                        { nav.navigate("builder/all") },
-                        { p, session -> nav.openWorkout(p, session) },
-                        { id -> nav.openActivity(id) },
-                        { p, d -> nav.navigate("manage/${android.net.Uri.encode(p)}/$d") },
-                        manualBoard = freeformBoard, onAddWorkout = openFreeform, onOpenManual = openFreeformHistory,
-                        onOpenCustom = openCustomWorkout, calendarFocus = customCalendarFocus,
-                        clearCalendarFocus = { customCalendarFocus = null }
-                    )
                 }
                 PersistentTabSurface(active = visibleRoot == "settings") {
-                    TracksideMoreScreen(
-                        state = state,
-                                garminConnected = garminConnected,
-                        onSignIn = { nav.navigate("auth") },
-                        onGarmin = { garminSheetOpen = true },
-                        onOfflineMaps = { nav.navigate("more/offline-maps") },
-                        onPreferences = { nav.navigate("more/preferences") },
-                        onAbout = { nav.navigate("more/about") },
-                        onSignOut = {},
-                        onActivityBackup = { nav.navigate("more/activity-backup") }
-                    )
+                    StrideLabPullToRefresh(
+                        isRefreshing = state.pullRefreshing,
+                        onRefresh = actions.pullToRefresh
+                    ) {
+                        TracksideMoreScreen(
+                            state = state,
+                                    garminConnected = garminConnected,
+                            onSignIn = { nav.navigate("auth") },
+                            onGarmin = { garminSheetOpen = true },
+                            onOfflineMaps = { nav.navigate("more/offline-maps") },
+                            onPreferences = { nav.navigate("more/preferences") },
+                            onAbout = { nav.navigate("more/about") },
+                            onSignOut = {},
+                            onActivityBackup = { nav.navigate("more/activity-backup") }
+                        )
+                    }
                 }
             }
             } // Persistent tab container
@@ -1178,6 +1213,32 @@ internal val LocalFloatingDockVisible=staticCompositionLocalOf { false }
 @Composable internal fun SignalCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     TracksideGlassCard(modifier = modifier, content = content)
 }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StrideLabPullToRefresh(
+    isRefreshing: Boolean,
+    onRefresh: () -> Unit,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val pullState = rememberPullToRefreshState()
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        state = pullState,
+        modifier = Modifier.fillMaxSize(),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullState,
+                isRefreshing = isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = Color(0xFF181A1D),
+                color = Color(0xFFD8FB70)
+            )
+        },
+        content = content
+    )
+}
+
 @Composable private fun EmptyState(title: String, description: String) {
     SignalCard {
         Box(Modifier.size(52.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = .10f), RoundedCornerShape(16.dp)).padding(12.dp)) { BrandMark(Modifier.fillMaxSize()) }

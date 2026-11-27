@@ -316,6 +316,70 @@ internal fun TracksideRunningSetup(
             lineHeight = 16.sp,
             modifier = Modifier.testTag("builder-running-pinned-note")
         )
+
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "QUALITY SESSIONS PER WEEK",
+            fontSize = 10.sp,
+            letterSpacing = 1.4.sp,
+            fontWeight = FontWeight.Bold,
+            color = PlanBuilderPalette.muted
+        )
+        Spacer(Modifier.height(10.dp))
+        val maxQualityCount = (count - 2).coerceIn(0, 2)
+        val currentQualityCount = request.qualityCount.coerceIn(0, 2)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = PlanBuilderPalette.surface,
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                listOf(0, 1, 2).forEach { qCount ->
+                    val chosen = currentQualityCount == qCount
+                    val enabled = qCount <= maxQualityCount
+                    Surface(
+                        onClick = { onQualityCount(qCount) },
+                        enabled = enabled,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .testTag("builder-advanced-quality-count-$qCount"),
+                        color = if (chosen) PlanBuilderPalette.accent else Color.Transparent,
+                        shape = RoundedCornerShape(11.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                when (qCount) {
+                                    0 -> "Easy only"
+                                    1 -> "1 / week"
+                                    else -> "2 / week"
+                                },
+                                fontSize = 12.sp,
+                                fontWeight = if (chosen) FontWeight.ExtraBold else FontWeight.Medium,
+                                color = when {
+                                    chosen -> PlanBuilderPalette.accentOn
+                                    enabled -> PlanBuilderPalette.secondary
+                                    else -> PlanBuilderPalette.disabled
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        if (maxQualityCount < 2) {
+            Text(
+                "2 quality sessions need 4 running days, including one easy run and one long run.",
+                modifier = Modifier.padding(top = 6.dp).testTag("builder-quality-frequency-reason"),
+                fontSize = 12.sp,
+                color = PlanBuilderPalette.secondary
+            )
+        }
     }
 
     val chosenDay = editingDay

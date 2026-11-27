@@ -25,15 +25,18 @@ class StrideApplication: Application() {
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "native-history-refresh-v1", ExistingPeriodicWorkPolicy.KEEP, request)
-        // Separate from backend refresh; 6-hour periodic Garmin/backup checks
+        // Separate from backend refresh; 2-hour periodic Garmin/backup checks
         // also work for a signed-out local Garmin profile; cloud backup stays gated.
         val garminWork = PeriodicWorkRequestBuilder<GarminAutoSyncWorker>(
-            6, TimeUnit.HOURS
+            2, TimeUnit.HOURS
         ).setConstraints(
-            Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+            Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .setRequiresBatteryNotLow(true)
+                .build()
         ).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "garmin-auto-sync-v1", ExistingPeriodicWorkPolicy.KEEP, garminWork)
+            "garmin-auto-sync-v1", ExistingPeriodicWorkPolicy.UPDATE, garminWork)
     }
 }
 class HistoryRefreshWorker(context: Context, params: WorkerParameters): CoroutineWorker(context, params) {
@@ -70,6 +73,7 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
         viewModelScope.launch { repo.requestPasswordReset(email) }
     }
     fun refresh() { viewModelScope.launch { repo.refresh() } }
+    fun pullToRefresh() { viewModelScope.launch { repo.pullToRefreshSync() } }
     fun onAppResumed() {
         viewModelScope.launch { repo.automaticGarminAndBackup(foreground = true) }
     }

@@ -92,49 +92,6 @@ internal fun androidx.compose.foundation.lazy.LazyListScope.trainingBackupItems(
             }
         }
     }
-    val hasExportable = state.plans.isNotEmpty() || state.researchDrafts.isNotEmpty()
-    val hasBackupAccess = hasExportable || state.account != null || state.localPlanOwner != null
-    if (hasBackupAccess) item(key = "training-plan-backup") {
-        var backupOpen by rememberSaveable { mutableStateOf(false) }
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = StrideLabVisualPalette.surface,
-            border = BorderStroke(1.dp, StrideLabVisualPalette.border),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { backupOpen = !backupOpen },
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            "Plan backup & portability",
-                            color = StrideLabVisualPalette.ink,
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        Text(
-                            "Export plans or restore from a saved file",
-                            color = StrideLabVisualPalette.secondary,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    Text(
-                        if (backupOpen) "▴" else "▾",
-                        color = StrideLabVisualPalette.lime,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-                if (backupOpen) {
-                    if (hasExportable) NativePlanExport(state.plans, state.researchDrafts)
-                    if (state.account != null || state.localPlanOwner != null) NativePlanImport(state, actions)
-                }
-            }
-        }
-    }
 }
 
 internal fun androidx.compose.foundation.lazy.LazyListScope.trainingCoachingItems(

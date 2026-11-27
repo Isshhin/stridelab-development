@@ -32,6 +32,7 @@ internal data class TrainingState(
     val localGarminIds: Set<String> = emptySet(),
     val activities: List<ActivityRecord> = emptyList(),
     val busy: Boolean = false,
+    val pullRefreshing: Boolean = false,
     val message: String? = null,
     val lastSync: Long? = null,
     val needsSignIn: Boolean = false,
@@ -1717,7 +1718,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     internal suspend fun syncGarmin(
         source: GarminPersonalSource,
         pageLimit: Int = 100,
-        detailLimit: Int = 24
+        detailLimit: Int = 24,
+        forceWellness: Boolean = false
     ): GarminConnectionStatus = withContext(Dispatchers.IO) {
         require(pageLimit in 1..100 && detailLimit in 0..24)
         mutex.withLock {
@@ -1738,11 +1740,11 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                     }
                 }
             }
-            // Non-fatal Garmin wellness sync (RHR, HRV, Sleep) with 1-hour cooldown.
+            // Non-fatal Garmin wellness sync (RHR, HRV, Sleep) with 1-hour cooldown (or forced on pull-to-refresh).
             val wellnessSyncStore = GarminWellnessSyncStore(appContext)
             val lastWellnessSync = wellnessSyncStore.lastSyncMillis(listOf(account)) ?: 0L
             val hasGarminWellness = mutable.value.wellness.any { it.source == "garmin" }
-            if (!hasGarminWellness || now - lastWellnessSync >= 60L * 60 * 1000) {
+            if (forceWellness || !hasGarminWellness || now - lastWellnessSync >= 60L * 60 * 1000) {
                 syncGarminWellnessLocked(source, account, now, wellnessSyncStore)
             }
             var cursor:String?=null
@@ -1858,9 +1860,46 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             )
         } }
 
+    @Volatile
+    private var lastPullRefreshMillis: Long = 0L
+
+    /**
+     * Universal pull-to-refresh across tabs: syncs recent Garmin activities, FIT streams,
+     * and RHR/HRV/Sleep (plus cloud history if signed in) with a 30s anti-spam throttle.
+     */
+    internal suspend fun pullToRefreshSync() = withContext(Dispatchers.IO) {
+        if (mutable.value.pullRefreshing) return@withContext
+        val now = System.currentTimeMillis()
+        if (now - lastPullRefreshMillis < 30_000L) {
+            return@withContext
+        }
+        lastPullRefreshMillis = now
+        mutable.value = mutable.value.copy(pullRefreshing = true)
+        try {
+            val owners = listOfNotNull(localGarminOwner, mutable.value.account).distinct()
+            val connectedSource = owners.firstNotNullOfOrNull { owner ->
+                val candidate = GarminPersonalSource(owner, GarminCredentialVault(appContext), GarminPersonalClient())
+                val isConnected = runCatching { candidate.status().state == "connected" }.getOrDefault(false)
+                if (isConnected) candidate else null
+            }
+            if (connectedSource != null) {
+                runCatching {
+                    syncGarmin(connectedSource, pageLimit = 3, detailLimit = 5, forceWellness = true)
+                }
+            }
+            if (mutable.value.account != null && !mutable.value.needsSignIn) {
+                runCatching {
+                    mutex.withLock { fetchActivities() }
+                }
+            }
+        } finally {
+            mutable.value = mutable.value.copy(pullRefreshing = false)
+        }
+    }
+
     /**
      * WorkManager and app-resume share this due-time claim. Automatic checks
-     * intentionally fetch at most 200 latest summaries and 3 FIT files so a
+     * intentionally fetch at most 200 latest summaries and 5 FIT files so a
      * background task does not monopolize the device or hit Garmin aggressively.
      * User-initiated manual sync retains its existing full-history behavior.
      */
@@ -1869,7 +1908,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             val ready = state.first { !it.initializing }
             val account = localGarminOwner
             var success = true
-            val interval = if (foreground) 30L * 60_000 else 6L * 60 * 60_000
+            val interval = if (foreground) 10L * 60_000 else 2L * 60 * 60_000
             if (garminSyncPreferences.automatic(account)) {
                 val source = GarminPersonalSource(
                     account, GarminCredentialVault(appContext), GarminPersonalClient())
@@ -1880,7 +1919,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 if (connected &&
                     garminSyncPreferences.claim(account, "garmin", interval)) {
                     try {
-                        val result = syncGarmin(source, pageLimit = 2, detailLimit = 3)
+                        val result = syncGarmin(source, pageLimit = 2, detailLimit = 5)
                         if (result.error != null) success = false
                     } catch (error: CancellationException) {
                         throw error

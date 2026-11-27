@@ -221,69 +221,6 @@ internal fun TracksideAdvancedRunning(
             Spacer(Modifier.height(8.dp))
         }
 
-        Spacer(Modifier.height(14.dp))
-        Text(
-            "QUALITY SESSIONS PER WEEK",
-            fontSize = 10.sp,
-            letterSpacing = 1.4.sp,
-            fontWeight = FontWeight.Bold,
-            color = PlanBuilderPalette.muted
-        )
-        Spacer(Modifier.height(10.dp))
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = PlanBuilderPalette.surface,
-            shape = RoundedCornerShape(14.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                listOf(0, 1, 2).forEach { count ->
-                    val chosen = qualityCount == count
-                    val enabled = count <= if (guided) maxQualityCount.coerceAtLeast(1) else maxQualityCount
-                    Surface(
-                        onClick = { onQualityCount(count) },
-                        enabled = enabled,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .testTag("builder-advanced-quality-count-$count"),
-                        color = if (chosen) lime else Color.Transparent,
-                        shape = RoundedCornerShape(11.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                when (count) {
-                                    0 -> "Easy only"
-                                    1 -> "1 / week"
-                                    else -> "2 / week"
-                                },
-                                fontSize = 12.sp,
-                                fontWeight = if (chosen) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = when {
-                                    chosen -> PlanBuilderPalette.accentOn
-                                    enabled -> PlanBuilderPalette.secondary
-                                    else -> PlanBuilderPalette.disabled
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        if (!guided && maxQualityCount < 2) {
-            Text(
-                "2 quality sessions need 4 running days, including one easy run and one long run.",
-                modifier = Modifier.padding(top = 6.dp).testTag("builder-quality-frequency-reason"),
-                fontSize = 12.sp,
-                color = PlanBuilderPalette.secondary
-            )
-        }
-
         if (userDirectedPlanning && qualityCount > 0) {
             Spacer(Modifier.height(14.dp))
             TracksideStructuredWorkoutAuthoring(
