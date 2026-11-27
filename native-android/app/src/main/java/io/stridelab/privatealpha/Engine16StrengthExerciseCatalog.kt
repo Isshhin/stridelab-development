@@ -484,7 +484,8 @@ internal object Engine16StrengthExerciseCatalog {
                 StrengthPattern.SQUAT
             "vertical push" in text || "overhead press" in text || "shoulder press" in text || "arnold" in text || "landmine press" in text ->
                 StrengthPattern.VERTICAL_PUSH
-            "horizontal" in text && "push" in text || "bench" in text || "floor press" in text || "chest" in text ||
+            "horizontal" in text && "push" in text || "horizontal_press" in record.movementPatterns ||
+                "bench" in text || "floor press" in text || "chest" in text ||
                 "push-up" in text || "dip" in text || "pec deck" in text || "squeeze press" in text ->
                 StrengthPattern.HORIZONTAL_PUSH
             "vertical pull" in text || "pulldown" in text || "pullover" in text || "upright row" in text || "shrug" in text ->

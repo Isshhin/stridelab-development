@@ -219,12 +219,25 @@ internal object Engine16StrengthProgramBuilder {
                 )
 
                 val sessionId = matchingLockId(request, week, slot) ?: "$id-w$week-str$slot"
-                val finalSlots = applyWeekProgression(
-                    slots = constructed.slots,
-                    phase = phase,
-                    rung = rungInBlock,
-                    runningHold = runningHold
-                )
+                var finalSlots = constructed.slots
+                var finalInterval = constructed.durationInterval
+                for (candidateRung in rungInBlock downTo 0) {
+                    val progressed = applyWeekProgression(
+                        slots = constructed.slots,
+                        phase = phase,
+                        rung = candidateRung,
+                        runningHold = runningHold
+                    )
+                    val interval = Engine16StrengthDurationCalculator.sessionInterval(
+                        Engine16StrengthWorkoutConstructor.buildDurationBlocks(progressed),
+                        isMedCompact = constructed.isMedFallback
+                    )
+                    if (dailyBudget == null || interval.fitsBudget(dailyBudget)) {
+                        finalSlots = progressed
+                        finalInterval = interval
+                        break
+                    }
+                }
 
                 finalSlots.forEach { s ->
                     weekProjectedPlanned += Triple(s.exercise, s.workingSets, s.targetRir)
@@ -289,10 +302,10 @@ internal object Engine16StrengthProgramBuilder {
                 }
 
                 val isRunnerSupportGoal = request.disciplineGoal("str") == "Strength for Runners"
-                val plannedMinutes = constructed.durationInterval.conservativeMinutesCeiling
+                val plannedMinutes = finalInterval.conservativeMinutesCeiling
                 val sessionTitle = if (isRunnerSupportGoal) "Strength for Runners"
                     else "${constructed.dayLabel} (${objective.label})"
-                durationMap[sessionId] = constructed.durationInterval
+                durationMap[sessionId] = finalInterval
                 sessions += PlannedSession(
                     id = sessionId,
                     date = naturalDate,

@@ -90,15 +90,15 @@ internal object Engine16StrengthWorkoutConstructor {
         StrengthPattern.VERTICAL_PULL to listOf(StrengthPattern.HORIZONTAL_PULL, StrengthPattern.REAR_DELT_UPPER_BACK),
         StrengthPattern.DELTOID_ISOLATION to listOf(StrengthPattern.LATERAL_FRONT_DELT, StrengthPattern.REAR_DELT_UPPER_BACK, StrengthPattern.VERTICAL_PUSH),
         StrengthPattern.LATERAL_FRONT_DELT to listOf(StrengthPattern.VERTICAL_PUSH, StrengthPattern.HORIZONTAL_PUSH),
-        StrengthPattern.REAR_DELT_UPPER_BACK to listOf(StrengthPattern.HORIZONTAL_PULL, StrengthPattern.VERTICAL_PULL),
+        StrengthPattern.REAR_DELT_UPPER_BACK to listOf(StrengthPattern.HORIZONTAL_PULL, StrengthPattern.VERTICAL_PULL, StrengthPattern.CORE_STABILITY),
         StrengthPattern.ARM_ISOLATION to listOf(StrengthPattern.BICEPS_FOREARM_ISOLATION, StrengthPattern.TRICEPS_ISOLATION, StrengthPattern.HORIZONTAL_PULL),
-        StrengthPattern.BICEPS_FOREARM_ISOLATION to listOf(StrengthPattern.VERTICAL_PULL, StrengthPattern.HORIZONTAL_PULL),
+        StrengthPattern.BICEPS_FOREARM_ISOLATION to listOf(StrengthPattern.VERTICAL_PULL, StrengthPattern.HORIZONTAL_PULL, StrengthPattern.CORE_STABILITY),
         StrengthPattern.TRICEPS_ISOLATION to listOf(StrengthPattern.HORIZONTAL_PUSH, StrengthPattern.VERTICAL_PUSH),
         StrengthPattern.CALF_ANKLE to listOf(StrengthPattern.UNILATERAL_LOWER, StrengthPattern.CORE_STABILITY),
         StrengthPattern.SQUAT to listOf(StrengthPattern.UNILATERAL_LOWER, StrengthPattern.HINGE),
-        StrengthPattern.HINGE to listOf(StrengthPattern.SQUAT, StrengthPattern.CORE_STABILITY),
-        StrengthPattern.HORIZONTAL_PUSH to listOf(StrengthPattern.VERTICAL_PUSH, StrengthPattern.CORE_STABILITY),
-        StrengthPattern.HORIZONTAL_PULL to listOf(StrengthPattern.VERTICAL_PULL, StrengthPattern.CORE_STABILITY)
+        StrengthPattern.HINGE to listOf(StrengthPattern.UNILATERAL_LOWER, StrengthPattern.SQUAT),
+        StrengthPattern.HORIZONTAL_PUSH to listOf(StrengthPattern.VERTICAL_PUSH, StrengthPattern.TRICEPS_ISOLATION),
+        StrengthPattern.HORIZONTAL_PULL to listOf(StrengthPattern.VERTICAL_PULL, StrengthPattern.REAR_DELT_UPPER_BACK, StrengthPattern.CORE_STABILITY)
     )
 
     fun dayBlueprint(
@@ -199,9 +199,9 @@ internal object Engine16StrengthWorkoutConstructor {
                         patterns = listOf(
                             StrengthPattern.HORIZONTAL_PUSH,
                             StrengthPattern.VERTICAL_PUSH,
+                            StrengthPattern.HORIZONTAL_PUSH,
                             StrengthPattern.LATERAL_FRONT_DELT,
-                            StrengthPattern.TRICEPS_ISOLATION,
-                            StrengthPattern.CORE_STABILITY
+                            StrengthPattern.TRICEPS_ISOLATION
                         ),
                         isLowerBodySession = false
                     )
@@ -211,9 +211,9 @@ internal object Engine16StrengthWorkoutConstructor {
                         patterns = listOf(
                             StrengthPattern.VERTICAL_PULL,
                             StrengthPattern.HORIZONTAL_PULL,
+                            StrengthPattern.HORIZONTAL_PULL,
                             StrengthPattern.REAR_DELT_UPPER_BACK,
-                            StrengthPattern.BICEPS_FOREARM_ISOLATION,
-                            StrengthPattern.CORE_STABILITY
+                            StrengthPattern.BICEPS_FOREARM_ISOLATION
                         ),
                         isLowerBodySession = false
                     )
@@ -226,6 +226,45 @@ internal object Engine16StrengthWorkoutConstructor {
                             StrengthPattern.UNILATERAL_LOWER,
                             StrengthPattern.HAMSTRING_ISOLATION,
                             StrengthPattern.CALF_ANKLE
+                        ),
+                        isLowerBodySession = true
+                    )
+                }
+            } else if (objective == StrengthObjective.POWER_DEVELOPMENT) {
+                when (slotIndex) {
+                    0 -> DayBlueprint(
+                        label = "Full Body A",
+                        splitKind = StrengthSplitKind.FULL_BODY_DUP,
+                        patterns = listOf(
+                            StrengthPattern.POWER_BALLISTIC,
+                            StrengthPattern.SQUAT,
+                            StrengthPattern.HORIZONTAL_PUSH,
+                            StrengthPattern.HORIZONTAL_PULL,
+                            StrengthPattern.CORE_STABILITY
+                        ),
+                        isLowerBodySession = true
+                    )
+                    1 -> DayBlueprint(
+                        label = "Full Body B",
+                        splitKind = StrengthSplitKind.FULL_BODY_DUP,
+                        patterns = listOf(
+                            StrengthPattern.HINGE,
+                            StrengthPattern.VERTICAL_PUSH,
+                            StrengthPattern.VERTICAL_PULL,
+                            StrengthPattern.QUAD_ISOLATION,
+                            StrengthPattern.BICEPS_FOREARM_ISOLATION
+                        ),
+                        isLowerBodySession = true
+                    )
+                    else -> DayBlueprint(
+                        label = "Full Body C",
+                        splitKind = StrengthSplitKind.FULL_BODY_DUP,
+                        patterns = listOf(
+                            StrengthPattern.POWER_BALLISTIC,
+                            StrengthPattern.UNILATERAL_LOWER,
+                            StrengthPattern.HORIZONTAL_PUSH,
+                            StrengthPattern.HORIZONTAL_PULL,
+                            StrengthPattern.TRICEPS_ISOLATION
                         ),
                         isLowerBodySession = true
                     )
@@ -277,7 +316,7 @@ internal object Engine16StrengthWorkoutConstructor {
                     patterns = listOf(
                         StrengthPattern.HORIZONTAL_PUSH,
                         StrengthPattern.HORIZONTAL_PULL,
-                        StrengthPattern.VERTICAL_PUSH,
+                        StrengthPattern.VERTICAL_PULL,
                         StrengthPattern.LATERAL_FRONT_DELT,
                         StrengthPattern.BICEPS_FOREARM_ISOLATION
                     ),
@@ -299,9 +338,9 @@ internal object Engine16StrengthWorkoutConstructor {
                     label = "Upper B",
                     splitKind = StrengthSplitKind.UPPER_LOWER,
                     patterns = listOf(
-                        StrengthPattern.HORIZONTAL_PULL,
+                        StrengthPattern.HORIZONTAL_PUSH,
                         StrengthPattern.VERTICAL_PUSH,
-                        StrengthPattern.VERTICAL_PULL,
+                        StrengthPattern.HORIZONTAL_PULL,
                         StrengthPattern.REAR_DELT_UPPER_BACK,
                         StrengthPattern.TRICEPS_ISOLATION
                     ),
@@ -351,9 +390,9 @@ internal object Engine16StrengthWorkoutConstructor {
                     patterns = listOf(
                         StrengthPattern.HORIZONTAL_PUSH,
                         StrengthPattern.VERTICAL_PUSH,
+                        StrengthPattern.HORIZONTAL_PUSH,
                         StrengthPattern.LATERAL_FRONT_DELT,
-                        StrengthPattern.TRICEPS_ISOLATION,
-                        StrengthPattern.CORE_STABILITY
+                        StrengthPattern.TRICEPS_ISOLATION
                     ),
                     isLowerBodySession = false
                 )
@@ -363,9 +402,9 @@ internal object Engine16StrengthWorkoutConstructor {
                     patterns = listOf(
                         StrengthPattern.VERTICAL_PULL,
                         StrengthPattern.HORIZONTAL_PULL,
+                        StrengthPattern.HORIZONTAL_PULL,
                         StrengthPattern.REAR_DELT_UPPER_BACK,
-                        StrengthPattern.BICEPS_FOREARM_ISOLATION,
-                        StrengthPattern.CORE_STABILITY
+                        StrengthPattern.BICEPS_FOREARM_ISOLATION
                     ),
                     isLowerBodySession = false
                 )
@@ -373,11 +412,11 @@ internal object Engine16StrengthWorkoutConstructor {
                     label = "Legs",
                     splitKind = StrengthSplitKind.UPPER_LOWER_PPL,
                     patterns = listOf(
-                        StrengthPattern.SQUAT,
-                        StrengthPattern.HINGE,
-                        StrengthPattern.QUAD_ISOLATION,
+                        StrengthPattern.UNILATERAL_LOWER,
                         StrengthPattern.HAMSTRING_ISOLATION,
-                        StrengthPattern.CALF_ANKLE
+                        StrengthPattern.QUAD_ISOLATION,
+                        StrengthPattern.CALF_ANKLE,
+                        StrengthPattern.CORE_STABILITY
                     ),
                     isLowerBodySession = true
                 )
@@ -391,7 +430,7 @@ internal object Engine16StrengthWorkoutConstructor {
                         StrengthPattern.VERTICAL_PUSH,
                         StrengthPattern.LATERAL_FRONT_DELT,
                         StrengthPattern.TRICEPS_ISOLATION,
-                        StrengthPattern.CORE_STABILITY
+                        StrengthPattern.TRICEPS_ISOLATION
                     ),
                     isLowerBodySession = false
                 )
@@ -403,7 +442,7 @@ internal object Engine16StrengthWorkoutConstructor {
                         StrengthPattern.HORIZONTAL_PULL,
                         StrengthPattern.REAR_DELT_UPPER_BACK,
                         StrengthPattern.BICEPS_FOREARM_ISOLATION,
-                        StrengthPattern.CORE_STABILITY
+                        StrengthPattern.BICEPS_FOREARM_ISOLATION
                     ),
                     isLowerBodySession = false
                 )
@@ -425,9 +464,9 @@ internal object Engine16StrengthWorkoutConstructor {
                     patterns = listOf(
                         StrengthPattern.VERTICAL_PUSH,
                         StrengthPattern.HORIZONTAL_PUSH,
+                        StrengthPattern.HORIZONTAL_PUSH,
                         StrengthPattern.LATERAL_FRONT_DELT,
-                        StrengthPattern.TRICEPS_ISOLATION,
-                        StrengthPattern.CORE_STABILITY
+                        StrengthPattern.TRICEPS_ISOLATION
                     ),
                     isLowerBodySession = false
                 )
@@ -439,7 +478,7 @@ internal object Engine16StrengthWorkoutConstructor {
                         StrengthPattern.VERTICAL_PULL,
                         StrengthPattern.REAR_DELT_UPPER_BACK,
                         StrengthPattern.BICEPS_FOREARM_ISOLATION,
-                        StrengthPattern.CORE_STABILITY
+                        StrengthPattern.BICEPS_FOREARM_ISOLATION
                     ),
                     isLowerBodySession = false
                 )
@@ -451,7 +490,7 @@ internal object Engine16StrengthWorkoutConstructor {
                         StrengthPattern.SQUAT,
                         StrengthPattern.HAMSTRING_ISOLATION,
                         StrengthPattern.QUAD_ISOLATION,
-                        StrengthPattern.CALF_ANKLE
+                        StrengthPattern.CORE_STABILITY
                     ),
                     isLowerBodySession = true
                 )
@@ -490,7 +529,9 @@ internal object Engine16StrengthWorkoutConstructor {
             CandidateGridConfig(slotCount = 3.coerceAtMost(blueprint.patterns.size), pairing = StrengthPairingMode.ANTAGONIST_SUPERSET, rest = StrengthRestTier.COMPACT, medCompact = true)
         )
 
+        val deloadTightSlotCap = if (input.isDeloadOrRecovery && input.dailyTimeBudgetMinutes != null && input.dailyTimeBudgetMinutes <= 35) 3 else blueprint.patterns.size
         for (cfg in tiers) {
+            if (cfg.slotCount > deloadTightSlotCap) continue
             if (cfg.pairing == StrengthPairingMode.ANTAGONIST_SUPERSET && !spec.allowSupersetUnderTightCap) {
                 continue
             }
@@ -681,7 +722,7 @@ internal object Engine16StrengthWorkoutConstructor {
         )
     }
 
-    private fun buildDurationBlocks(slots: List<ConstructedExerciseSlot>): List<StrengthBlockDurationSpec> {
+    internal fun buildDurationBlocks(slots: List<ConstructedExerciseSlot>): List<StrengthBlockDurationSpec> {
         val blocks = mutableListOf<StrengthBlockDurationSpec>()
         val consumed = HashSet<Int>()
         for (i in slots.indices) {

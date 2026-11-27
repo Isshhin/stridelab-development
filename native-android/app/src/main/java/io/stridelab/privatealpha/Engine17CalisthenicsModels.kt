@@ -34,7 +34,7 @@ internal enum class CalisthenicsObjective(val label: String) {
             return when {
                 g in setOf("pull-up progression", "pull") -> PULL_UP_PROGRESSION
                 g in setOf("push-up progression", "push") -> PUSH_UP_PROGRESSION
-                g in setOf("core strength and control", "core / anti-rotation") -> CORE_AND_COMPRESSION
+                g in setOf("core strength and control", "core and compression", "core / anti-rotation") -> CORE_AND_COMPRESSION
                 g in setOf("handstand foundations", "handstand / inversion") -> HANDSTAND_FOUNDATIONS
                 g == "single-leg control" -> SINGLE_LEG_CONTROL
                 "dip" in g -> DIP_AND_UPPER_STRENGTH

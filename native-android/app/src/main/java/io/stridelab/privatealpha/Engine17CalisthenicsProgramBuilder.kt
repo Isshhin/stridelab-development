@@ -115,6 +115,10 @@ internal object Engine17CalisthenicsProgramBuilder {
                 isRecoveryOrDeload -> 0.60
                 else -> 1.0
             }
+            val rirOverride = if (isRecoveryOrDeload) {
+                Engine17CalisthenicsPolicyRegistry.POL_049_DELOAD_TARGET_RIR_MIN..
+                    Engine17CalisthenicsPolicyRegistry.POL_049_DELOAD_TARGET_RIR_MAX
+            } else null
             val isoSecs = when {
                 isRecoveryOrDeload -> Engine17CalisthenicsPolicyRegistry.ISOMETRIC_STAGE_1_SECONDS
                 rung == 1 && blockIndex == 0 -> Engine17CalisthenicsPolicyRegistry.ISOMETRIC_STAGE_2_SECONDS
@@ -150,6 +154,7 @@ internal object Engine17CalisthenicsProgramBuilder {
                         safetyIntensityCap = safetyCap,
                         setMultiplier = setMult,
                         isometricOverrideSeconds = isoSecs,
+                        targetRirOverride = rirOverride,
                         isDeloadOrRecovery = isRecoveryOrDeload,
                         variantIndex = calVariant
                     ),
@@ -157,7 +162,7 @@ internal object Engine17CalisthenicsProgramBuilder {
                 )
 
                 val blockRepBoost = if (!isRecoveryOrDeload) blockIndex.coerceAtMost(2) else 0
-                val progressedSlots = constructed.slots.map { s ->
+                var progressedSlots = constructed.slots.map { s ->
                     if (s.holdSeconds != null || s.blockRole == CalisthenicsBlockRole.FRESH_SKILL_PRACTICE ||
                         s.node.isEccentricHighTendonStrain || isRecoveryOrDeload
                     ) {
@@ -169,10 +174,18 @@ internal object Engine17CalisthenicsProgramBuilder {
                         s.copy(reps = bumpedReps)
                     }
                 }
+                var finalInterval = Engine17CalisthenicsDurationCalculator.estimateSessionDuration(
+                    progressedSlots,
+                    constructed.isCompactFallback
+                )
+                if (dailyBudget != null && finalInterval.maxSeconds > dailyBudget * 60) {
+                    progressedSlots = constructed.slots
+                    finalInterval = constructed.durationInterval
+                }
 
                 weekSlots += progressedSlots
                 val sessionId = matchingLockId(request, week, slot) ?: "$id-w$week-cal$slot"
-                durationMap[sessionId] = constructed.durationInterval
+                durationMap[sessionId] = finalInterval
                 notesBySession[sessionId] = constructed.coachNotes
 
                 val exercises = progressedSlots.map { sl ->
@@ -229,7 +242,7 @@ internal object Engine17CalisthenicsProgramBuilder {
                     date = naturalDate,
                     discipline = "cal",
                     title = "${constructed.dayLabel} (${objective.label})",
-                    minutes = constructed.durationInterval.conservativeMinutesCeiling,
+                    minutes = finalInterval.conservativeMinutesCeiling,
                     distanceKm = null,
                     kind = "calisthenics",
                     lower = constructed.isLowerBodySession,
