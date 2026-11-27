@@ -143,7 +143,13 @@ internal object Engine18HybridProgramBuilder {
                     nonCondSessions += Engine15StrengthWorkoutComposer.compose(solo, id, resolvedLib, allowCalendarReschedule = true)
                 }
                 "cal" -> if (FeatureFlags.USE_ENGINE17_CALISTHENICS_V1) {
-                    calResult = Engine17CalisthenicsProgramBuilder.build(solo, owner, id, now, allowCalendarReschedule = true, safetyRestrictions = safetyRestrictions)
+                    calResult = Engine17CalisthenicsProgramBuilder.build(
+                        solo, owner, id, now,
+                        allowCalendarReschedule = true,
+                        safetyRestrictions = safetyRestrictions,
+                        runningMajorStepWeeks = runMajorStepWeeks,
+                        runningTaperWeeks = runTaperWeeks
+                    )
                     nonCondSessions += calResult.snapshot.sessions
                 } else {
                     val resolvedLib = library ?: throw PlanConstraint(
@@ -285,7 +291,7 @@ internal object Engine18HybridProgramBuilder {
         } else emptyMap()
 
         val runSessionsAll = scheduled.filter { it.discipline == "run" }
-        val (runMajorStepWeeks, runTaperWeeks) = if (runSessionsAll.isNotEmpty() && "str" in active) {
+        val (runMajorStepWeeks, runTaperWeeks) = if (runSessionsAll.isNotEmpty() && ("str" in active || "cal" in active)) {
             val soloRun = soloRequest(request, "run")
             val vol = if (Engine15TimeOnlyRunWalkBuilder.isEligible(soloRun)) null else {
                 val athlete = Engine15AthleteBaseline.assess(soloRun)
@@ -336,7 +342,9 @@ internal object Engine18HybridProgramBuilder {
                 }
                 "cal" -> Engine17CalisthenicsProgramBuilder.validateSaved(
                     plan.copy(engineVersion = ENGINE17_VERSION, policyId = ENGINE17_CALISTHENICS_POLICY, request = solo, sessions = rows),
-                    allowCalendarReschedule = true
+                    allowCalendarReschedule = true,
+                    runningMajorStepWeeks = runMajorStepWeeks,
+                    runningTaperWeeks = runTaperWeeks
                 )
                 "cond" -> Engine18ConditioningWorkoutConstructor.validateHybridConditioningRows(solo, rows)
             }
@@ -384,7 +392,18 @@ internal object Engine18HybridProgramBuilder {
                         }
                             .thenBy { date -> (placed + weekPlaced).count { it.date == date } }
                             .thenBy { date ->
-                                if ((placed + weekPlaced).any { it.date != date && Engine15IndependentPlanGenerator.conflict(template.copy(date = date), it) }) 1 else 0
+                                val cand = template.copy(date = date)
+                                val hasConflict = (placed + weekPlaced).any { it.date != date && Engine15IndependentPlanGenerator.conflict(cand, it) }
+                                val dayBeforeKeyRun = isHard(cand) && cand.discipline != "run" &&
+                                    (placed + weekPlaced).any {
+                                        it.discipline == "run" && (it.kind == "long" || it.quality) &&
+                                            ChronoUnit.DAYS.between(date, it.date) == 1L
+                                    }
+                                when {
+                                    dayBeforeKeyRun -> 2
+                                    hasConflict -> 1
+                                    else -> 0
+                                }
                             }
                             .thenBy { it }
                     )
@@ -410,6 +429,7 @@ internal object Engine18HybridProgramBuilder {
                             else -> {
                                 if (sameDay.size >= 2) continue
                                 if (request.timeBudgetEnabled && sameDay.sumOf { it.effectiveMinutes } + candidate.effectiveMinutes > request.dailyMinutes) continue
+                                if (candidate.discipline == "run" && (placed + weekPlaced).any { it.discipline == "run" && Engine15IndependentPlanGenerator.conflict(candidate, it) }) continue
                             }
                         }
                         weekPlaced += candidate

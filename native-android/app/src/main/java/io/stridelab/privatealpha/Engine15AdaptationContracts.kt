@@ -13,7 +13,8 @@ internal enum class AdaptationType {
     PROACTIVE_DELOAD_SWAP,
     EASY_PACING_LOCK,
     RUNNER_SUPPORT_DOSE,
-    STRENGTH_PROGRESSION
+    STRENGTH_PROGRESSION,
+    CALISTHENICS_PROGRESSION
 }
 
 internal enum class AdaptationProposalStatus {

@@ -195,6 +195,14 @@ internal object Engine16StrengthProgramBuilder {
                 }
 
                 val variantIdx = variantIndexFor(request.strengthDays, slot)
+                val rollingWeekLedger = if (weekProjectedPlanned.isNotEmpty()) {
+                    Engine16LocalMuscleLedgerBuilder.buildProjectedForWeek(
+                        accountId = owner,
+                        weekStartInclusive = weekStart,
+                        weekEndInclusive = weekEnd,
+                        plannedExercises = weekProjectedPlanned
+                    )
+                } else null
                 val constructed = Engine16StrengthWorkoutConstructor.construct(
                     input = StrengthWorkoutConstructionInput(
                         objective = objective,
@@ -210,6 +218,7 @@ internal object Engine16StrengthProgramBuilder {
                         targetRirOverride = rirOverride,
                         preferAlternatingVariant = (variantIdx % 2 == 1),
                         variantIndex = variantIdx,
+                        observedMuscleLedger = rollingWeekLedger,
                         isDeloadOrRecovery = phase in setOf(
                             StrengthMesocyclePhase.CONDITIONAL_DELOAD,
                             StrengthMesocyclePhase.TAPER

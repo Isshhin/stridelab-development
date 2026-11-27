@@ -1218,57 +1218,119 @@ internal object Engine15IndependentPlanGenerator : PlanGenerationEngine {
                         request.goal != "Aerobic foundation" &&
                         totalMeters >= 10_000
                     if (eligibleFastFinish && request.goal == "Marathon" && weekNum >= 5 && loadingOrd!! % 2 == 1 && totalMeters >= 18_000) {
-                        val finishRatio = (0.26 + 0.03 * ((weekNum - 5) / 2)).coerceIn(0.25, 0.38)
-                        val maxCapM = minOf(14_000, ((totalMeters * 0.40).toInt() / 100) * 100)
-                        val minCapM = maxOf(6_000, ((totalMeters * 0.25 + 99).toInt() / 100) * 100).coerceAtMost(maxCapM)
-                        val finishMeters = (((totalMeters * finishRatio) / 100.0).roundToInt() * 100).coerceIn(minCapM, maxCapM)
-                        val baseMeters = totalMeters - finishMeters
                         val (raceMin, raceMax) = Engine15PaceZoneEstimator.paceBoundsForIntent(
                             zones, RunningStepIntent.RACE_PACE, goal = "Marathon"
                         )
-                        s.copy(
-                            title = "Marathon-Pace Long Run",
-                            steps = listOf(
-                                "${formatMetersAsKm(baseMeters)} easy aerobic base · Z2",
-                                "${formatMetersAsKm(finishMeters)} Marathon pace finish · Stay relaxed and locked into goal rhythm"
-                            ),
-                            reason = "Loading week. Progressive Marathon-pace finish (${formatMetersAsKm(finishMeters)}) builds late-race muscular endurance.",
-                            runningPrescription = RunningPrescription(
-                                role = "LONG",
-                                family = null,
-                                segments = listOf(
-                                    RunningSegment("EASY", baseMeters, "Easy aerobic long-run base pace.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second),
-                                    RunningSegment("TRANSITION", finishMeters, "Marathon goal race pace finish.", RunningStepIntent.RACE_PACE, raceMin, raceMax, marathonHr?.first, marathonHr?.second)
+                        if (loadingOrd % 4 == 3 && totalMeters >= 20_000) {
+                            val blockMeters = (((totalMeters * 0.16) / 100.0).roundToInt() * 100).coerceIn(3_000, 5_000)
+                            val floatMeters = 1_000
+                            val tailEasyMeters = 2_000
+                            val leadEasyMeters = (totalMeters - 2 * blockMeters - floatMeters - tailEasyMeters).coerceAtLeast(4_000)
+                            val remAfterLead = totalMeters - leadEasyMeters - floatMeters - tailEasyMeters
+                            val adjBlock = ((remAfterLead / 2) / 100) * 100
+                            val adjTail = totalMeters - leadEasyMeters - 2 * adjBlock - floatMeters
+                            s.copy(
+                                title = "Marathon-Pace Blocks Long Run",
+                                steps = listOf(
+                                    "${formatMetersAsKm(leadEasyMeters)} easy aerobic base · Z2",
+                                    "2 x (${formatMetersAsKm(adjBlock)} Marathon pace / ${formatMetersAsKm(floatMeters)} easy float)",
+                                    "${formatMetersAsKm(adjTail)} easy cool-down finish"
                                 ),
-                                archetypeId = Engine15WorkoutArchetype.FAST_FINISH_PROGRESSIVE_LONG_RUN.id
+                                reason = "Loading week. Alternating Marathon-pace blocks (2 x ${formatMetersAsKm(adjBlock)}) build race-specific rhythm and lactate clearance on tired legs.",
+                                runningPrescription = RunningPrescription(
+                                    role = "LONG",
+                                    family = null,
+                                    segments = listOf(
+                                        RunningSegment("EASY", leadEasyMeters, "Easy aerobic long-run base pace.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second),
+                                        RunningSegment("TRANSITION", adjBlock, "Marathon goal race pace block 1.", RunningStepIntent.RACE_PACE, raceMin, raceMax, marathonHr?.first, marathonHr?.second),
+                                        RunningSegment("RECOVERY", floatMeters, "Easy aerobic float between Marathon-pace blocks.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second),
+                                        RunningSegment("TRANSITION", adjBlock, "Marathon goal race pace block 2.", RunningStepIntent.RACE_PACE, raceMin, raceMax, marathonHr?.first, marathonHr?.second),
+                                        RunningSegment("COOL_DOWN", adjTail, "Easy aerobic cool-down finish.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second)
+                                    ),
+                                    archetypeId = Engine15WorkoutArchetype.FAST_FINISH_PROGRESSIVE_LONG_RUN.id
+                                )
                             )
-                        )
+                        } else {
+                            val finishRatio = (0.26 + 0.03 * ((weekNum - 5) / 2)).coerceIn(0.25, 0.38)
+                            val maxCapM = minOf(14_000, ((totalMeters * 0.40).toInt() / 100) * 100)
+                            val minCapM = maxOf(6_000, ((totalMeters * 0.25 + 99).toInt() / 100) * 100).coerceAtMost(maxCapM)
+                            val finishMeters = (((totalMeters * finishRatio) / 100.0).roundToInt() * 100).coerceIn(minCapM, maxCapM)
+                            val baseMeters = totalMeters - finishMeters
+                            s.copy(
+                                title = "Marathon-Pace Long Run",
+                                steps = listOf(
+                                    "${formatMetersAsKm(baseMeters)} easy aerobic base · Z2",
+                                    "${formatMetersAsKm(finishMeters)} Marathon pace finish · Stay relaxed and locked into goal rhythm"
+                                ),
+                                reason = "Loading week. Progressive Marathon-pace finish (${formatMetersAsKm(finishMeters)}) builds late-race muscular endurance.",
+                                runningPrescription = RunningPrescription(
+                                    role = "LONG",
+                                    family = null,
+                                    segments = listOf(
+                                        RunningSegment("EASY", baseMeters, "Easy aerobic long-run base pace.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second),
+                                        RunningSegment("TRANSITION", finishMeters, "Marathon goal race pace finish.", RunningStepIntent.RACE_PACE, raceMin, raceMax, marathonHr?.first, marathonHr?.second)
+                                    ),
+                                    archetypeId = Engine15WorkoutArchetype.FAST_FINISH_PROGRESSIVE_LONG_RUN.id
+                                )
+                            )
+                        }
                     } else if (eligibleFastFinish && request.goal == "Half marathon" && weekNum >= 5 && loadingOrd!! % 2 == 1 && totalMeters >= 14_000) {
-                        val finishRatio = (0.26 + 0.03 * ((weekNum - 5) / 2)).coerceIn(0.25, 0.38)
-                        val maxCapM = minOf(10_000, ((totalMeters * 0.40).toInt() / 100) * 100)
-                        val minCapM = maxOf(4_000, ((totalMeters * 0.25 + 99).toInt() / 100) * 100).coerceAtMost(maxCapM)
-                        val finishMeters = (((totalMeters * finishRatio) / 100.0).roundToInt() * 100).coerceIn(minCapM, maxCapM)
-                        val baseMeters = totalMeters - finishMeters
                         val (raceMin, raceMax) = Engine15PaceZoneEstimator.paceBoundsForIntent(
                             zones, RunningStepIntent.RACE_PACE, goal = "Half marathon"
                         )
-                        s.copy(
-                            title = "HM-Pace Long Run",
-                            steps = listOf(
-                                "${formatMetersAsKm(baseMeters)} easy aerobic base · Z2",
-                                "${formatMetersAsKm(finishMeters)} Half Marathon pace finish · Controlled strong closing kilometers"
-                            ),
-                            reason = "Loading week. Progressive Half Marathon pace finish (${formatMetersAsKm(finishMeters)}) practices race rhythm under fatigue.",
-                            runningPrescription = RunningPrescription(
-                                role = "LONG",
-                                family = null,
-                                segments = listOf(
-                                    RunningSegment("EASY", baseMeters, "Easy aerobic long-run base pace.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second),
-                                    RunningSegment("TRANSITION", finishMeters, "Half marathon race pace finish.", RunningStepIntent.RACE_PACE, raceMin, raceMax, hmHr?.first, hmHr?.second)
+                        if (loadingOrd % 4 == 3 && totalMeters >= 15_000) {
+                            val blockMeters = (((totalMeters * 0.16) / 100.0).roundToInt() * 100).coerceIn(2_000, 3_500)
+                            val floatMeters = 1_000
+                            val tailEasyMeters = 1_500
+                            val leadEasyMeters = (totalMeters - 2 * blockMeters - floatMeters - tailEasyMeters).coerceAtLeast(3_000)
+                            val remAfterLead = totalMeters - leadEasyMeters - floatMeters - tailEasyMeters
+                            val adjBlock = ((remAfterLead / 2) / 100) * 100
+                            val adjTail = totalMeters - leadEasyMeters - 2 * adjBlock - floatMeters
+                            s.copy(
+                                title = "HM-Pace Blocks Long Run",
+                                steps = listOf(
+                                    "${formatMetersAsKm(leadEasyMeters)} easy aerobic base · Z2",
+                                    "2 x (${formatMetersAsKm(adjBlock)} Half Marathon pace / ${formatMetersAsKm(floatMeters)} easy float)",
+                                    "${formatMetersAsKm(adjTail)} easy cool-down finish"
                                 ),
-                                archetypeId = Engine15WorkoutArchetype.FAST_FINISH_PROGRESSIVE_LONG_RUN.id
+                                reason = "Loading week. Alternating Half Marathon pace blocks (2 x ${formatMetersAsKm(adjBlock)}) build race-specific rhythm under fatigue.",
+                                runningPrescription = RunningPrescription(
+                                    role = "LONG",
+                                    family = null,
+                                    segments = listOf(
+                                        RunningSegment("EASY", leadEasyMeters, "Easy aerobic long-run base pace.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second),
+                                        RunningSegment("TRANSITION", adjBlock, "Half marathon race pace block 1.", RunningStepIntent.RACE_PACE, raceMin, raceMax, hmHr?.first, hmHr?.second),
+                                        RunningSegment("RECOVERY", floatMeters, "Easy aerobic float between HM-pace blocks.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second),
+                                        RunningSegment("TRANSITION", adjBlock, "Half marathon race pace block 2.", RunningStepIntent.RACE_PACE, raceMin, raceMax, hmHr?.first, hmHr?.second),
+                                        RunningSegment("COOL_DOWN", adjTail, "Easy aerobic cool-down finish.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second)
+                                    ),
+                                    archetypeId = Engine15WorkoutArchetype.FAST_FINISH_PROGRESSIVE_LONG_RUN.id
+                                )
                             )
-                        )
+                        } else {
+                            val finishRatio = (0.26 + 0.03 * ((weekNum - 5) / 2)).coerceIn(0.25, 0.38)
+                            val maxCapM = minOf(10_000, ((totalMeters * 0.40).toInt() / 100) * 100)
+                            val minCapM = maxOf(4_000, ((totalMeters * 0.25 + 99).toInt() / 100) * 100).coerceAtMost(maxCapM)
+                            val finishMeters = (((totalMeters * finishRatio) / 100.0).roundToInt() * 100).coerceIn(minCapM, maxCapM)
+                            val baseMeters = totalMeters - finishMeters
+                            s.copy(
+                                title = "HM-Pace Long Run",
+                                steps = listOf(
+                                    "${formatMetersAsKm(baseMeters)} easy aerobic base · Z2",
+                                    "${formatMetersAsKm(finishMeters)} Half Marathon pace finish · Controlled strong closing kilometers"
+                                ),
+                                reason = "Loading week. Progressive Half Marathon pace finish (${formatMetersAsKm(finishMeters)}) practices race rhythm under fatigue.",
+                                runningPrescription = RunningPrescription(
+                                    role = "LONG",
+                                    family = null,
+                                    segments = listOf(
+                                        RunningSegment("EASY", baseMeters, "Easy aerobic long-run base pace.", RunningStepIntent.AEROBIC_EASY, easyMin, easyMax, easyHr?.first, easyHr?.second),
+                                        RunningSegment("TRANSITION", finishMeters, "Half marathon race pace finish.", RunningStepIntent.RACE_PACE, raceMin, raceMax, hmHr?.first, hmHr?.second)
+                                    ),
+                                    archetypeId = Engine15WorkoutArchetype.FAST_FINISH_PROGRESSIVE_LONG_RUN.id
+                                )
+                            )
+                        }
                     } else if (eligibleFastFinish &&
                         request.goal in setOf("Improve 10K", "Half marathon", "Marathon", "General fitness") &&
                         loadingOrd!! % 2 == 0

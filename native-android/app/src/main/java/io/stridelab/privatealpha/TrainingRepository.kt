@@ -1101,6 +1101,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 if (live?.proposalId != proposal.proposalId || live.candidatePlanJson != proposal.candidatePlanJson)
                     throw PlanConstraint("The strength workout evidence changed. Review the updated adjustment.")
             }
+            if (proposal.type == AdaptationType.CALISTHENICS_PROGRESSION) {
+                val live = Engine15PlanAdaptationEngine.evaluateCalisthenicsExecutionProgression(
+                    plan, current.plans, today, current.adaptationCooldowns,
+                    safetyRestrictions = activeRestrictions, evaluatedAtUtc = evaluatedUtc
+                ) { supportReceipt(plan, it) }
+                if (live?.proposalId != proposal.proposalId || live.candidatePlanJson != proposal.candidatePlanJson)
+                    throw PlanConstraint("The calisthenics workout evidence changed. Review the updated adjustment.")
+            }
             val applied = Engine15PlanAdaptationEngine.applyProposal(plan, proposal, today)
             writeSupportRevisionAtomically(proposal.type) {
                 savePlan(applied.appliedPlan)
@@ -1176,7 +1184,12 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     }
 
     private fun writeSupportRevisionAtomically(type: AdaptationType, write: () -> Unit) {
-        if (type != AdaptationType.RUNNER_SUPPORT_DOSE && type != AdaptationType.STRENGTH_PROGRESSION) return write()
+        if (type !in setOf(
+                AdaptationType.RUNNER_SUPPORT_DOSE,
+                AdaptationType.STRENGTH_PROGRESSION,
+                AdaptationType.CALISTHENICS_PROGRESSION
+            )
+        ) return write()
         val before = mutable.value
         val db = store.writableDatabase
         try {
@@ -2281,7 +2294,12 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val evaluatedUtc = java.time.Instant.now()
         val existingForPlan = current.pendingAdaptationProposals[plan.id]
             ?.takeIf { !today.isAfter(it.expiresAtDate) }
-        val newProposal = if (existingForPlan?.type in setOf(AdaptationType.RUNNER_SUPPORT_DOSE, AdaptationType.STRENGTH_PROGRESSION)) existingForPlan else Engine15PlanAdaptationEngine.evaluateProposal(
+        val newProposal = if (existingForPlan?.type in setOf(
+                AdaptationType.RUNNER_SUPPORT_DOSE,
+                AdaptationType.STRENGTH_PROGRESSION,
+                AdaptationType.CALISTHENICS_PROGRESSION
+            )
+        ) existingForPlan else Engine15PlanAdaptationEngine.evaluateProposal(
             plan = plan,
             diagnostic = newDiagnostic,
             activities = current.activities,
@@ -2323,6 +2341,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         }
         reconcileRunnerSupport(today)
         reconcileStrengthProgression(today)
+        reconcileCalisthenicsProgression(today)
     }
 
     private fun supportReceipt(plan: PlanSnapshot, session: PlannedSession): WorkoutExecution? {
@@ -2377,6 +2396,35 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             }
             if (proposal?.proposalId == previous?.proposalId) continue
             if (previous != null && previous.type != AdaptationType.STRENGTH_PROGRESSION && proposal == null) continue
+            previous?.let { persistAdaptationProposalLocked(it.copy(status = AdaptationProposalStatus.EXPIRED)) }
+            if (proposal == null) pending.remove(plan.id) else {
+                persistAdaptationProposalLocked(proposal)
+                pending[plan.id] = proposal
+            }
+        }
+        if (pending != state.pendingAdaptationProposals)
+            mutable.value = mutable.value.copy(pendingAdaptationProposals = pending)
+    }
+
+    private fun reconcileCalisthenicsProgression(today: java.time.LocalDate) {
+        val state = mutable.value
+        val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
+        val activeRestrictions = m1LocalStore.loadRestrictions(owner).restrictions
+        val evaluatedUtc = java.time.Instant.now()
+        val pending = state.pendingAdaptationProposals.toMutableMap()
+        for (plan in state.plans.filter {
+            it.owner == owner && it.status == "approved" &&
+                it.sessions.any { s -> s.discipline == "cal" && s.runnerSupportDose == null }
+        }) {
+            val previous = pending[plan.id]
+            val proposal = Engine15PlanAdaptationEngine.evaluateCalisthenicsExecutionProgression(
+                plan, state.plans, today, state.adaptationCooldowns,
+                safetyRestrictions = activeRestrictions, evaluatedAtUtc = evaluatedUtc
+            ) {
+                supportReceipt(plan, it)
+            }
+            if (proposal?.proposalId == previous?.proposalId) continue
+            if (previous != null && previous.type != AdaptationType.CALISTHENICS_PROGRESSION && proposal == null) continue
             previous?.let { persistAdaptationProposalLocked(it.copy(status = AdaptationProposalStatus.EXPIRED)) }
             if (proposal == null) pending.remove(plan.id) else {
                 persistAdaptationProposalLocked(proposal)

@@ -83,7 +83,9 @@ internal object Engine17CalisthenicsProgramBuilder {
         now: Instant,
         allowCalendarReschedule: Boolean = false,
         safetyRestrictions: AthleteSafetyRestrictionSet? = null,
-        evaluatedAtUtc: Instant = now
+        evaluatedAtUtc: Instant = now,
+        runningMajorStepWeeks: Set<Int> = emptySet(),
+        runningTaperWeeks: Set<Int> = emptySet()
     ): Engine17ProgramResult {
         validateRequest(request, safetyRestrictions, evaluatedAtUtc)
         RecordPolicy.identifier(owner)
@@ -107,18 +109,24 @@ internal object Engine17CalisthenicsProgramBuilder {
         for (week in 1..request.weeks) {
             val weekStart = request.start.plusWeeks((week - 1).toLong())
             val weekStartDow = weekStart.dayOfWeek.value
-            val isRecoveryOrDeload = (week % 4 == 0) || (request.returning && week <= 2)
+            val isRunTaper = week in runningTaperWeeks
+            val runningHold = !isRunTaper && week in runningMajorStepWeeks
+            val isRecoveryOrDeload = isRunTaper || (week % 4 == 0) || (request.returning && week <= 2)
             val rung = (week - 1) % 4
             val blockIndex = (week - 1) / 4
             val setMult = when {
+                isRunTaper -> 0.50
                 request.returning && week == 1 -> 0.65
                 isRecoveryOrDeload -> 0.60
                 else -> 1.0
             }
-            val rirOverride = if (isRecoveryOrDeload) {
-                Engine17CalisthenicsPolicyRegistry.POL_049_DELOAD_TARGET_RIR_MIN..
-                    Engine17CalisthenicsPolicyRegistry.POL_049_DELOAD_TARGET_RIR_MAX
-            } else null
+            val rirOverride = when {
+                isRunTaper -> 2..3
+                isRecoveryOrDeload ->
+                    Engine17CalisthenicsPolicyRegistry.POL_049_DELOAD_TARGET_RIR_MIN..
+                        Engine17CalisthenicsPolicyRegistry.POL_049_DELOAD_TARGET_RIR_MAX
+                else -> null
+            }
             val isoSecs = when {
                 isRecoveryOrDeload -> Engine17CalisthenicsPolicyRegistry.ISOMETRIC_STAGE_1_SECONDS
                 rung == 1 && blockIndex == 0 -> Engine17CalisthenicsPolicyRegistry.ISOMETRIC_STAGE_2_SECONDS
@@ -164,7 +172,8 @@ internal object Engine17CalisthenicsProgramBuilder {
                 val blockRepBoost = if (!isRecoveryOrDeload) blockIndex.coerceAtMost(2) else 0
                 var progressedSlots = constructed.slots.map { s ->
                     if (s.holdSeconds != null || s.blockRole == CalisthenicsBlockRole.FRESH_SKILL_PRACTICE ||
-                        s.node.isEccentricHighTendonStrain || isRecoveryOrDeload
+                        s.node.isEccentricHighTendonStrain || isRecoveryOrDeload ||
+                        (runningHold && s.node.exercise.isLowerBody)
                     ) {
                         s
                     } else {
@@ -202,6 +211,20 @@ internal object Engine17CalisthenicsProgramBuilder {
                         CalisthenicsBlockRole.TECHNIQUE_INTERVAL_FINISHER -> "[Technique] "
                         else -> ""
                     }
+                    val tempoCue = when {
+                        sl.blockRole == CalisthenicsBlockRole.FRESH_SKILL_PRACTICE ->
+                            "Focus on crisp alignment and fresh balance."
+                        sl.node.isEccentricHighTendonStrain ->
+                            "Use a 4 s controlled lowering tempo."
+                        sl.holdSeconds != null ->
+                            "Hold steady with zero tremor or form sag."
+                        sl.blockRole == CalisthenicsBlockRole.PRIMARY_LEVERAGE_STRENGTH ->
+                            "Use a controlled 3-1-1-0 tempo (3 s lower, 1 s pause)."
+                        sl.blockRole == CalisthenicsBlockRole.PREREQUISITE_CLUSTER ->
+                            "Pause 2 s at peak control on every rep."
+                        else -> ""
+                    }
+                    val holdNote = if (runningHold && ex.isLowerBody) " Hold steady alongside high running load." else ""
                     ExercisePrescription(
                         id = ex.id,
                         name = ex.name,
@@ -210,7 +233,7 @@ internal object Engine17CalisthenicsProgramBuilder {
                         seconds = sl.holdSeconds,
                         rest = sl.restSeconds,
                         equipment = eqText,
-                        cue = "${roleTag}${baseCue} Keep ${sl.targetRir.first} to ${sl.targetRir.last} RIR and stop before form breaks.".trim()
+                        cue = "${roleTag}${baseCue} ${tempoCue} Keep ${sl.targetRir.first} to ${sl.targetRir.last} RIR and stop before form breaks.$holdNote".trim().replace("  ", " ")
                     )
                 }
 
@@ -231,10 +254,18 @@ internal object Engine17CalisthenicsProgramBuilder {
                     add("2 to 4 min cool-down and light mobility decompression")
                 }
 
-                val reason = if (isRecoveryOrDeload) {
-                    "Deload and consolidation week: trimmed sets preserving clean movement control at 3 to 4 RIR."
-                } else {
-                    "Freeletics-inspired calisthenics journey: progress reps or hold seconds cleanly before advancing DAG nodes."
+                val reason = when {
+                    isRunTaper ->
+                        "Running race taper week: calisthenics volume trimmed to 50% at 2 to 3 RIR for race freshness."
+                    isRecoveryOrDeload ->
+                        "Deload and consolidation week: trimmed sets preserving clean movement control at 3 to 4 RIR."
+                    else ->
+                        buildString {
+                            append("Freeletics-inspired calisthenics journey: progress reps or hold seconds cleanly before advancing DAG nodes.")
+                            if (runningHold && constructed.isLowerBodySession) {
+                                append(" Lower-body volume held steady for concurrent running load.")
+                            }
+                        }
                 }
 
                 sessions += PlannedSession(
@@ -275,18 +306,26 @@ internal object Engine17CalisthenicsProgramBuilder {
             createdAt = now,
             request = request,
             sessions = sorted,
-            explanations = listOf(
-                "Engine 1.7 Calisthenics Intelligence journey using an AND/OR prerequisite DAG across all 8 movement domains.",
-                "Fresh skill practice precedes strength leverage sets; slow eccentrics stay tendon-safe (max 2 sets x 3 reps for novices).",
-                "DAG advancements require 2 consecutive clean sessions with zero pain or form collapse.",
-                "This is a draft. Review movements, equipment, and technical stop rules before explicit approval."
-            ),
+            explanations = buildList {
+                add("Engine 1.7 Calisthenics Intelligence journey using an AND/OR prerequisite DAG across all 8 movement domains.")
+                add("Fresh skill practice precedes strength leverage sets; slow eccentrics stay tendon-safe (max 2 sets x 3 reps for novices).")
+                add("DAG advancements require 2 consecutive clean sessions with zero pain or form collapse.")
+                if (runningTaperWeeks.isNotEmpty()) {
+                    add("Race taper coordination: calisthenics volume tapered during running taper week(s) ${runningTaperWeeks.sorted().joinToString(", ")}.")
+                }
+                add("This is a draft. Review movements, equipment, and technical stop rules before explicit approval.")
+            },
             name = "Engine 1.7 ${objective.label} Plan"
         )
         return Engine17ProgramResult(snapshot, weeklyLedgers, durationMap, notesBySession)
     }
 
-    fun validateSaved(plan: PlanSnapshot, allowCalendarReschedule: Boolean = false) {
+    fun validateSaved(
+        plan: PlanSnapshot,
+        allowCalendarReschedule: Boolean = false,
+        runningMajorStepWeeks: Set<Int> = emptySet(),
+        runningTaperWeeks: Set<Int> = emptySet()
+    ) {
         if (plan.engineVersion != ENGINE17_VERSION || plan.policyId != ENGINE17_CALISTHENICS_POLICY) {
             throw PlanConstraint("The saved Engine 1.7 calisthenics plan has an unsupported engine identity.")
         }
@@ -296,7 +335,9 @@ internal object Engine17CalisthenicsProgramBuilder {
             owner = plan.owner,
             id = plan.id,
             now = plan.createdAt,
-            allowCalendarReschedule = allowCalendarReschedule
+            allowCalendarReschedule = allowCalendarReschedule,
+            runningMajorStepWeeks = runningMajorStepWeeks,
+            runningTaperWeeks = runningTaperWeeks
         ).snapshot
         val expectedById = expected.sessions.associateBy { it.id }
         if (plan.sessions.size != expectedById.size ||
