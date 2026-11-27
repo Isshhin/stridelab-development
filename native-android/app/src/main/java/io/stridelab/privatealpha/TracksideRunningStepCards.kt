@@ -88,7 +88,7 @@ internal data class WorkoutProfileBar(
 )
 
 internal fun formatWorkoutAvgPace(distanceKm: Double?, minutes: Int): String {
-    if (distanceKm == null || !distanceKm.isFinite() || distanceKm <= 0.0 || minutes <= 0) return "—"
+    if (distanceKm == null || !distanceKm.isFinite() || distanceKm <= 0.0 || minutes <= 0) return "--"
     val secPerKm = ((minutes * 60.0) / distanceKm).roundToInt().coerceAtLeast(1)
     val paceMin = secPerKm / 60
     val paceSec = secPerKm % 60
@@ -299,15 +299,18 @@ internal fun buildWorkoutStepItems(
         hrMin: Int? = null,
         hrMax: Int? = null
     ): String? {
-        if (hrMin != null && hrMax != null) {
-            val hrLabel = if (hrMin == hrMax) "$hrMin bpm" else "$hrMin–$hrMax bpm"
-            return listOfNotNull(hrLabel, effort.takeIf { it.isNotBlank() }).joinToString(" · ")
-        }
         val paces = listOfNotNull(paceMin, paceMax).distinct().joinToString("–") {
             ActivityRecord.duration(it.toDouble())
         }
-        return listOfNotNull(paces.takeIf { it.isNotEmpty() }?.let { "$it /km" },
-            effort.takeIf { it.isNotBlank() }).takeIf { it.isNotEmpty() }?.joinToString(" · ")
+        val paceLabel = paces.takeIf { it.isNotEmpty() }?.let { "$it /km" }
+        val hrLabel = if (hrMin != null && hrMax != null) {
+            if (hrMin == hrMax) "$hrMin bpm" else "$hrMin–$hrMax bpm"
+        } else null
+        return listOfNotNull(
+            paceLabel,
+            hrLabel,
+            effort.takeIf { it.isNotBlank() }
+        ).takeIf { it.isNotEmpty() }?.joinToString(" · ")
     }
 
     val displaySteps = mixedSegments ?: segments?.takeIf { steps ->

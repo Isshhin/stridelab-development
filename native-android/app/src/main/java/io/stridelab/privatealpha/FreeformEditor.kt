@@ -734,7 +734,7 @@ internal fun FreeformEditor(
                             val thirdValue = when {
                                 confirmedVolume > 0.0 -> FreeformWeightConverter.formatVolume(confirmedVolume, weightUnit)
                                 confirmedHoldSec > 0 -> "${confirmedHoldSec}s"
-                                else -> "—"
+                                else -> "--"
                             }
                             LoggerSummaryMetric(
                                 label = thirdLabel,
@@ -1878,7 +1878,7 @@ private fun FreeformSetRow(
 
                 if (compact) {
                     Text(
-                        text = previousHint.ifBlank { "—" },
+                        text = previousHint.ifBlank { "--" },
                         modifier = Modifier
                             .width(54.dp)
                             .graphicsLayer { alpha = rowAlpha },

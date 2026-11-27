@@ -899,31 +899,31 @@ internal fun TracksideRunningAbilityScreen(
             Spacer(Modifier.height(16.dp))
             Text("TRAINING TARGETS", fontSize = 10.sp, letterSpacing = 1.4.sp, color = PlanBuilderPalette.muted, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("PACE" to "Pace", "HR" to "Heart Rate").forEach { (mode, label) ->
-                    val selected = runningTargetMode == mode
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("builder-target-mode-${mode.lowercase()}")
-                            .clickable { onRunningTargetMode(mode) },
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (selected) PlanBuilderPalette.accent.copy(alpha = 0.16f) else PlanBuilderPalette.surfaceRaised,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (selected) PlanBuilderPalette.accent else PlanBuilderPalette.border
-                        )
-                    ) {
-                        Box(
-                            modifier = Modifier.padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = surfaceCard,
+                border = BorderStroke(1.dp, outline)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth().padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("PACE" to "Pace", "HR" to "Heart Rate").forEach { (mode, label) ->
+                        val selected = runningTargetMode == mode
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .testTag("builder-target-mode-${mode.lowercase()}"),
+                            onClick = { onRunningTargetMode(mode) },
+                            shape = RoundedCornerShape(11.dp),
+                            color = if (selected) limeAccent else Color.Transparent
                         ) {
-                            Text(
-                                text = label,
-                                fontSize = 13.sp,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) PlanBuilderPalette.accent else PlanBuilderPalette.text
-                            )
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = label,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                                    color = if (selected) PlanBuilderPalette.accentOn else muted
+                                )
+                            }
                         }
                     }
                 }
@@ -939,27 +939,32 @@ internal fun TracksideRunningAbilityScreen(
                 } else {
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = PlanBuilderPalette.surfaceRaised,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, PlanBuilderPalette.border)
+                        shape = RoundedCornerShape(14.dp),
+                        color = surfaceCard,
+                        border = BorderStroke(1.dp, outline)
                     ) {
-                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
                                 "Heart rate zones are required for HR-targeted plans.",
-                                fontSize = 12.sp,
-                                color = PlanBuilderPalette.text,
-                                fontWeight = FontWeight.SemiBold
+                                fontSize = 13.sp,
+                                color = white,
+                                fontWeight = FontWeight.Bold
                             )
                             Text(
                                 "Enter your LTHR, Max + Resting HR (HRR), or Max HR to build accurate Z1-Z5 targets.",
-                                fontSize = 11.sp,
-                                color = PlanBuilderPalette.muted
+                                fontSize = 12.sp,
+                                color = muted
                             )
-                            androidx.compose.material3.OutlinedButton(
+                            Button(
                                 onClick = { hrDialogOpen = true },
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = limeAccent,
+                                    contentColor = PlanBuilderPalette.accentOn
+                                ),
                                 modifier = Modifier.testTag("builder-hr-configure")
                             ) {
-                                Text("Configure HR Zones", fontSize = 12.sp)
+                                Text("Configure HR Zones", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1077,9 +1082,10 @@ private fun HeartRateZoneSetupDialog(
     }
     val validProfile = HeartRateZoneAnalysis.toExecutionZoneProfile(candidate)
 
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Configure HR Zones", fontWeight = FontWeight.Bold) },
+        containerColor = PlanBuilderPalette.surface,
+        title = { Text("Configure HR Zones", color = white, fontWeight = FontWeight.ExtraBold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1093,19 +1099,16 @@ private fun HeartRateZoneSetupDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable { method = m },
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (active) PlanBuilderPalette.accent.copy(alpha = 0.16f) else PlanBuilderPalette.surfaceRaised,
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                if (active) PlanBuilderPalette.accent else PlanBuilderPalette.border
-                            )
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (active) limeAccent else PlanBuilderPalette.surfaceRaised,
+                            border = BorderStroke(1.dp, if (active) limeAccent else PlanBuilderPalette.border)
                         ) {
                             Box(modifier = Modifier.padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                                 Text(
                                     label,
                                     fontSize = 11.sp,
-                                    fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (active) PlanBuilderPalette.accent else PlanBuilderPalette.text
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (active) PlanBuilderPalette.accentOn else white
                                 )
                             }
                         }
@@ -1113,45 +1116,37 @@ private fun HeartRateZoneSetupDialog(
                 }
                 when (method) {
                     HeartRateZoneMethod.LTHR_PERCENT -> {
-                        androidx.compose.material3.OutlinedTextField(
+                        OutlinedTextField(
                             value = lthrText,
                             onValueChange = { lthrText = it.filter(Char::isDigit).take(3) },
                             label = { Text("Lactate Threshold HR (bpm)") },
                             singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                            )
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
                     }
                     HeartRateZoneMethod.HRR_PERCENT -> {
-                        androidx.compose.material3.OutlinedTextField(
+                        OutlinedTextField(
                             value = maxHrText,
                             onValueChange = { maxHrText = it.filter(Char::isDigit).take(3) },
                             label = { Text("Max HR (bpm)") },
                             singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                            )
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
-                        androidx.compose.material3.OutlinedTextField(
+                        OutlinedTextField(
                             value = restingHrText,
                             onValueChange = { restingHrText = it.filter(Char::isDigit).take(3) },
                             label = { Text("Resting HR (bpm)") },
                             singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                            )
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
                     }
                     HeartRateZoneMethod.MAX_BPM -> {
-                        androidx.compose.material3.OutlinedTextField(
+                        OutlinedTextField(
                             value = maxHrText,
                             onValueChange = { maxHrText = it.filter(Char::isDigit).take(3) },
                             label = { Text("Max HR (bpm)") },
                             singleLine = true,
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                            )
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                         )
                     }
                 }
@@ -1159,22 +1154,22 @@ private fun HeartRateZoneSetupDialog(
                     Text(
                         "Z1 ${validProfile.z1FloorBpm} | Z2 ${validProfile.z2FloorBpm} | Z3 ${validProfile.z3FloorBpm} | Z4 ${validProfile.z4FloorBpm} | Z5 ${validProfile.z5FloorBpm} bpm",
                         fontSize = 11.sp,
-                        color = PlanBuilderPalette.muted
+                        color = muted
                     )
                 }
             }
         },
         confirmButton = {
-            androidx.compose.material3.TextButton(
+            TextButton(
                 onClick = { onSave(candidate) },
                 enabled = validProfile != null
             ) {
-                Text("Save")
+                Text("Save", color = if (validProfile != null) limeAccent else muted, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
-            androidx.compose.material3.TextButton(onClick = onDismiss) {
-                Text("Cancel")
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = muted)
             }
         }
     )

@@ -83,7 +83,13 @@ class TrainingViewModel(application: Application): AndroidViewModel(application)
     /** UI-triggered foreground Garmin history import; completed pages remain offline. */
     internal suspend fun syncGarmin(source:GarminPersonalSource):GarminConnectionStatus =
         repo.syncGarmin(source)
-    fun refreshWellness() { viewModelScope.launch { repo.refreshWellness() } }
+    fun refreshWellness() {
+        viewModelScope.launch {
+            if (!repo.syncGarminWellnessNow()) {
+                runCatching { repo.refreshWellness() }
+            }
+        }
+    }
     fun loadDetail(id: String) { viewModelScope.launch { repo.loadDetail(id) } }
     internal suspend fun renameActivity(id:String,title:String):Boolean = repo.renameActivity(id,title)
     internal suspend fun loadCachedDetail(id:String):Boolean = repo.loadCachedDetail(id)

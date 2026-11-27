@@ -61,7 +61,8 @@ internal object Engine15PlanAdaptationEngine {
         asOfDate: LocalDate,
         zoneId: ZoneId = ZoneId.systemDefault(),
         safetyRestrictions: AthleteSafetyRestrictionSet? = null,
-        evaluatedAtUtc: Instant = asOfDate.atTime(12, 0).toInstant(ZoneOffset.UTC)
+        evaluatedAtUtc: Instant = asOfDate.atTime(12, 0).toInstant(ZoneOffset.UTC),
+        biometrics: BiometricReadinessSnapshot? = null
     ): PlanAdaptationProposal? {
         if (!Engine1Engines.canManage(plan) || !Engine1Engines.supportsCoachingLoop(plan)) {
             return null
@@ -97,11 +98,16 @@ internal object Engine15PlanAdaptationEngine {
             if (missedProposal != null) return missedProposal
         }
 
-        // Priority 2: Proactive Deload Swap (OVERREACH_RISK or fatiguing HR + slow quality)
+        // Priority 2: Proactive Deload Swap (OVERREACH_RISK, fatiguing HR + slow quality, or convergent biometric strain)
+        val biometricStrainDeload = biometrics?.sustainedAutonomicStrain == true ||
+            (biometrics != null && biometrics.strainSignalCount >= 1 &&
+                (diagnostic.aerobicEfficiency.trend == AerobicEfficiencyTrend.FATIGUING ||
+                    (diagnostic.aerobicEfficiency.medianDecouplingPct ?: 0.0) >= 6.5))
         val fatiguingOverload = diagnostic.volumeTolerance.exposureStatus == ExposureStatus.OVERREACH_RISK ||
             (diagnostic.aerobicEfficiency.trend == AerobicEfficiencyTrend.FATIGUING &&
                 (diagnostic.qualityExecution.tooSlowCount >= 2 ||
-                    (diagnostic.aerobicEfficiency.medianDecouplingPct ?: 0.0) >= 8.0))
+                    (diagnostic.aerobicEfficiency.medianDecouplingPct ?: 0.0) >= 8.0)) ||
+            biometricStrainDeload
         if (fatiguingOverload) {
             val deloadProposal = buildProactiveDeloadProposal(
                 plan = plan,
@@ -111,7 +117,9 @@ internal object Engine15PlanAdaptationEngine {
                 cooldowns = cooldowns,
                 existingProposals = existingProposals,
                 effectiveFromDate = effectiveFromDate,
-                asOfDate = asOfDate
+                asOfDate = asOfDate,
+                biometrics = biometrics,
+                biometricTriggered = biometricStrainDeload
             )
             if (deloadProposal != null) return deloadProposal
         }
@@ -130,8 +138,9 @@ internal object Engine15PlanAdaptationEngine {
             )
         }
 
-        // Priority 4: Pace Recalibration Up (strictly requires MODERATE/HIGH + clean easy pacing + cooldown clear + no active run restriction)
+        // Priority 4: Pace Recalibration Up (strictly requires MODERATE/HIGH + clean easy pacing + cooldown clear + no active run restriction + no sustained biometric strain)
         if (!runSafetyBlocked &&
+            biometrics?.sustainedAutonomicStrain != true &&
             diagnostic.recalibrationAdvisory == RecalibrationAdvisory.SUGGEST_FASTER_CHECK &&
             diagnostic.overallConfidence in setOf(DiagnosticConfidence.MODERATE, DiagnosticConfidence.HIGH) &&
             !diagnostic.easyDiscipline.hiddenFatigueRisk &&
@@ -287,6 +296,7 @@ internal object Engine15PlanAdaptationEngine {
         cooldowns: List<AdaptationCooldownRecord> = emptyList(),
         safetyRestrictions: AthleteSafetyRestrictionSet? = null,
         evaluatedAtUtc: Instant = today.atTime(12, 0).toInstant(ZoneOffset.UTC),
+        biometrics: BiometricReadinessSnapshot? = null,
         receipt: (PlannedSession) -> WorkoutExecution?
     ): PlanAdaptationProposal? {
         if (plan.status != "approved") return null
@@ -383,6 +393,7 @@ internal object Engine15PlanAdaptationEngine {
         val stepDelta = when {
             hasReductionSignal -> -1
             strengthCap != null -> return null
+            biometrics?.sustainedAutonomicStrain == true -> return null
             execution.outcome.prescription == PrescriptionOutcome.FULLY_PERFORMED &&
                 progressCount * 2 >= decisions.size -> +1
             else -> return null
@@ -485,6 +496,7 @@ internal object Engine15PlanAdaptationEngine {
         cooldowns: List<AdaptationCooldownRecord> = emptyList(),
         safetyRestrictions: AthleteSafetyRestrictionSet? = null,
         evaluatedAtUtc: Instant = today.atTime(12, 0).toInstant(ZoneOffset.UTC),
+        biometrics: BiometricReadinessSnapshot? = null,
         receipt: (PlannedSession) -> WorkoutExecution?
     ): PlanAdaptationProposal? {
         if (plan.status != "approved") return null
@@ -589,6 +601,7 @@ internal object Engine15PlanAdaptationEngine {
         val stepDelta = when {
             hasReduction -> -1
             calCap != null -> return null
+            biometrics?.sustainedAutonomicStrain == true -> return null
             execution.outcome.prescription == PrescriptionOutcome.FULLY_PERFORMED &&
                 progressCount * 2 >= decisions.size -> +1
             else -> return null
@@ -1449,7 +1462,9 @@ internal object Engine15PlanAdaptationEngine {
         cooldowns: List<AdaptationCooldownRecord>,
         existingProposals: List<PlanAdaptationProposal>,
         effectiveFromDate: LocalDate,
-        asOfDate: LocalDate
+        asOfDate: LocalDate,
+        biometrics: BiometricReadinessSnapshot? = null,
+        biometricTriggered: Boolean = false
     ): PlanAdaptationProposal? {
         val origPhases = resolveMacroPhases(plan)
         val sessionsByWeek = plan.sessions.groupBy { weekIndexOf(plan.request.start, it.date) }
@@ -1525,6 +1540,28 @@ internal object Engine15PlanAdaptationEngine {
             targetWkIdx to "Swapped Week ${targetWkIdx + 1} (${origPhases[targetWkIdx + 1]?.name}) to 80% recovery deload (${formatKm(origKm)} -> ${formatKm(deloadTargetKm)})."
         )
         val diff = buildPlanDiff(plan, candidatePlan, effectiveFromDate, affectedCount, emptyList(), gate, weekNotes)
+        val biometricNotes = buildList {
+            if (biometrics?.hrv?.suppressedFlag == true) add("7-day overnight HRV is below your 28-day baseline")
+            if (biometrics?.rhr?.elevatedFlag == true) {
+                val delta = biometrics.rhr.deltaFromBaselineBpm?.let { "+${kotlin.math.round(it).toInt()} bpm" } ?: "elevated"
+                add("resting HR is $delta above baseline")
+            }
+            if (biometrics?.sleep?.cumulativeDebtFlag == true) add("3-night sleep average shows accumulated sleep debt")
+            else if (biometrics?.sleep?.severeAcuteLossFlag == true && biometrics.hrv.suppressedFlag) {
+                add("acute short sleep coincides with suppressed HRV")
+            }
+        }
+        val rationale = if (biometricTriggered && biometricNotes.isNotEmpty()) {
+            "Recovery signals show ${biometricNotes.joinToString(" and ")}. Swapping Week ${targetWkIdx + 1} into an 80% aerobic recovery week protects adaptation without altering your race taper."
+        } else {
+            "Fatigue/overreach signs detected (exposure=${diagnostic.volumeTolerance.exposureStatus}, HR efficiency=${diagnostic.aerobicEfficiency.trend}). Swap Week ${targetWkIdx + 1} into an 80% aerobic recovery week without altering race taper."
+        }
+        val reasons = buildList {
+            add("PROACTIVE_DELOAD_SWAP_80PCT")
+            add("TAPER_PRESERVED")
+            add("PRE_SURFACE_INVARIANT_PASSED")
+            if (biometricTriggered && biometricNotes.isNotEmpty()) add("BIOMETRIC_STRAIN_DELOAD")
+        }
         return PlanAdaptationProposal(
             proposalId = "prop-${plan.id}-deload-wk$targetWkIdx-$asOfDate",
             planId = plan.id,
@@ -1538,10 +1575,10 @@ internal object Engine15PlanAdaptationEngine {
             sourceDiagnosticDate = diagnostic.asOfDate,
             sourceConfidence = diagnostic.overallConfidence,
             title = "Proactive Deload Week Swap (80% Volume)",
-            coachingRationale = "Fatigue/overreach signs detected (exposure=${diagnostic.volumeTolerance.exposureStatus}, HR efficiency=${diagnostic.aerobicEfficiency.trend}). Swap Week ${targetWkIdx + 1} into an 80% aerobic recovery week without altering race taper.",
+            coachingRationale = rationale,
             diff = diff,
             candidatePlanJson = candidatePlan.encode().toString(),
-            reasonCodes = listOf("PROACTIVE_DELOAD_SWAP_80PCT", "TAPER_PRESERVED", "PRE_SURFACE_INVARIANT_PASSED")
+            reasonCodes = reasons
         )
     }
 

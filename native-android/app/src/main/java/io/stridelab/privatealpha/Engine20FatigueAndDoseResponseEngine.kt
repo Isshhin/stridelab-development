@@ -19,6 +19,8 @@ internal data class FatigueFilterInput(
     val subjectiveSoreness1To5: Int? = null,
     val executionDriftAdverse: Boolean? = null,
     val hrvEvaluation: HrvEvaluationResult? = null,
+    val rhrElevated: Boolean? = null,
+    val sleepDebtAdverse: Boolean? = null,
     val activeHealthHoldPresent: Boolean = false
 )
 
@@ -119,6 +121,24 @@ internal object Engine20FatigueAndDoseResponseEngine {
                 lFresh *= 0.25; lFunc *= 0.60; lNonFunc *= 0.75
             } else {
                 lFresh *= 0.78; lFunc *= 0.50; lNonFunc *= 0.20
+            }
+        }
+
+        if (input.rhrElevated != null) {
+            signalCount++
+            if (input.rhrElevated) {
+                lFresh *= 0.25; lFunc *= 0.58; lNonFunc *= 0.76
+            } else {
+                lFresh *= 0.78; lFunc *= 0.52; lNonFunc *= 0.20
+            }
+        }
+
+        if (input.sleepDebtAdverse != null) {
+            signalCount++
+            if (input.sleepDebtAdverse) {
+                lFresh *= 0.30; lFunc *= 0.65; lNonFunc *= 0.68
+            } else {
+                lFresh *= 0.76; lFunc *= 0.52; lNonFunc *= 0.22
             }
         }
 

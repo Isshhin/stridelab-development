@@ -201,7 +201,10 @@ internal fun StrideLabTodayScreen(
     onOpenMore: () -> Unit,
     onSignIn: () -> Unit,
     actions: PlanActions = PlanActions(),
-    freeformBoard: FreeformBoard? = null
+    freeformBoard: FreeformBoard? = null,
+    garminConnected: Boolean = false,
+    onConnectGarmin: () -> Unit = onOpenMore,
+    onRefreshWellness: (() -> Unit)? = null
 ) {
     var reviewedProposal by rememberSaveable { mutableStateOf(false) }
     val adaptationProposal = state.activeAdaptationProposal
@@ -400,7 +403,14 @@ internal fun StrideLabTodayScreen(
                     item(key = "running-easy-pacing-lock") { EasyPacingLockBanner() }
                 }
             }
-            if (selectedPage == "all" && adaptationProposal?.status == AdaptationProposalStatus.PENDING) {
+            val proposalMatchesPage = selectedPage == "all" || when (adaptationProposal?.type) {
+                AdaptationType.STRENGTH_PROGRESSION -> selectedPage == TodayDiscipline.STRENGTH.key
+                AdaptationType.CALISTHENICS_PROGRESSION -> selectedPage == TodayDiscipline.CALISTHENICS.key
+                AdaptationType.RUNNER_SUPPORT_DOSE -> selectedPage in setOf(TodayDiscipline.RUNNING.key, TodayDiscipline.STRENGTH.key)
+                null -> false
+                else -> selectedPage == TodayDiscipline.RUNNING.key
+            }
+            if (proposalMatchesPage && adaptationProposal?.status == AdaptationProposalStatus.PENDING) {
                 item(key = "today-adaptation-proposal") {
                     AdaptationProposalBanner(adaptationProposal, onReview = { reviewedProposal = true })
                 }
@@ -436,6 +446,18 @@ internal fun StrideLabTodayScreen(
                         onOpenWorkout = onOpenWorkout,
                         onOpenActivityDetail = onOpenActivityDetail,
                         onOpenTraining = onOpenTraining
+                    )
+                }
+            }
+            if (selectedPage == "all") {
+                item(key = "today-biometrics") {
+                    TodayBiometricsSection(
+                        wellness = state.wellness,
+                        selectedDate = date,
+                        garminConnected = garminConnected,
+                        lastWellnessSyncMillis = state.lastWellnessSyncMillis,
+                        onConnectGarmin = onConnectGarmin,
+                        onRefreshWellness = onRefreshWellness
                     )
                 }
             }
@@ -1889,7 +1911,7 @@ private fun TodayRecordedTraining(
                             Text(
                                 distanceM?.let {
                                     String.format(Locale.getDefault(), "%.2f km", it / 1000)
-                                } ?: "—",
+                                } ?: "--",
                                 color = TodayLook.text, fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold, maxLines = 1
                             )
@@ -1898,7 +1920,7 @@ private fun TodayRecordedTraining(
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text("Duration", color = TodayLook.muted, fontSize = 10.sp)
                         Text(
-                            durationS?.let { ActivityRecord.duration(it) } ?: "—",
+                            durationS?.let { ActivityRecord.duration(it) } ?: "--",
                             color = TodayLook.text, fontSize = 16.sp,
                             fontWeight = FontWeight.Bold, maxLines = 1
                         )
@@ -2468,7 +2490,7 @@ private fun TodayWeeklyActivity(
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        metrics.totalSeconds?.let(::todayTimeLabel) ?: "—",
+                        metrics.totalSeconds?.let(::todayTimeLabel) ?: "--",
                         color = TodayLook.teal, fontSize = 20.sp,
                         fontWeight = FontWeight.Bold, maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

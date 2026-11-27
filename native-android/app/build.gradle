@@ -23,8 +23,8 @@ android {
         buildConfigField 'boolean', 'USE_ENGINE20_ADAPTIVE_V1', (project.findProperty('strideUseEngine20AdaptiveV1') ?: 'true').toString().toBoolean().toString()
         minSdk = 26
         targetSdk = 35
-        versionCode = (project.findProperty('strideVersionCode') ?: '15').toInteger()
-        versionName = '0.6.6-guided-workout'
+        versionCode = (project.findProperty('strideVersionCode') ?: '16').toInteger()
+        versionName = '0.6.7-biometrics'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     // Reuse the exact database, encryption and backup codec without shipping the legacy UI.

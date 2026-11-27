@@ -563,13 +563,31 @@ internal fun TodayDailyTrainingCard(
     val onlyItem = (dailyState as? TodayDailyTrainingState.Sessions)?.items?.singleOrNull()
     val onlyActivity = onlyItem?.recordedActivity()
     if (onlyItem != null && onlyActivity != null) {
-        Surface(cardModifier, shape = RoundedCornerShape(18.dp), color = TodayAdaptivePalette.card,
-            border = BorderStroke(1.dp, TodayAdaptivePalette.border)) {
-            RecordedDailySessionRow(
-                TodayDailySessionItem.Recorded(onlyActivity, onlyItem.discipline),
-                cachedDetails[onlyActivity.id], hasPrimaryHeroTag, onOpenActivityDetail,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
-            )
+        Surface(
+            cardModifier,
+            shape = RoundedCornerShape(18.dp),
+            color = TodayAdaptivePalette.card,
+            border = BorderStroke(1.dp, TodayAdaptivePalette.border)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = cardTitle,
+                    color = TodayAdaptivePalette.textSecondary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                RecordedDailySessionRow(
+                    TodayDailySessionItem.Recorded(onlyActivity, onlyItem.discipline),
+                    cachedDetails[onlyActivity.id],
+                    hasPrimaryHeroTag,
+                    onOpenActivityDetail
+                )
+            }
         }
         return
     }
@@ -1090,7 +1108,7 @@ internal fun TodayTrainingOverviewCard(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -1110,8 +1128,10 @@ internal fun TodayTrainingOverviewCard(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         style = TabularTextStyle,
+                        textAlign = TextAlign.End,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
                     )
                 }
                 Box(

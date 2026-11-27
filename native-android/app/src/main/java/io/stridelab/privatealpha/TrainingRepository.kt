@@ -43,6 +43,7 @@ internal data class TrainingState(
     val templates:List<SessionTemplate> = emptyList(),
     val workoutDrafts:Map<Pair<String,String>,WorkoutEntryDraft> = emptyMap(),
     val wellness: List<WellnessRecord> = emptyList(),
+    val lastWellnessSyncMillis: Long? = null,
     val details: Map<String,ActivityDetail> = emptyMap(),
     val activityMatches: Map<String, ActivityMatchRecord> = emptyMap(),
     val executionAnalyses: Map<String, WorkoutExecutionAnalysis> = emptyMap(),
@@ -462,19 +463,45 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                 }
             }
         }
-        val wellness=mutableListOf<WellnessRecord>()
-        if (account != null) store.readableDatabase.query("records",arrayOf("payload"),"account=? AND kind=?",arrayOf(account,"wellness"),null,null,null).use { c ->
-            while(c.moveToNext()) runCatching {
-                WellnessRecord.parse(JSONObject(c.getString(0)),account)?.let {
-                    if(ActiveActivitySources.accepts(it.source))wellness.add(it)
-                }
-            }
-        }
+        val wellness = readMergedWellnessLocked(account)
         val last = account?.let { store.cursor(it, "activity") }?.let {
             runCatching { JSONObject(it).getLong("completedAt") }.getOrNull()
         }
         return SecondaryCaches(templates, shelf, drafts, loadResearchDrafts(owner),
             wellness, last, loadExecutionRecords(owner), readWorkoutOutcomes(owner, plans))
+    }
+
+    private fun readMergedWellnessLocked(account: String?): List<WellnessRecord> {
+        val owners = listOfNotNull(account, localGarminOwner).distinct()
+        val raw = mutableListOf<WellnessRecord>()
+        val zone = java.time.ZoneId.systemDefault()
+        for (ownerKey in owners) {
+            store.readableDatabase.query(
+                "records",
+                arrayOf("payload"),
+                "account=? AND kind=?",
+                arrayOf(ownerKey, "wellness"),
+                null,
+                null,
+                null
+            ).use { c ->
+                while (c.moveToNext()) runCatching {
+                    WellnessRecord.parse(JSONObject(c.getString(0)), ownerKey)?.let {
+                        if (ActiveActivitySources.accepts(it.source)) raw.add(it)
+                    }
+                }
+            }
+        }
+        return raw
+            .groupBy { it.type to it.recordedAt.atZone(zone).toLocalDate() }
+            .values
+            .map { group ->
+                group.sortedWith(
+                    compareBy<WellnessRecord> { it.recordedAt }
+                        .thenBy { it.source == "garmin" }
+                ).last()
+            }
+            .sortedByDescending { it.recordedAt }
     }
 
     private fun readWorkoutOutcomes(owner: String, plans: List<PlanSnapshot>): Map<Pair<String, String>, WorkoutExecutionOutcome> {
@@ -509,9 +536,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
 
     private fun publishSecondary(cache: SecondaryCaches) {
         val bundle = cache.execution
+        val wellnessSync = GarminWellnessSyncStore(appContext).lastSyncMillis(
+            listOfNotNull(mutable.value.account, localGarminOwner).distinct()
+        )
         mutable.value = mutable.value.copy(
             templates = cache.templates, shelf = cache.shelf, workoutDrafts = cache.drafts,
-            researchDrafts = cache.research, wellness = cache.wellness, lastSync = cache.lastSync,
+            researchDrafts = cache.research, wellness = cache.wellness, lastWellnessSyncMillis = wellnessSync,
+            lastSync = cache.lastSync,
             activityMatches = bundle.matches, executionAnalyses = bundle.analyses,
             athleteDiagnostics = bundle.diagnostics, pendingAdaptationProposals = bundle.pendingProposals,
             adaptationRevisions = bundle.revisions, adaptationCooldowns = bundle.cooldowns,
@@ -541,6 +572,14 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     /** Reads only on-device Garmin history. Cloud-user records remain isolated. */
     private fun loadLocalGarminCache() {
         publishSummaries(readSummaries(mutable.value.account))
+        val mergedWellness = readMergedWellnessLocked(mutable.value.account)
+        val wellnessSync = GarminWellnessSyncStore(appContext).lastSyncMillis(
+            listOfNotNull(mutable.value.account, localGarminOwner).distinct()
+        )
+        mutable.value = mutable.value.copy(
+            wellness = mergedWellness,
+            lastWellnessSyncMillis = wellnessSync
+        )
     }
     /**
      * Private, owner-scoped activity archive. The repository lock prevents
@@ -1403,6 +1442,59 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         store.applyRemotePage(account,"wellness",rows,null,System.currentTimeMillis())
         loadCache(account)
     }
+
+    internal suspend fun syncGarminWellnessNow(): Boolean = withContext(Dispatchers.IO) {
+        mutex.withLock {
+            val owner = localGarminOwner
+            val source = GarminPersonalSource(owner, GarminCredentialVault(appContext), GarminPersonalClient())
+            if (source.status().state != "connected") {
+                val cloudOwner = mutable.value.account ?: return@withLock false
+                val cloudSource = GarminPersonalSource(cloudOwner, GarminCredentialVault(appContext), GarminPersonalClient())
+                if (cloudSource.status().state != "connected") return@withLock false
+                return@withLock syncGarminWellnessLocked(cloudSource, cloudOwner, System.currentTimeMillis(), GarminWellnessSyncStore(appContext))
+            }
+            syncGarminWellnessLocked(source, owner, System.currentTimeMillis(), GarminWellnessSyncStore(appContext))
+        }
+    }
+
+    private fun syncGarminWellnessLocked(
+        source: GarminPersonalSource,
+        account: String,
+        now: Long,
+        syncStore: GarminWellnessSyncStore
+    ): Boolean {
+        val zone = java.time.ZoneId.systemDefault()
+        val today = java.time.LocalDate.now(zone)
+        val cachedRhrDates = mutable.value.wellness
+            .filter { it.source == "garmin" && it.type == "resting_hr" }
+            .map { it.recordedAt.atZone(zone).toLocalDate() }
+            .toSet()
+        val fetched = runCatching {
+            source.fetchWellnessRecords(
+                accountId = account,
+                startDate = today.minusDays(27),
+                endDate = today,
+                cachedRhrDates = cachedRhrDates,
+                zone = zone
+            )
+        }.getOrElse { return false }
+        if (fetched.isNotEmpty()) {
+            val rows = fetched.map { rec ->
+                TrainingStore.RemoteRecord(rec.id, rec.encode(account).toString(), null)
+            }
+            store.applyRemotePage(account, "wellness", rows, null, now)
+        }
+        syncStore.markSynced(account, now)
+        val merged = readMergedWellnessLocked(mutable.value.account)
+        mutable.value = mutable.value.copy(
+            wellness = merged,
+            lastWellnessSyncMillis = now
+        )
+        if (fetched.isNotEmpty()) {
+            reconcileActivityMatchesAndAnalysis()
+        }
+        return fetched.isNotEmpty()
+    }
     /**
      * Persist a local display-name override without modifying the original
      * provider activity, FIT measurements, or cloud backup payload.
@@ -1645,6 +1737,13 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
                         zoneStore.save(account,it,now)
                     }
                 }
+            }
+            // Non-fatal Garmin wellness sync (RHR, HRV, Sleep) with 1-hour cooldown.
+            val wellnessSyncStore = GarminWellnessSyncStore(appContext)
+            val lastWellnessSync = wellnessSyncStore.lastSyncMillis(listOf(account)) ?: 0L
+            val hasGarminWellness = mutable.value.wellness.any { it.source == "garmin" }
+            if (!hasGarminWellness || now - lastWellnessSync >= 60L * 60 * 1000) {
+                syncGarminWellnessLocked(source, account, now, wellnessSyncStore)
             }
             var cursor:String?=null
             var pages=0
@@ -2292,6 +2391,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val today = java.time.LocalDate.now()
         val activeRestrictions = m1LocalStore.loadRestrictions(plan.owner).restrictions
         val evaluatedUtc = java.time.Instant.now()
+        val biometrics = BiometricReadinessEvaluator.evaluate(current.wellness, today)
         val existingForPlan = current.pendingAdaptationProposals[plan.id]
             ?.takeIf { !today.isAfter(it.expiresAtDate) }
         val newProposal = if (existingForPlan?.type in setOf(
@@ -2308,7 +2408,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             existingProposals = listOfNotNull(existingForPlan),
             asOfDate = today,
             safetyRestrictions = activeRestrictions,
-            evaluatedAtUtc = evaluatedUtc
+            evaluatedAtUtc = evaluatedUtc,
+            biometrics = biometrics
         )
         val updatedPendingProposals = LinkedHashMap(current.pendingAdaptationProposals)
         val proposalChanged = if (newProposal != null) {
@@ -2380,8 +2481,10 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
     private fun reconcileStrengthProgression(today: java.time.LocalDate) {
         val state = mutable.value
         val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
+        val today = java.time.LocalDate.now()
         val activeRestrictions = m1LocalStore.loadRestrictions(owner).restrictions
         val evaluatedUtc = java.time.Instant.now()
+        val biometrics = BiometricReadinessEvaluator.evaluate(state.wellness, today)
         val pending = state.pendingAdaptationProposals.toMutableMap()
         for (plan in state.plans.filter {
             it.owner == owner && it.status == "approved" &&
@@ -2390,7 +2493,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             val previous = pending[plan.id]
             val proposal = Engine15PlanAdaptationEngine.evaluateStrengthExecutionProgression(
                 plan, state.plans, today, state.adaptationCooldowns,
-                safetyRestrictions = activeRestrictions, evaluatedAtUtc = evaluatedUtc
+                safetyRestrictions = activeRestrictions, evaluatedAtUtc = evaluatedUtc,
+                biometrics = biometrics
             ) {
                 supportReceipt(plan, it)
             }
@@ -2411,6 +2515,7 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
         val owner = LocalPlanOwnership.activeOwner(state.account, localPlanOwner)
         val activeRestrictions = m1LocalStore.loadRestrictions(owner).restrictions
         val evaluatedUtc = java.time.Instant.now()
+        val biometrics = BiometricReadinessEvaluator.evaluate(state.wellness, today)
         val pending = state.pendingAdaptationProposals.toMutableMap()
         for (plan in state.plans.filter {
             it.owner == owner && it.status == "approved" &&
@@ -2419,7 +2524,8 @@ internal class TrainingRepository(context: Context, private val gateway: Trainin
             val previous = pending[plan.id]
             val proposal = Engine15PlanAdaptationEngine.evaluateCalisthenicsExecutionProgression(
                 plan, state.plans, today, state.adaptationCooldowns,
-                safetyRestrictions = activeRestrictions, evaluatedAtUtc = evaluatedUtc
+                safetyRestrictions = activeRestrictions, evaluatedAtUtc = evaluatedUtc,
+                biometrics = biometrics
             ) {
                 supportReceipt(plan, it)
             }
@@ -2602,4 +2708,18 @@ private fun validatedActivityTitle(input:String):String {
         "Activity title must contain 1–100 printable characters."
     }
     return title
+}
+
+internal class GarminWellnessSyncStore(context: Context) {
+    private val prefs = context.getSharedPreferences("garmin_wellness_sync", Context.MODE_PRIVATE)
+
+    fun lastSyncMillis(accounts: List<String>): Long? =
+        accounts.mapNotNull { acc ->
+            val v = prefs.getLong("last_sync_$acc", 0L)
+            v.takeIf { it > 0L }
+        }.maxOrNull()
+
+    fun markSynced(account: String, millis: Long) {
+        prefs.edit().putLong("last_sync_$account", millis).apply()
+    }
 }

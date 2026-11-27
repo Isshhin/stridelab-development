@@ -126,7 +126,8 @@ class NativeMainActivity: ComponentActivity() {
         loadCachedDetail=model::loadCachedDetail,
         renameActivity=model::renameActivity,
         exportLocalArchive=model::exportLocalActivityArchive,
-        restoreLocalArchive=model::restoreLocalActivityArchive, freeform=model.freeform) }
+        restoreLocalArchive=model::restoreLocalActivityArchive, freeform=model.freeform,
+        refreshWellness=model::refreshWellness) }
     val thumbnailLoader = remember(model) { model::loadActivityThumbnail }
     ActivityThumbnailProvider(thumbnailLoader, state.account, state.loginGeneration, model.thumbnailCache) {
         NativeStrideContent(state, online, actions)
@@ -147,7 +148,8 @@ internal data class NativeActions(val signOut: () -> Unit, val signIn: (String, 
     val renameActivity: (suspend (String, String) -> Boolean)? = null,
     val exportLocalArchive: (suspend (LocalActivityArchiveScope) -> java.io.File)? = null,
     val restoreLocalArchive: (suspend (LocalActivityArchiveScope,java.io.File) -> LocalActivityArchiveCounts)? = null,
-    val freeform: FreeformAccess? = null)
+    val freeform: FreeformAccess? = null,
+    val refreshWellness: () -> Unit = {})
 
 /** Primary tab roots switch cleanly with zero flash; detail/editor screens animate smoothly. */
 private val mainTabRoutes = setOf("home", "training", "activities", "settings")
@@ -275,7 +277,7 @@ private fun NavHostController.openActivity(id: String) {
     val garminOwner = state.localGarminOwner ?: state.account
     val garminConnected by key(garminOwner) {
         produceState(false, garminOwner, visibleRoot, garminSheetOpen, garminBusy) {
-            if (garminOwner != null && (visibleRoot == "settings" || garminSheetOpen)) {
+            if (garminOwner != null && (visibleRoot == null || visibleRoot == "home" || visibleRoot == "settings" || garminSheetOpen)) {
                 value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                     GarminPersonalSource(garminOwner, GarminCredentialVault(settingsContext),
                         GarminPersonalClient()).status().state == "connected"
@@ -909,7 +911,10 @@ private fun NavHostController.openActivity(id: String) {
                     onOpenMore = { nav.openTabRoot("settings") },
                     onSignIn = { nav.navigate("auth") },
                     actions = actions.planning,
-                    freeformBoard = freeformBoard
+                    freeformBoard = freeformBoard,
+                    garminConnected = garminConnected,
+                    onConnectGarmin = { garminSheetOpen = true },
+                    onRefreshWellness = actions.refreshWellness
                 )
             }
             PersistentTabSurface(active = visibleRoot == "activities") {

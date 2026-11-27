@@ -8,6 +8,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -121,6 +122,12 @@ internal interface GarminApi {
         throw GarminProtocolException("Garmin heart-rate zone import is unavailable from this provider")
     fun activityWorkouts(token: GarminBearerToken, numericId: Long):
         List<GarminActivityWorkoutReference> = emptyList()
+    fun hrvDaily(token: GarminBearerToken, startDate: LocalDate, endDate: LocalDate):
+        List<GarminHrvSummary> = emptyList()
+    fun sleepSummaries(token: GarminBearerToken, startDate: LocalDate, endDate: LocalDate):
+        List<GarminSleepSummary> = emptyList()
+    fun dailyHeartRate(token: GarminBearerToken, date: LocalDate):
+        GarminDailyHrSummary? = null
 }
 
 /** Official Garmin Connect Personal API boundary. It neither persists nor alters coaching. */
@@ -135,6 +142,10 @@ internal class GarminPersonalClient(
         const val FIT_DOWNLOAD_PATH="/download-service/files/activity/"
         const val HEART_RATE_ZONES_PATH="/biometric-service/heartRateZones/v2"
         const val ACTIVITY_WORKOUTS_PREFIX="/activity-service/activity/"
+        const val HRV_DAILY_PREFIX="/hrv-service/hrv/daily/"
+        const val SLEEP_RANGE_PATH="/sleep-service/sleep/dailySleepSummariesByDate"
+        const val SLEEP_DAILY_PATH="/sleep-service/sleep/dailySleep"
+        const val DAILY_HR_PATH="/wellness-service/wellness/dailyHeartRate"
     }
 
     override fun exchange(apiKey:String):GarminBearerToken {
@@ -189,6 +200,90 @@ internal class GarminPersonalClient(
         ))
         validate(response)
         return GarminActivityWorkouts.parse(response.body)
+    }
+
+    override fun hrvDaily(
+        token: GarminBearerToken,
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): List<GarminHrvSummary> {
+        require(!endDate.isBefore(startDate))
+        if (!token.expiresAt.isAfter(clock()))
+            throw GarminAuthenticationException("Garmin authentication has expired")
+        val response = execute(
+            GarminHttpRequest(
+                "GET",
+                "$BASE_URL$HRV_DAILY_PREFIX$startDate/$endDate",
+                mapOf("Accept" to "application/json", "Authorization" to "Bearer ${token.value}")
+            )
+        )
+        if (response.status in setOf(204, 403, 404)) return emptyList()
+        validate(response)
+        return GarminWellnessParser.parseHrvRange(response.body)
+    }
+
+    override fun sleepSummaries(
+        token: GarminBearerToken,
+        startDate: LocalDate,
+        endDate: LocalDate
+    ): List<GarminSleepSummary> {
+        require(!endDate.isBefore(startDate))
+        if (!token.expiresAt.isAfter(clock()))
+            throw GarminAuthenticationException("Garmin authentication has expired")
+        val response = execute(
+            GarminHttpRequest(
+                "GET",
+                "$BASE_URL$SLEEP_RANGE_PATH?startDate=$startDate&endDate=$endDate",
+                mapOf("Accept" to "application/json", "Authorization" to "Bearer ${token.value}")
+            )
+        )
+        if (response.status in 200..299 && response.body.isNotBlank()) {
+            val parsed = GarminWellnessParser.parseSleepRange(response.body)
+            if (parsed.isNotEmpty()) return parsed
+        } else if (response.status == 403) {
+            return emptyList()
+        } else if (response.status !in setOf(400, 404, 204)) {
+            validate(response)
+        }
+        // Fallback: query trailing 7 days via dailySleep when range endpoint is unavailable.
+        val out = mutableListOf<GarminSleepSummary>()
+        val fallbackStart = maxOf(startDate, endDate.minusDays(6))
+        var cursor = endDate
+        while (!cursor.isBefore(fallbackStart)) {
+            val dayResp = execute(
+                GarminHttpRequest(
+                    "GET",
+                    "$BASE_URL$SLEEP_DAILY_PATH?date=$cursor",
+                    mapOf("Accept" to "application/json", "Authorization" to "Bearer ${token.value}")
+                )
+            )
+            when {
+                dayResp.status in 200..299 ->
+                    GarminWellnessParser.parseSleepSingleDay(dayResp.body)?.let { out += it }
+                dayResp.status in setOf(204, 403, 404) -> Unit
+                else -> validate(dayResp)
+            }
+            cursor = cursor.minusDays(1)
+        }
+        return out
+    }
+
+    override fun dailyHeartRate(
+        token: GarminBearerToken,
+        date: LocalDate
+    ): GarminDailyHrSummary? {
+        if (!token.expiresAt.isAfter(clock()))
+            throw GarminAuthenticationException("Garmin authentication has expired")
+        val response = execute(
+            GarminHttpRequest(
+                "GET",
+                "$BASE_URL$DAILY_HR_PATH?date=$date",
+                mapOf("Accept" to "application/json", "Authorization" to "Bearer ${token.value}")
+            )
+        )
+        if (response.status in setOf(204, 403, 404)) return null
+        validate(response)
+        return GarminWellnessParser.parseDailyHeartRate(response.body)
     }
 
     override fun downloadActivity(token:GarminBearerToken,numericId:Long):ByteArray {

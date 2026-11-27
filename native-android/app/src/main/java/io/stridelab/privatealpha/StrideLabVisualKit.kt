@@ -151,7 +151,14 @@ internal object WorkoutVisualBlocks {
                         else -> StrideLabVisualPalette.easyTeal
                     },
                     detail = "$durText$distText · ${step.effort}",
-                    paceHint = if (isWork) workPace() else zones?.easy?.formatRange()
+                    paceHint = when {
+                        step.targetPaceMinSecPerKm != null && step.targetPaceMaxSecPerKm != null ->
+                            "${ActivityRecord.duration(step.targetPaceMinSecPerKm.toDouble())}-${ActivityRecord.duration(step.targetPaceMaxSecPerKm.toDouble())} /km"
+                        step.targetHrMinBpm != null && step.targetHrMaxBpm != null ->
+                            "${step.targetHrMinBpm}-${step.targetHrMaxBpm} bpm"
+                        isWork -> workPace()
+                        else -> zones?.easy?.formatRange()
+                    }
                 )
             }
         }
@@ -185,7 +192,14 @@ internal object WorkoutVisualBlocks {
                         else -> StrideLabVisualPalette.easyTeal
                     },
                     detail = "${"%.1f".format(Locale.US, seg.meters / 1000.0)} km · ${seg.effort}",
-                    paceHint = if (isWork) workPace() else zones?.easy?.formatRange()
+                    paceHint = when {
+                        seg.targetPaceMinSecPerKm != null && seg.targetPaceMaxSecPerKm != null ->
+                            "${ActivityRecord.duration(seg.targetPaceMinSecPerKm.toDouble())}-${ActivityRecord.duration(seg.targetPaceMaxSecPerKm.toDouble())} /km"
+                        seg.targetHrMinBpm != null && seg.targetHrMaxBpm != null ->
+                            "${seg.targetHrMinBpm}-${seg.targetHrMaxBpm} bpm"
+                        isWork -> workPace()
+                        else -> zones?.easy?.formatRange()
+                    }
                 )
             }
         }

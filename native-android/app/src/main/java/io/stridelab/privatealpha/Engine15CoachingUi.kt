@@ -80,7 +80,12 @@ internal fun AdaptationProposalSheet(proposal: PlanAdaptationProposal?, busy: Bo
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF111519), contentColor = CoachingInk) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(proposal.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            CoachingBadge(proposal.sourceConfidence.name)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CoachingBadge(proposal.sourceConfidence.name)
+                if ("BIOMETRIC_STRAIN_DELOAD" in proposal.reasonCodes) {
+                    CoachingBadge("GARMIN BIOMETRICS")
+                }
+            }
             Text(proposal.coachingRationale, style = MaterialTheme.typography.bodyMedium)
             val diff = proposal.diff
             Text("FROM ${diff.effectiveFromDate} · ${diff.affectedSessionCount} sessions", style = MaterialTheme.typography.labelMedium, color = CoachingMuted)

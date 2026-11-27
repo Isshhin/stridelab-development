@@ -83,7 +83,6 @@ internal fun ActivityHistoryTabScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(StrideLabSurfaceTokens.canvas)
-            .statusBarsPadding()
             .testTag("activity-history-tab"),
         contentPadding = PaddingValues(
             start = 16.dp,
@@ -387,9 +386,9 @@ private fun ActivityHistoryRow(
     val avgHr = item.avgHrBpm?.takeIf { it.isFinite() && it > 0.0 }
 
     val metrics: List<Pair<String, String>> = if (item.discipline == ManualDiscipline.RUNNING) {
-        val distStr = distKm?.let { String.format(Locale.US, "%.2f km", it) } ?: "—"
-        val paceStr = avgPaceSec?.let { formatActivityPace(it) } ?: "—"
-        val hrStr = avgHr?.let { "${it.toInt()} bpm" } ?: "—"
+        val distStr = distKm?.let { String.format(Locale.US, "%.2f km", it) } ?: "--"
+        val paceStr = avgPaceSec?.let { formatActivityPace(it) } ?: "--"
+        val hrStr = avgHr?.let { "${it.toInt()} bpm" } ?: "--"
         listOf(
             "DISTANCE" to distStr,
             "AVG PACE" to paceStr,
@@ -547,7 +546,7 @@ private fun formatActivityPace(secPerKm: Double): String {
 private fun formatActivityDuration(movingSeconds: Double?, durationMinutes: Double?): String {
     val sec = movingSeconds?.takeIf { it.isFinite() && it > 0.0 }?.toInt()
         ?: durationMinutes?.takeIf { it.isFinite() && it > 0.0 }?.let { (it * 60.0).toInt() }
-        ?: return "—"
+        ?: return "--"
     val hrs = sec / 3600
     val mins = (sec % 3600) / 60
     val remSec = sec % 60
